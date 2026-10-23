@@ -422,15 +422,27 @@ kbd {
   top: 0;
   z-index: 50;
   height: var(--nav-h);
+  border-bottom: 1px solid transparent;
+  transition: border-color 300ms ease;
+}
+/* Blur lives on a pseudo-element: backdrop-filter on the header itself would stop the
+   mobile sheet (a child) from painting an opaque background. */
+.site-nav::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
   background: rgba(5, 5, 6, 0.72);
   -webkit-backdrop-filter: saturate(1.4) blur(18px);
   backdrop-filter: saturate(1.4) blur(18px);
-  border-bottom: 1px solid transparent;
-  transition: border-color 300ms ease, background-color 300ms ease;
+  transition: background-color 300ms ease;
 }
 [data-scrolled] .site-nav,
 html:not(.js) .site-nav {
   border-bottom-color: var(--line);
+}
+[data-scrolled] .site-nav::before,
+html:not(.js) .site-nav::before {
   background: rgba(5, 5, 6, 0.82);
 }
 .nav-in {
@@ -550,8 +562,9 @@ html:not(.js) .site-nav {
   left: 0;
   right: 0;
   padding: 8px var(--gutter) 24px;
-  background: rgba(5, 5, 6, 0.97);
+  background: var(--ground);
   border-bottom: 1px solid var(--line);
+  box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.9);
   max-height: calc(100vh - var(--nav-h));
   overflow-y: auto;
 }
@@ -618,7 +631,6 @@ html:not(.js) .site-nav {
 .site-foot {
   position: relative;
   overflow: hidden;
-  margin-top: var(--section);
   padding-top: clamp(56px, 8vw, 96px);
   border-top: 1px solid var(--line);
   color: var(--muted);
