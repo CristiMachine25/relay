@@ -638,3 +638,43 @@
   font-weight: 500;
   color: var(--muted);
 }
+
+/* Logo chips inside a doc section */
+.tools-row {
+  margin-top: 28px;
+}
+
+/* ---------- Path table ---------- */
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--panel);
+}
+.paths {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+.paths th,
+.paths td {
+  padding: 12px 16px;
+  text-align: left;
+  vertical-align: top;
+  border-top: 1px solid var(--line);
+}
+.paths thead th {
+  border-top: 0;
+  font: 500 var(--fs-eyebrow) / 1.4 var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.paths tbody th {
+  width: 7.5rem;
+  font-weight: 500;
+  color: var(--ink);
+}
+.paths td code {
+  font-size: 0.8125rem;
+}

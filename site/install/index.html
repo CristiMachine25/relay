@@ -101,6 +101,9 @@
       <li><a href="#files">Pick your file</a></li>
       <li><a href="#warnings">Why the warning</a></li>
       <li><a href="#steps">Open it the first time</a></li>
+      <li><a href="#first-run">First run</a></li>
+      <li><a href="#update">Update and uninstall</a></li>
+      <li><a href="#source">Build from source</a></li>
     </ol>
   </nav>
 
@@ -262,6 +265,65 @@
         </li>
         <li>For the <code>.deb</code> or <code>.rpm</code>, install it with your package manager as usual. There's no warning to get past.</li>
       </ol>
+    </section>
+
+    <section class="doc-sec" id="first-run" aria-labelledby="first-run-title">
+      <h2 id="first-run-title" data-reveal>First run</h2>
+      <p>Relay works with the AI command-line tools you already have. It doesn't install them for you.</p>
+      <ul class="list">
+        <li><strong>It finds what's already there.</strong> Relay looks for the installed CLIs and their existing config folders, including side-by-side ones like <code>~/.claude-work</code>. Importing keeps each one where it is and doesn't change its sign-in.</li>
+        <li><strong>Add more accounts from the app.</strong> Under <strong>Add an account</strong>, create a new profile and sign in once: a terminal opens with that tool's own sign-in. Every account keeps its own folder, so switching never means logging out.</li>
+        <li><strong>Live usage is your call.</strong> With <strong>Check usage live</strong> on, Relay sends each account's own login token only to that provider's servers to read its limits. Turn it off in <strong>Settings</strong> to use local session logs only.</li>
+      </ul>
+      <ul class="logo-row tools-row" aria-label="Supported tools" data-reveal-stagger>
+        <li class="logo-chip"><img src="../assets/logos/claude.svg" alt="" width="20" height="20" loading="lazy" decoding="async">Claude Code</li>
+        <li class="logo-chip"><img src="../assets/logos/openai.svg" alt="" width="20" height="20" loading="lazy" decoding="async">Codex</li>
+        <li class="logo-chip"><img src="../assets/logos/gemini.svg" alt="" width="20" height="20" loading="lazy" decoding="async">Gemini CLI</li>
+        <li class="logo-chip"><img src="../assets/logos/copilot.svg" alt="" width="20" height="20" loading="lazy" decoding="async">Copilot CLI</li>
+      </ul>
+      <figure class="shot" data-reveal>
+        <div class="window">
+          <img src="../assets/screens/add-account-900.webp"
+               srcset="../assets/screens/add-account-900.webp 900w, ../assets/screens/add-account.webp 1600w"
+               sizes="(min-width: 1024px) 736px, calc(100vw - 32px)"
+               width="1600" height="1000" loading="lazy" decoding="async"
+               alt="Relay's Add an account dialog listing profiles found on this computer, such as Claude Code and Codex folders, with the ones not yet added ready to import.">
+        </div>
+        <figcaption>Add an account &gt; Find on this computer. Demo data.</figcaption>
+      </figure>
+    </section>
+
+    <section class="doc-sec" id="update" aria-labelledby="update-title">
+      <h2 id="update-title" data-reveal>Update and uninstall</h2>
+      <h3>Updating</h3>
+      <p>Relay doesn't update itself yet. When a new version comes out, download it from <a href="https://github.com/CristiMachine25/relay/releases/latest">Releases</a> and install it over the old one (on Linux, replace the AppImage). Your accounts, settings and history carry over. To hear about new versions, watch the repository's releases on GitHub.</p>
+      <p>Relay used to be called Agent Hub, so its data folders still use the internal id <code>dev.switchyard.app</code>. That's on purpose: it keeps upgrades seamless.</p>
+
+      <h3>Uninstalling</h3>
+      <p>Uninstall Relay the normal way for your system: <strong>Settings &gt; Apps</strong> on Windows, drag it from <strong>Applications</strong> to the Trash on macOS, or remove the package or AppImage on Linux. Your AI tools' own folders, such as <code>~/.claude</code>, are left alone.</p>
+      <p>Relay's data folder stays behind unless you delete it, so a reinstall picks up where you left off. It holds your accounts list, settings and history, and by default a <code>profiles</code> folder with the account folders Relay created for you, including their sign-ins. Delete it only if you want a completely clean slate:</p>
+      <div class="table-wrap block">
+        <table class="paths">
+          <caption class="sr-only">Where Relay keeps its data</caption>
+          <thead>
+            <tr><th scope="col">System</th><th scope="col">Data folder</th></tr>
+          </thead>
+          <tbody>
+            <tr><th scope="row">Windows</th><td><code>%APPDATA%\dev.switchyard.app</code></td></tr>
+            <tr><th scope="row">macOS</th><td><code>~/Library/Application Support/dev.switchyard.app</code></td></tr>
+            <tr><th scope="row">Linux</th><td><code>~/.local/share/dev.switchyard.app</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="doc-sec" id="source" aria-labelledby="source-title">
+      <h2 id="source-title" data-reveal>Build from source</h2>
+      <p>You'll need <strong>Node.js 22.12</strong> or newer, <strong>Rust</strong> (stable) and the <a href="https://v2.tauri.app/start/prerequisites/">Tauri prerequisites</a> for your system. Then, in a clone of the <a href="https://github.com/CristiMachine25/relay">repository</a>:</p>
+      <pre class="cmd block"><code><span class="p">$ </span>npm install
+<span class="p">$ </span>npm run app:dev     <span class="c"># run the desktop app with hot reload</span>
+<span class="p">$ </span>npm run app:build   <span class="c"># build installers into src-tauri/target/release/bundle</span></code></pre>
+      <p>Builds you make yourself are unsigned too, but they come from code you can read. More detail is in the <a href="https://github.com/CristiMachine25/relay#build-from-source">README</a>.</p>
     </section>
 
   </div>
