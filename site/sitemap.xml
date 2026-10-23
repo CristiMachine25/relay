@@ -4,4 +4,12 @@
     <loc>https://cristimachine25.github.io/relay/</loc>
     <changefreq>monthly</changefreq>
   </url>
+  <url>
+    <loc>https://cristimachine25.github.io/relay/install/</loc>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
+    <loc>https://cristimachine25.github.io/relay/early-software/</loc>
+    <changefreq>monthly</changefreq>
+  </url>
 </urlset>
