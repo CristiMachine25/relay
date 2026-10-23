@@ -100,6 +100,7 @@
     <ol>
       <li><a href="#files">Pick your file</a></li>
       <li><a href="#warnings">Why the warning</a></li>
+      <li><a href="#steps">Open it the first time</a></li>
     </ol>
   </nav>
 
@@ -204,6 +205,63 @@
       </ol>
 
       <p>If you'd rather not trust a downloaded binary at all, that's reasonable: <a href="#source">build Relay from source</a> instead.</p>
+    </section>
+
+    <section class="doc-sec" id="steps" aria-labelledby="steps-title">
+      <h2 id="steps-title" data-reveal>Open it the first time</h2>
+      <p>You do this once. After that, Relay opens like any other app.</p>
+
+      <h3 id="windows" data-reveal>Windows</h3>
+      <ol class="steps">
+        <li>Run <code>Relay_&lt;version&gt;_x64-setup.exe</code> (or the <code>.msi</code>). Your browser may first ask whether to keep a file that isn't commonly downloaded; choose to keep it.</li>
+        <li>SmartScreen shows <strong>Windows protected your PC</strong>. Click <strong>More info</strong>.</li>
+        <li>The publisher shows as unknown. Click <strong>Run anyway</strong>, then follow the installer.</li>
+      </ol>
+      <figure class="mock-fig" data-reveal>
+        <div class="mock mock-win" aria-hidden="true">
+          <p class="mock-title">Windows protected your PC</p>
+          <p class="mock-text">Windows SmartScreen prevented an unrecognized app from starting.</p>
+          <dl class="mock-rows">
+            <div><dt>App:</dt><dd>Relay_0.2.1_x64-setup.exe</dd></div>
+            <div><dt>Publisher:</dt><dd>Unknown publisher</dd></div>
+          </dl>
+          <div class="mock-actions">
+            <span class="mock-btn is-target">Run anyway</span>
+            <span class="mock-btn">Don't run</span>
+          </div>
+        </div>
+        <figcaption>Simplified illustration, not a screenshot. After <strong>More info</strong>, choose <strong>Run anyway</strong>.</figcaption>
+      </figure>
+
+      <h3 id="macos" data-reveal>macOS</h3>
+      <ol class="steps">
+        <li>Open the <code>.dmg</code> and drag <strong>Relay</strong> into <strong>Applications</strong>.</li>
+        <li>Open Relay. macOS says it can't verify the developer. Close that message; don't move the app to the Trash.</li>
+        <li>Open <strong>System Settings &gt; Privacy &amp; Security</strong>, scroll down to <strong>Security</strong> and click <strong>Open Anyway</strong>.</li>
+        <li>Confirm with <strong>Open Anyway</strong> again (and your password if asked). Relay opens, and from now on it opens normally.</li>
+      </ol>
+      <figure class="mock-fig" data-reveal>
+        <div class="mock mock-mac" aria-hidden="true">
+          <p class="mock-crumb">Privacy &amp; Security</p>
+          <p class="mock-group">Security</p>
+          <div class="mock-row">
+            <p class="mock-text">&ldquo;Relay&rdquo; was blocked to protect your Mac.</p>
+            <span class="mock-btn is-target">Open Anyway</span>
+          </div>
+        </div>
+        <figcaption>Simplified illustration, not a screenshot. The button sits near the bottom of Privacy &amp; Security.</figcaption>
+      </figure>
+      <p>Prefer Terminal? This removes the quarantine flag macOS puts on downloaded apps, which has the same effect:</p>
+      <pre class="cmd"><code><span class="p">$ </span>xattr -dr com.apple.quarantine /Applications/Relay.app</code></pre>
+
+      <h3 id="linux" data-reveal>Linux</h3>
+      <ol class="steps">
+        <li>For the <code>.AppImage</code>, make it executable, then run it:
+          <pre class="cmd"><code><span class="p">$ </span>chmod +x Relay_*.AppImage
+<span class="p">$ </span>./Relay_*.AppImage</code></pre>
+        </li>
+        <li>For the <code>.deb</code> or <code>.rpm</code>, install it with your package manager as usual. There's no warning to get past.</li>
+      </ol>
     </section>
 
   </div>
