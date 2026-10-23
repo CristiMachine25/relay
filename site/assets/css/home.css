@@ -412,3 +412,50 @@
     }
   }
 }
+
+/* ---------- Terminal grid video ---------- */
+.grid-sec {
+  border-top: 1px solid var(--line);
+}
+.window > video {
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: var(--panel);
+}
+/* Grows to full size as it rises into view (--p from data-scroll="enter"). */
+.grid-video {
+  transform: scale(calc(0.9 + var(--p, 1) * 0.1));
+  transform-origin: 50% 0;
+  will-change: transform;
+}
+.split {
+  display: grid;
+  gap: clamp(32px, 5vw, 72px);
+  align-items: center;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  margin-top: clamp(80px, 10vw, 144px);
+}
+.split-copy {
+  display: grid;
+  gap: 16px;
+  justify-items: start;
+}
+.split-copy h3 {
+  font-size: clamp(1.75rem, 1.2rem + 1.8vw, 2.75rem);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+}
+.split-copy p:not(.eyebrow) {
+  color: var(--muted);
+  max-width: 28em;
+}
+@media (max-width: 859px) {
+  .split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .grid-video {
+    transform: none;
+  }
+}
