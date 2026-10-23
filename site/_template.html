@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!--
+  Relay page template (not deployed as a page).
+  Copy <head>, the header and the footer verbatim. Then adjust:
+  - title, description, canonical, og:* and twitter:* for the page.
+    The base URL https://cristimachine25.github.io/relay/ appears ONLY in canonical, og:url and og:image.
+  - Paths are relative. This file sits in site/, so assets are "assets/...".
+    In a subfolder page (site/install/index.html) prefix every local path with "../":
+    "../assets/...", "../favicon.png", home is "../", anchors are "../#features",
+    and other pages are "../install/" and "../early-software/".
+  - Mark the current page's nav links with aria-current="page" (both navs).
+  - Remove the robots noindex line below on real pages.
+-->
+<meta name="robots" content="noindex">
+<title>Relay: page title</title>
+<meta name="description" content="One or two sentences about this page.">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#050506">
+<link rel="canonical" href="https://cristimachine25.github.io/relay/PAGE-PATH/">
+<link rel="icon" href="favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="preload" href="assets/fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/hanken-grotesk-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/css/base.css">
+<!-- Page stylesheet goes here: assets/css/home.css or assets/css/pages.css -->
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Relay">
+<meta property="og:title" content="Relay: page title">
+<meta property="og:description" content="One or two sentences about this page.">
+<meta property="og:url" content="https://cristimachine25.github.io/relay/PAGE-PATH/">
+<meta property="og:image" content="https://cristimachine25.github.io/relay/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Relay showing several AI accounts with meters of how much of each limit is left.">
+<meta name="twitter:card" content="summary_large_image">
+
+<!-- Hide-for-reveal states only apply with JS. If motion.js never loads, show everything again. -->
+<script>(function(d){d.classList.add("js");setTimeout(function(){window.relayMotion||d.classList.remove("js")},4000)})(document.documentElement)</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="./">
+      <img src="assets/app-icon.png" alt="" width="28" height="28">
+      <span>Relay</span>
+    </a>
+    <nav class="nav-links" aria-label="Main">
+      <ul>
+        <li><a href="./#features">Features</a></li>
+        <li><a href="./#tools">Tools</a></li>
+        <li><a href="./#faq">FAQ</a></li>
+        <li><a href="install/">Install</a></li>
+        <li><a href="early-software/">Early software</a></li>
+        <li><a href="https://github.com/CristiMachine25/relay">GitHub</a></li>
+      </ul>
+    </nav>
+    <div class="nav-actions">
+      <a class="btn btn-primary btn-sm" href="https://github.com/CristiMachine25/relay/releases/latest">Download</a>
+      <details class="nav-menu">
+        <summary><span class="nav-burger" aria-hidden="true"></span><span class="nav-menu-text">Menu</span></summary>
+        <nav class="nav-sheet" aria-label="Menu">
+          <ul>
+            <li><a href="./#features">Features</a></li>
+            <li><a href="./#tools">Tools</a></li>
+            <li><a href="./#faq">FAQ</a></li>
+            <li><a href="install/">Install</a></li>
+            <li><a href="early-software/">Early software</a></li>
+            <li><a href="https://github.com/CristiMachine25/relay">GitHub</a></li>
+          </ul>
+        </nav>
+      </details>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- ===== Sample content: shows every helper. Replace with the page's own sections. ===== -->
+
+<!-- Intro: data-reveal-stagger animates each child in turn. One h1 per page. -->
+<section class="section" aria-labelledby="t-title">
+  <div class="wrap">
+    <div class="section-head" data-reveal-stagger>
+      <p class="eyebrow">Design system</p>
+      <h1 id="t-title">Every limit, in view. <span class="dim">Before you hit it.</span></h1>
+      <p class="lede">Relay keeps every AI account you pay for signed in side by side, shows how much of each limit is left, and opens the right CLI in one click.</p>
+      <!-- Download block: download.js fills the label, note and other-platform links. -->
+      <div data-download>
+        <div class="btn-row">
+          <a class="btn btn-primary btn-lg" href="https://github.com/CristiMachine25/relay/releases/latest">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>
+            <span data-dl-label>Download Relay</span>
+          </a>
+          <a class="btn btn-secondary btn-lg" href="https://github.com/CristiMachine25/relay">Source on GitHub</a>
+        </div>
+        <p class="dl-note"><span data-dl-note>v0.2.1 for Windows, macOS and Linux.</span> <span data-dl-others></span></p>
+      </div>
+    </div>
+
+    <!-- Window frame with a scroll-linked settle: data-scroll="enter" writes --p, .tilt reads it.
+         Keep data-reveal off the .tilt element itself (both use transform): reveal a wrapper instead. -->
+    <div data-reveal style="--d:200ms">
+      <figure class="window window-lg tilt" data-scroll="enter">
+        <img src="assets/screens/overview.webp"
+             srcset="assets/screens/overview-900.webp 900w, assets/screens/overview.webp 1600w"
+             sizes="(min-width: 1280px) 1200px, calc(100vw - 32px)"
+             width="1600" height="1000" fetchpriority="high"
+             alt="Relay's Overview screen: the best account to use right now, alternatives, alerts and every account's limits.">
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- Logo chips: real logos, alt="" because the name is next to it. Codex uses openai.svg. -->
+<section class="section" aria-labelledby="t-tools">
+  <div class="wrap">
+    <div class="section-head center" data-reveal-stagger>
+      <p class="eyebrow">Works with</p>
+      <h2 id="t-tools">The CLIs you already use</h2>
+    </div>
+    <ul class="logo-row center" data-reveal-stagger>
+      <li class="logo-chip"><img src="assets/logos/claude.svg" alt="" width="20" height="20">Claude Code</li>
+      <li class="logo-chip"><img src="assets/logos/openai.svg" alt="" width="20" height="20">Codex</li>
+      <li class="logo-chip"><img src="assets/logos/gemini.svg" alt="" width="20" height="20">Gemini CLI</li>
+      <li class="logo-chip"><img src="assets/logos/copilot.svg" alt="" width="20" height="20">Copilot CLI</li>
+    </ul>
+  </div>
+</section>
+
+<!-- Panels in a responsive grid, revealed one after another. -->
+<section class="section" aria-labelledby="t-panels">
+  <div class="wrap">
+    <div class="section-head" data-reveal-stagger>
+      <p class="eyebrow">Panels</p>
+      <h2 id="t-panels">Calm grid, generous space</h2>
+    </div>
+    <div class="grid" style="--min: 260px" data-reveal-stagger>
+      <article class="panel">
+        <h3>Live limits</h3>
+        <p>5-hour session, weekly, weekly Opus, Codex windows, Gemini model quotas and Copilot premium requests, each with a reset countdown.</p>
+      </article>
+      <article class="panel">
+        <h3>Warnings first</h3>
+        <p>A notification when an account is nearly out, when it hits a limit, when it comes back, and before quota resets unused.</p>
+      </article>
+      <article class="panel">
+        <h3>One-click launch</h3>
+        <p>Opens your terminal with the right account, or resumes your last session. Press <kbd>Ctrl</kbd> <kbd>K</kbd> to find any account.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- Pinned sequence: the section is (--steps + 1) screens tall and the stage sticks.
+     [data-seq-step] elements are numbered by order among their siblings; the active ones get .is-active.
+     Without JS or with reduced motion, the steps stack as plain content. -->
+<section class="sequence" data-sequence style="--steps:2" aria-labelledby="t-seq">
+  <div class="sequence-stage">
+    <div class="wrap sequence-grid">
+      <div class="sequence-copy">
+        <p class="eyebrow">Terminal grid</p>
+        <h2 id="t-seq" class="sr-only">Terminal grid</h2>
+        <div class="sequence-steps">
+          <div data-seq-step>
+            <h3>Four agents, four accounts</h3>
+            <p>Each pane runs on its own account, with its meter in the pane header.</p>
+          </div>
+          <div data-seq-step>
+            <h3>Up to nine at once</h3>
+            <p>Split the window into as many as nine panes and keep every CLI in view.</p>
+          </div>
+        </div>
+        <ol class="sequence-dots" aria-hidden="true"><li data-seq-step></li><li data-seq-step></li></ol>
+      </div>
+      <div class="sequence-steps sequence-media">
+        <figure class="window" data-seq-step>
+          <img src="assets/screens/grid-4-900.webp"
+               srcset="assets/screens/grid-4-900.webp 900w, assets/screens/grid-4.webp 1600w"
+               sizes="(min-width: 860px) 58vw, calc(100vw - 32px)"
+               width="1600" height="1000" loading="lazy" decoding="async"
+               alt="Relay's terminal grid with four panes, each running a CLI on a different account.">
+        </figure>
+        <figure class="window" data-seq-step>
+          <img src="assets/screens/grid-9-900.webp"
+               srcset="assets/screens/grid-9-900.webp 900w, assets/screens/grid-9.webp 1600w"
+               sizes="(min-width: 860px) 58vw, calc(100vw - 32px)"
+               width="1600" height="1000" loading="lazy" decoding="async"
+               alt="Relay's terminal grid with nine panes at once.">
+        </figure>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Video loop: plays only while in view, never with reduced motion. Always muted, with a poster. -->
+<section class="section" aria-labelledby="t-video">
+  <div class="wrap wrap-narrow">
+    <div class="section-head center" data-reveal-stagger>
+      <p class="eyebrow">Video loop</p>
+      <h2 id="t-video">Carry on from the limit</h2>
+    </div>
+    <figure data-reveal>
+      <div class="window">
+        <video data-autoplay muted playsinline loop preload="none" width="1280" height="720"
+               poster="assets/media/continue-poster.webp"
+               aria-label="A terminal pane hits its usage limit; one click continues the session on another account.">
+          <source src="assets/media/continue.mp4" type="video/mp4">
+        </video>
+      </div>
+      <figcaption>Demo data. A pane hits its limit and continues on another account.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ===== End of sample content ===== -->
+
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <div class="foot-top">
+      <div class="foot-brand">
+        <a class="brand" href="./">
+          <img src="assets/app-icon.png" alt="" width="28" height="28" loading="lazy" decoding="async">
+          <span>Relay</span>
+        </a>
+        <p>Free and open source. Made by one developer.</p>
+        <p class="foot-meta">v0.2.1 &middot; MIT License &middot; Windows, macOS, Linux</p>
+      </div>
+      <nav class="foot-col" aria-labelledby="foot-relay">
+        <h2 id="foot-relay">Relay</h2>
+        <ul>
+          <li><a href="install/">Install</a></li>
+          <li><a href="early-software/">Early software</a></li>
+          <li><a href="https://github.com/CristiMachine25/relay/releases">Releases</a></li>
+        </ul>
+      </nav>
+      <nav class="foot-col" aria-labelledby="foot-project">
+        <h2 id="foot-project">Project</h2>
+        <ul>
+          <li><a href="https://github.com/CristiMachine25/relay">Source on GitHub</a></li>
+          <li><a href="https://github.com/CristiMachine25/relay/issues">Report a bug</a></li>
+          <li><a href="https://github.com/CristiMachine25/relay/blob/main/LICENSE">MIT License</a></li>
+        </ul>
+      </nav>
+    </div>
+    <p class="foot-legal">Relay is an independent project, not affiliated with or endorsed by Anthropic, OpenAI, Google or GitHub. Product names and logos belong to their owners and are shown only to say which tools Relay works with.</p>
+  </div>
+  <p class="foot-mark" aria-hidden="true">Relay</p>
+</footer>
+
+<script src="assets/js/download.js"></script>
+<script src="assets/js/motion.js" defer></script>
+</body>
+</html>
