@@ -692,3 +692,190 @@ html:not(.js) .site-nav {
     grid-column: 1 / -1;
   }
 }
+
+/* ---------- Buttons ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 46px;
+  padding: 0 22px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font: 600 0.9375rem/1 var(--sans);
+  letter-spacing: -0.005em;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform 220ms var(--ease), background-color 200ms ease, border-color 200ms ease, color 200ms ease, box-shadow 200ms ease;
+}
+.btn svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+.btn:active {
+  transform: translateY(1px) scale(0.985);
+}
+.btn-primary {
+  background: #fff;
+  color: #050506;
+  box-shadow: 0 10px 34px -14px rgba(255, 255, 255, 0.45);
+}
+.btn-primary:hover {
+  background: #e3e5ea;
+  box-shadow: 0 12px 40px -12px rgba(255, 255, 255, 0.55);
+}
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.02);
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.26);
+}
+.btn-sm {
+  height: 36px;
+  padding: 0 16px;
+  font-size: 0.875rem;
+}
+.btn-lg {
+  height: 54px;
+  padding: 0 28px;
+  font-size: 1rem;
+}
+.btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+/* Version / platform line under a download button (filled in by download.js) */
+.dl-note {
+  margin-top: 16px;
+  font-size: var(--fs-small);
+  color: var(--faint);
+}
+.dl-note a {
+  color: var(--muted);
+}
+/* Inline text link with an arrow: <a class="link-arrow" href="...">How to install</a> */
+.link-arrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--ink);
+  text-decoration: none;
+}
+.link-arrow::after {
+  content: "\2192";
+  transition: transform 220ms var(--ease);
+}
+.link-arrow:hover::after {
+  transform: translateX(3px);
+}
+
+/* ---------- Window frame (app screenshots and video loops) ----------
+   <figure class="window"><img ...></figure>. Rim, deep shadow, faint accent glow behind. */
+.window {
+  position: relative;
+  isolation: isolate;
+  border-radius: var(--r-md);
+  background: var(--panel);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.5),
+    0 40px 90px -30px rgba(0, 0, 0, 0.9);
+}
+.window::before {
+  content: "";
+  position: absolute;
+  inset: -6% -4%;
+  z-index: -1;
+  border-radius: 40%;
+  background:
+    radial-gradient(55% 60% at 28% 35%, rgba(134, 160, 251, 0.2), transparent 70%),
+    radial-gradient(50% 55% at 78% 72%, rgba(94, 214, 162, 0.12), transparent 70%);
+  filter: blur(48px);
+  pointer-events: none;
+}
+.window::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 0 0 1px var(--rim),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  pointer-events: none;
+}
+.window > img,
+.window > video,
+.window > picture,
+.window > picture > img {
+  width: 100%;
+  border-radius: inherit;
+}
+.window.no-glow::before {
+  display: none;
+}
+.window-lg {
+  border-radius: var(--r-lg);
+}
+.caption,
+figure > figcaption {
+  margin-top: 18px;
+  font-size: var(--fs-small);
+  color: var(--faint);
+  text-align: center;
+}
+/* Scroll-linked settle: put on an element with data-scroll="enter".
+   --p goes 0 -> 1 as it enters; without JS or with reduced motion --p stays 1 (flat). */
+.tilt {
+  transform-origin: 50% 0;
+  transform:
+    perspective(1800px)
+    translateY(calc((1 - var(--p, 1)) * 48px))
+    rotateX(calc((1 - var(--p, 1)) * 16deg))
+    scale(calc(0.94 + var(--p, 1) * 0.06));
+  will-change: transform;
+}
+
+/* ---------- Logo chips: real brand logo + name ---------- */
+.logo-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.logo-row.center {
+  justify-content: center;
+}
+.logo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 18px 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.logo-chip img {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+.logo-chip small {
+  font-size: 0.8125rem;
+  color: var(--faint);
+}
