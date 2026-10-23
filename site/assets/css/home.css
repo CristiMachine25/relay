@@ -238,3 +238,177 @@
   margin-top: clamp(40px, 5vw, 64px);
   max-width: 34em;
 }
+
+/* ---------- Pinned presentation ----------
+   Static (no JS, reduced motion): a heading, then caption + screenshot pairs.
+   With motion: the stage sticks for ~4 screens; captions and screenshots crossfade per step. */
+.seq {
+  position: relative;
+  padding-block: var(--section);
+}
+.seq-head {
+  display: grid;
+  gap: 18px;
+  margin-bottom: clamp(40px, 6vw, 72px);
+}
+.seq-step {
+  display: grid;
+  gap: clamp(24px, 4vw, 64px);
+  align-items: center;
+  grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+}
+.seq-step + .seq-step {
+  margin-top: clamp(56px, 8vw, 96px);
+}
+.seq-num {
+  margin-bottom: 14px;
+  font: 500 var(--fs-eyebrow) / 1.4 var(--mono);
+  letter-spacing: 0.14em;
+  color: var(--faint);
+}
+.seq-num span {
+  color: var(--ink);
+}
+.seq-cap h3 {
+  font-size: clamp(1.5rem, 1.1rem + 1.3vw, 2.25rem);
+  line-height: 1.12;
+}
+.seq-cap p:last-child {
+  margin-top: 14px;
+  max-width: 26em;
+  color: var(--muted);
+}
+.seq-cap strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+.seq-progress {
+  display: none;
+}
+@media (max-width: 859px) {
+  .seq-step {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .js .seq[data-sequence] {
+    padding-block: 0;
+    height: calc(var(--steps, 4) * 75vh + 100vh);
+    height: calc(var(--steps, 4) * 75svh + 100svh);
+  }
+  .js .seq-stage {
+    position: sticky;
+    top: 0;
+    display: flex;
+    align-items: center;
+    height: 100vh;
+    height: 100svh;
+    padding-top: var(--nav-h);
+    overflow: hidden;
+  }
+  .js .seq-grid {
+    display: grid;
+    column-gap: clamp(32px, 5vw, 80px);
+    grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas:
+      "head fig"
+      "cap  fig"
+      "prog fig";
+    align-items: center;
+  }
+  .js .seq-head {
+    grid-area: head;
+    align-self: end;
+    margin-bottom: 40px;
+  }
+  .js .seq-step {
+    display: contents;
+  }
+  .js .seq-cap {
+    grid-area: cap;
+    align-self: start;
+  }
+  .js .seq-fig {
+    grid-area: fig;
+  }
+  .js .seq-cap,
+  .js .seq-fig {
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      opacity 700ms var(--ease),
+      transform 900ms var(--ease),
+      filter 700ms var(--ease);
+  }
+  .js .seq-cap {
+    transform: translateY(18px);
+    filter: blur(6px);
+  }
+  .js .seq-fig {
+    transform: scale(1.04);
+    filter: blur(10px);
+  }
+  .js .seq-step.is-active .seq-cap,
+  .js .seq-step.is-active .seq-fig {
+    opacity: 1;
+    transform: none;
+    filter: none;
+    pointer-events: auto;
+    transition-delay: 80ms;
+  }
+  /* The glow behind every frame would stack four times; keep only the active one's. */
+  .js .seq-fig::before {
+    opacity: 0;
+    transition: opacity 700ms var(--ease);
+  }
+  .js .seq-step.is-active .seq-fig::before {
+    opacity: 1;
+  }
+  .js .seq-progress {
+    grid-area: prog;
+    align-self: start;
+    display: block;
+    width: 100%;
+    max-width: 220px;
+    height: 2px;
+    margin-top: 36px;
+    border-radius: 2px;
+    background: var(--line-strong);
+    overflow: hidden;
+  }
+  .js .seq-progress span {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+    transform-origin: 0 50%;
+    transform: scaleX(var(--p, 0));
+  }
+
+  @media (max-width: 859px) {
+    .js .seq-grid {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto auto auto auto;
+      grid-template-areas: "head" "cap" "fig" "prog";
+      align-content: center;
+    }
+    .js .seq-head {
+      margin-bottom: 20px;
+      gap: 10px;
+    }
+    .js .seq-head h2 {
+      font-size: clamp(1.75rem, 1.2rem + 2.4vw, 2.5rem);
+    }
+    .js .seq-cap {
+      margin-bottom: 24px;
+    }
+    .js .seq-cap p:last-child {
+      margin-top: 8px;
+      font-size: 0.9375rem;
+    }
+    .js .seq-progress {
+      margin-top: 24px;
+    }
+  }
+}
