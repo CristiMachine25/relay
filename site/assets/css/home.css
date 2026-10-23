@@ -213,3 +213,28 @@
     transform: none;
   }
 }
+
+/* ---------- Problem ---------- */
+.problem {
+  border-top: 1px solid var(--line);
+}
+.problem-lines {
+  display: grid;
+  gap: clamp(8px, 1.4vw, 16px);
+  margin-top: clamp(28px, 4vw, 48px);
+}
+/* Each line lights up as it rises into view (--p from data-scroll="enter"; 1 when static). */
+.problem-line {
+  font: 500 clamp(2.125rem, 1rem + 4.6vw, 5rem) / 1.05 var(--serif);
+  letter-spacing: -0.035em;
+  color: var(--ink);
+  text-wrap: balance;
+  --q: min(1, var(--p, 1) * 1.5);
+  opacity: calc(0.14 + var(--q) * 0.86);
+  transform: translate3d(0, calc((1 - var(--q)) * 28px), 0);
+  will-change: opacity, transform;
+}
+.problem-answer {
+  margin-top: clamp(40px, 5vw, 64px);
+  max-width: 34em;
+}
