@@ -351,3 +351,71 @@
   color: var(--faint);
   user-select: none;
 }
+
+/* ---------- OS cards (Install: pick your file) ---------- */
+.os-cards {
+  display: grid;
+  gap: 14px;
+  margin-top: 32px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+}
+.os-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 22px 22px 20px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0) 55%), var(--panel);
+  transition: border-color 200ms ease;
+}
+.os-card:hover {
+  border-color: var(--line-strong);
+}
+.os-card header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+.doc-sec .os-card h3 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+.os-tag {
+  font: 500 0.6875rem/1 var(--mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.files {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+}
+.files dt code {
+  display: inline-block;
+  font-size: 0.78rem;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.files dd {
+  margin: 6px 0 0;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+.doc-body .os-hint {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--faint);
+}
+.os-hint strong {
+  font-weight: 500;
+  color: var(--muted);
+}
+.os-card .link-arrow {
+  margin-top: auto;
+  font-size: 0.875rem;
+}

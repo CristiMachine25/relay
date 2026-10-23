@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Install Relay</title>
+<meta name="description" content="Download Relay for Windows, macOS or Linux, pick the right file, and get past the one-time unknown-developer warning on the unsigned installers.">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#050506">
+<link rel="canonical" href="https://cristimachine25.github.io/relay/install/">
+<link rel="icon" href="../favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<link rel="preload" href="../assets/fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../assets/fonts/hanken-grotesk-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../assets/css/base.css">
+<link rel="stylesheet" href="../assets/css/pages.css">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Relay">
+<meta property="og:title" content="Install Relay">
+<meta property="og:description" content="Download Relay for Windows, macOS or Linux, pick the right file, and get past the one-time unknown-developer warning on the unsigned installers.">
+<meta property="og:url" content="https://cristimachine25.github.io/relay/install/">
+<meta property="og:image" content="https://cristimachine25.github.io/relay/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Relay showing several AI accounts with meters of how much of each limit is left.">
+<meta name="twitter:card" content="summary_large_image">
+
+<!-- Hide-for-reveal states only apply with JS. If motion.js never loads, show everything again. -->
+<script>(function(d){d.classList.add("js");setTimeout(function(){window.relayMotion||d.classList.remove("js")},4000)})(document.documentElement)</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="../">
+      <img src="../assets/app-icon.png" alt="" width="28" height="28">
+      <span>Relay</span>
+    </a>
+    <nav class="nav-links" aria-label="Main">
+      <ul>
+        <li><a href="../#features">Features</a></li>
+        <li><a href="../#tools">Tools</a></li>
+        <li><a href="../#faq">FAQ</a></li>
+        <li><a href="../install/" aria-current="page">Install</a></li>
+        <li><a href="../early-software/">Early software</a></li>
+        <li><a href="https://github.com/CristiMachine25/relay">GitHub</a></li>
+      </ul>
+    </nav>
+    <div class="nav-actions">
+      <a class="btn btn-primary btn-sm" href="https://github.com/CristiMachine25/relay/releases/latest">Download</a>
+      <details class="nav-menu">
+        <summary><span class="nav-burger" aria-hidden="true"></span><span class="nav-menu-text">Menu</span></summary>
+        <nav class="nav-sheet" aria-label="Menu">
+          <ul>
+            <li><a href="../#features">Features</a></li>
+            <li><a href="../#tools">Tools</a></li>
+            <li><a href="../#faq">FAQ</a></li>
+            <li><a href="../install/" aria-current="page">Install</a></li>
+            <li><a href="../early-software/">Early software</a></li>
+            <li><a href="https://github.com/CristiMachine25/relay">GitHub</a></li>
+          </ul>
+        </nav>
+      </details>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+<section class="page-hero" aria-labelledby="page-title">
+  <div class="wrap">
+    <div class="section-head" data-reveal-stagger>
+      <p class="eyebrow">Install</p>
+      <h1 id="page-title">Install Relay</h1>
+      <p class="lede">Download the installer for your computer, open it once past a one-time warning, and Relay finds the AI tools you already use.</p>
+      <div data-download>
+        <div class="btn-row">
+          <a class="btn btn-primary btn-lg" href="https://github.com/CristiMachine25/relay/releases/latest">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>
+            <span data-dl-label>Download Relay</span>
+          </a>
+          <a class="btn btn-secondary btn-lg" href="#warnings">Why the warning?</a>
+        </div>
+        <p class="dl-note"><span data-dl-note>v0.2.1 for Windows, macOS and Linux.</span> <span data-dl-others></span></p>
+      </div>
+      <ul class="meta-line" aria-label="About this release">
+        <li>Free</li>
+        <li>Open source, MIT</li>
+        <li>v0.2.1</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<div class="wrap doc">
+  <nav class="toc" aria-labelledby="toc-title">
+    <p class="toc-title eyebrow plain" id="toc-title">On this page</p>
+    <ol>
+      <li><a href="#files">Pick your file</a></li>
+    </ol>
+  </nav>
+
+  <div class="doc-body">
+
+    <section class="doc-sec" id="files" aria-labelledby="files-title">
+      <h2 id="files-title" data-reveal>Pick your file</h2>
+      <p>Every release has an installer for each system. They are all on the <a href="https://github.com/CristiMachine25/relay/releases/latest">Releases page</a>, under <strong>Assets</strong>. <code>&lt;version&gt;</code> is the release number, for example <code>0.2.1</code>.</p>
+
+      <div class="os-cards" data-reveal-stagger>
+        <article class="os-card">
+          <header>
+            <h3>Windows</h3>
+            <span class="os-tag">10 / 11</span>
+          </header>
+          <dl class="files">
+            <div>
+              <dt><code>Relay_&lt;version&gt;_x64-setup.exe</code></dt>
+              <dd>The usual installer. Pick this one if unsure.</dd>
+            </div>
+            <div>
+              <dt><code>.msi</code></dt>
+              <dd>The same app as a Windows Installer package.</dd>
+            </div>
+          </dl>
+          <a class="link-arrow" href="https://github.com/CristiMachine25/relay/releases/latest">Releases</a>
+        </article>
+
+        <article class="os-card">
+          <header>
+            <h3>macOS</h3>
+            <span class="os-tag">.dmg</span>
+          </header>
+          <dl class="files">
+            <div>
+              <dt><code>Relay_&lt;version&gt;_aarch64.dmg</code></dt>
+              <dd>Apple Silicon: M1 and later.</dd>
+            </div>
+            <div>
+              <dt><code>Relay_&lt;version&gt;_amd64.dmg</code></dt>
+              <dd>Intel Macs.</dd>
+            </div>
+          </dl>
+          <p class="os-hint">Not sure? Apple menu &gt; About This Mac shows <strong>Chip</strong> (Apple) or <strong>Processor</strong> (Intel).</p>
+          <a class="link-arrow" href="https://github.com/CristiMachine25/relay/releases/latest">Releases</a>
+        </article>
+
+        <article class="os-card">
+          <header>
+            <h3>Linux</h3>
+            <span class="os-tag">x86-64</span>
+          </header>
+          <dl class="files">
+            <div>
+              <dt><code>.AppImage</code></dt>
+              <dd>Any distribution. Nothing to install.</dd>
+            </div>
+            <div>
+              <dt><code>.deb</code></dt>
+              <dd>Debian, Ubuntu and their relatives.</dd>
+            </div>
+            <div>
+              <dt><code>.rpm</code></dt>
+              <dd>Fedora and other RPM-based systems.</dd>
+            </div>
+          </dl>
+          <a class="link-arrow" href="https://github.com/CristiMachine25/relay/releases/latest">Releases</a>
+        </article>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <div class="foot-top">
+      <div class="foot-brand">
+        <a class="brand" href="../">
+          <img src="../assets/app-icon.png" alt="" width="28" height="28" loading="lazy" decoding="async">
+          <span>Relay</span>
+        </a>
+        <p>Free and open source. Made by one developer.</p>
+        <p class="foot-meta">v0.2.1 &middot; MIT License &middot; Windows, macOS, Linux</p>
+      </div>
+      <nav class="foot-col" aria-labelledby="foot-relay">
+        <h2 id="foot-relay">Relay</h2>
+        <ul>
+          <li><a href="../install/" aria-current="page">Install</a></li>
+          <li><a href="../early-software/">Early software</a></li>
+          <li><a href="https://github.com/CristiMachine25/relay/releases">Releases</a></li>
+        </ul>
+      </nav>
+      <nav class="foot-col" aria-labelledby="foot-project">
+        <h2 id="foot-project">Project</h2>
+        <ul>
+          <li><a href="https://github.com/CristiMachine25/relay">Source on GitHub</a></li>
+          <li><a href="https://github.com/CristiMachine25/relay/issues">Report a bug</a></li>
+          <li><a href="https://github.com/CristiMachine25/relay/blob/main/LICENSE">MIT License</a></li>
+        </ul>
+      </nav>
+    </div>
+    <p class="foot-legal">Relay is an independent project, not affiliated with or endorsed by Anthropic, OpenAI, Google or GitHub. Product names and logos belong to their owners and are shown only to say which tools Relay works with.</p>
+  </div>
+  <p class="foot-mark" aria-hidden="true">Relay</p>
+</footer>
+
+<script src="../assets/js/download.js"></script>
+<script src="../assets/js/motion.js" defer></script>
+</body>
+</html>
