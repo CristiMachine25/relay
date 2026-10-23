@@ -358,7 +358,7 @@
   display: grid;
   gap: 14px;
   margin-top: 32px;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 196px), 1fr));
 }
 .os-card {
   display: flex;
