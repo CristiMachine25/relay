@@ -742,3 +742,44 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ---------- Early software callout ---------- */
+.early {
+  padding-top: 0;
+}
+.early-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  gap: clamp(28px, 5vw, 80px);
+  padding: clamp(28px, 5vw, 64px);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line-strong);
+  background:
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.018) 0 2px, transparent 2px 12px),
+    var(--panel);
+}
+.early-head {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+}
+.early-head h2 {
+  font-size: clamp(1.875rem, 1.3rem + 2vw, 2.875rem);
+}
+.early-body {
+  display: grid;
+  gap: 16px;
+  color: var(--muted);
+}
+.early-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 32px;
+  margin-top: 8px;
+}
+@media (max-width: 859px) {
+  .early-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
