@@ -483,6 +483,83 @@
   </div>
 </section>
 
+<!-- ===== FAQ ===== -->
+<section class="home-section faq" id="faq" aria-labelledby="faq-title">
+  <div class="wrap faq-grid">
+    <div class="faq-head" data-reveal-stagger>
+      <p class="eyebrow">FAQ</p>
+      <h2 id="faq-title">Questions, <span class="dim">answered.</span></h2>
+      <p class="lede">Something missing? <a href="https://github.com/CristiMachine25/relay/issues">Ask on GitHub</a>.</p>
+    </div>
+    <div class="faq-list" data-reveal-stagger>
+      <details>
+        <summary>Is it free?</summary>
+        <div class="faq-a"><p>Yes. Relay is open source under the <a href="https://github.com/CristiMachine25/relay/blob/main/LICENSE">MIT license</a>, with no paid tier and no account to create. You keep paying your AI providers as you do now, just with less of it going to waste.</p></div>
+      </details>
+      <details>
+        <summary>Is this allowed by the providers&rsquo; terms?</summary>
+        <div class="faq-a"><p>Relay does not get around any limit. Each account signs in through the tool&rsquo;s own login and runs the official CLI, and Relay only reads the limits each provider already shows you. Whether you may hold several accounts with one provider is up to that provider, so check their terms for the plans you use.</p></div>
+      </details>
+      <details>
+        <summary>Can Relay see my chats or code?</summary>
+        <div class="faq-a"><p>No. It reads usage numbers and local session statistics such as token counts. It never sends your prompts, chats or code anywhere, and there is no Relay server to send them to.</p></div>
+      </details>
+      <details>
+        <summary>Where do my sign-ins live, and are they ever shared between accounts?</summary>
+        <div class="faq-a"><p>Each sign-in stays where its CLI keeps it: in that account&rsquo;s own config folder, or in the macOS Keychain for Claude Code on a Mac. Relay never copies or links credential files between accounts, even when they share skills, settings or chat history.</p><p>The only time Relay writes them anywhere else is an export you ask for, and only if you tick Sign-ins. They are then encrypted with a passphrase you choose.</p></div>
+      </details>
+      <details>
+        <summary>Why does Windows or macOS warn me when I open it?</summary>
+        <div class="faq-a"><p>The installers aren&rsquo;t code-signed or notarized yet, so your system doesn&rsquo;t recognize the developer. On Windows, choose More info, then Run anyway. On macOS, open System Settings &gt; Privacy &amp; Security and choose Open Anyway. Only download Relay from its GitHub Releases page. <a href="install/">Step-by-step install guide</a>.</p></div>
+      </details>
+      <details>
+        <summary>Is it stable?</summary>
+        <div class="faq-a"><p>Not yet. Relay is early software built and tested by one person, and it almost certainly has bugs. The usage numbers come from provider endpoints that can change without notice, so treat them as a guide. <a href="early-software/">What early software means here</a>.</p></div>
+      </details>
+      <details>
+        <summary>Which tools and plans work?</summary>
+        <div class="faq-a"><p>Claude Code (Pro, Max 5x, Max 20x, Team, plus Claude Desktop), Codex CLI (ChatGPT Plus, Pro, Team), Gemini CLI (Google AI Pro, Ultra, free tier) and GitHub Copilot CLI (Copilot Pro, Pro+, Business). Cursor, Antigravity, Kiro, Amp and OpenRouter are planned.</p></div>
+      </details>
+      <details>
+        <summary>How does &ldquo;continue on another account&rdquo; work?</summary>
+        <div class="faq-a"><p>When a pane in the terminal grid hits its limit, it offers the account of the same tool that is the best pick right now, or you choose another from the list. One click ends the session and resumes it on that account, in the same folder.</p><p>The chat itself carries over only when chat history sharing is on for both accounts. If it isn&rsquo;t, the pane offers to turn it on.</p></div>
+      </details>
+      <details>
+        <summary>How accurate are the numbers?</summary>
+        <div class="faq-a"><p>They come from each provider&rsquo;s own usage endpoints, some official and some only observed, and those can change without notice. Live usage works for Claude and Codex and is best-effort for Gemini and Copilot. With live usage turned off, Relay works from local session logs instead. Treat the numbers as a guide, not a guarantee.</p></div>
+      </details>
+      <details>
+        <summary>Does it work offline?</summary>
+        <div class="faq-a"><p>Launching works offline. Live limits need the network, because they come from each provider&rsquo;s usage endpoint. Without it, Relay shows the last numbers it saw and when it saw them.</p></div>
+      </details>
+      <details>
+        <summary>Which systems does it run on?</summary>
+        <div class="faq-a"><p>Windows 10 and 11 (.exe or .msi), macOS on Apple Silicon and Intel (.dmg), and Linux (.AppImage for any distribution, .deb for Debian and Ubuntu, .rpm for Fedora).</p></div>
+      </details>
+      <details>
+        <summary>Will it mess with my existing setup?</summary>
+        <div class="faq-a"><p>No. Each account Relay creates gets its own config folder, and your main folders such as <code>~/.claude</code> and <code>~/.codex</code> stay where they are and keep working as before. Importing accounts Relay finds keeps each one where it is and doesn&rsquo;t change its sign-in. Uninstalling leaves every CLI folder exactly as it was.</p></div>
+      </details>
+      <details>
+        <summary>Can I move my setup to a new computer?</summary>
+        <div class="faq-a"><p>Yes. Export your accounts, skills and preferences to a <code>.relay</code> file and import it in Relay on Windows, macOS or Linux. Sign-ins are optional and encrypted with a passphrase you choose. Importing only adds: nothing already on the computer is replaced.</p></div>
+      </details>
+      <details>
+        <summary>How do I update?</summary>
+        <div class="faq-a"><p>There&rsquo;s no automatic updater yet. Download the new version from <a href="https://github.com/CristiMachine25/relay/releases/latest">Releases</a> and install it over the old one. Your accounts, settings and history carry over.</p></div>
+      </details>
+      <details>
+        <summary>How can I report a bug or help?</summary>
+        <div class="faq-a"><p><a href="https://github.com/CristiMachine25/relay/issues">Open an issue</a> on GitHub with what you did and what happened. For a security problem, please don&rsquo;t post details publicly; use GitHub&rsquo;s private <a href="https://github.com/CristiMachine25/relay/security/advisories/new">security advisory</a> form instead. Pull requests are welcome too, including new providers.</p></div>
+      </details>
+      <details>
+        <summary>What&rsquo;s next?</summary>
+        <div class="faq-a"><p>More providers (Cursor, Antigravity, Kiro, Amp, z.ai and OpenRouter credit balance), routing rules per task type, signed builds, automatic updates, and packages for Homebrew, winget, Flathub and the AUR.</p></div>
+      </details>
+    </div>
+  </div>
+</section>
+
 <!-- @sections -->
 
 </main>

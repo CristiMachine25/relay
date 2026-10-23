@@ -783,3 +783,112 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ---------- FAQ ---------- */
+.faq {
+  border-top: 1px solid var(--line);
+}
+.faq-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) minmax(0, 7fr);
+  gap: clamp(40px, 6vw, 96px);
+  align-items: start;
+}
+.faq-head {
+  position: sticky;
+  top: calc(var(--nav-h) + 40px);
+  display: grid;
+  gap: 20px;
+}
+.faq-head .lede a {
+  color: var(--ink);
+}
+.faq-list {
+  border-top: 1px solid var(--line);
+}
+.faq-list details {
+  border-bottom: 1px solid var(--line);
+}
+.faq-list summary {
+  position: relative;
+  display: block;
+  padding: 24px 48px 24px 0;
+  font: 500 clamp(1.125rem, 1.05rem + 0.3vw, 1.3125rem) / 1.35 var(--serif);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  cursor: pointer;
+  list-style: none;
+  transition: color 200ms ease;
+}
+.faq-list summary::-webkit-details-marker {
+  display: none;
+}
+.faq-list summary:hover {
+  color: #fff;
+}
+/* +/- marker: two bars; the vertical one turns flat when open. */
+.faq-list summary::before,
+.faq-list summary::after {
+  content: "";
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  width: 14px;
+  height: 1.5px;
+  margin-top: -0.75px;
+  border-radius: 1px;
+  background: var(--muted);
+  transition: transform 400ms var(--ease), background-color 200ms ease;
+}
+.faq-list summary::after {
+  transform: rotate(90deg);
+}
+.faq-list details[open] > summary::after {
+  transform: rotate(0deg);
+}
+.faq-list summary:hover::before,
+.faq-list summary:hover::after,
+.faq-list details[open] > summary::before,
+.faq-list details[open] > summary::after {
+  background: var(--ink);
+}
+.faq-a {
+  display: grid;
+  gap: 12px;
+  padding: 0 48px 28px 0;
+  color: var(--muted);
+  max-width: 44em;
+}
+.faq-a a {
+  color: var(--ink);
+}
+@media (max-width: 859px) {
+  .faq-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .faq-head {
+    position: static;
+  }
+  .faq-a {
+    padding-right: 0;
+  }
+}
+/* Smooth open and close where the browser can animate to height:auto. Elsewhere it opens instantly. */
+@media (prefers-reduced-motion: no-preference) {
+  .faq-list {
+    interpolate-size: allow-keywords;
+  }
+  .faq-list details::details-content {
+    block-size: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition:
+      block-size 450ms var(--ease),
+      opacity 350ms ease,
+      content-visibility 450ms allow-discrete;
+  }
+  .faq-list details[open]::details-content {
+    block-size: auto;
+    opacity: 1;
+  }
+}
