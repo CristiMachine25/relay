@@ -1,0 +1,353 @@
+/* Relay site: long-form pages (Install, Early software, 404).
+   Loaded after base.css. Uses only its tokens; adds the page hero, the doc layout with a
+   sticky table of contents, and the blocks those pages share. */
+
+:root {
+  /* Long-form body text: a touch brighter than --muted for reading comfort (12:1 on ground). */
+  --read: #c6c8cf;
+  --measure: 46rem;
+}
+
+/* Current page in the mobile menu sheet */
+.nav-sheet a[aria-current="page"] {
+  color: var(--ink);
+}
+.nav-sheet a[aria-current="page"]::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* ---------- Page hero ---------- */
+.page-hero {
+  position: relative;
+  padding-block: clamp(64px, 10vw, 136px) clamp(48px, 7vw, 96px);
+  overflow: hidden;
+}
+/* Soft accent haze behind the headline (decorative) */
+.page-hero::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: -30%;
+  left: 50%;
+  width: min(1100px, 140vw);
+  aspect-ratio: 2 / 1;
+  transform: translateX(-50%);
+  background:
+    radial-gradient(40% 50% at 35% 50%, rgba(134, 160, 251, 0.12), transparent 70%),
+    radial-gradient(35% 45% at 70% 55%, rgba(94, 214, 162, 0.07), transparent 70%);
+  filter: blur(40px);
+  pointer-events: none;
+}
+.page-hero .section-head {
+  margin-bottom: 0;
+  max-width: 860px;
+}
+.page-hero h1 {
+  font-size: clamp(2.75rem, 1.6rem + 4.6vw, 5.5rem);
+}
+.page-hero [data-download] {
+  margin-top: 12px;
+}
+.meta-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.meta-line li {
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font: 500 0.75rem/1.4 var(--mono);
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* ---------- Doc layout: sticky table of contents + reading column ---------- */
+.doc {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  padding-bottom: var(--section);
+}
+.doc-body {
+  min-width: 0;
+  max-width: var(--measure);
+}
+@media (min-width: 1024px) {
+  .doc {
+    grid-template-columns: 200px minmax(0, 1fr);
+    gap: clamp(48px, 6vw, 96px);
+    align-items: start;
+  }
+}
+
+/* Table of contents. Desktop: sticky column. Mobile: a sticky horizontal scroller under the nav. */
+.toc-title {
+  margin-bottom: 14px;
+}
+.toc ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: toc;
+}
+.toc a {
+  display: block;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.9375rem;
+  line-height: 1.35;
+}
+.toc a:hover {
+  color: var(--ink);
+}
+@media (min-width: 1024px) {
+  .toc {
+    position: sticky;
+    top: calc(var(--nav-h) + 40px);
+    padding-top: 6px;
+  }
+  .toc ol {
+    border-left: 1px solid var(--line);
+  }
+  .toc li {
+    counter-increment: toc;
+  }
+  .toc a {
+    position: relative;
+    display: flex;
+    gap: 10px;
+    margin-left: -1px;
+    padding: 7px 0 7px 16px;
+    border-left: 1px solid transparent;
+    transition: color 160ms ease, border-color 160ms ease;
+  }
+  .toc a::before {
+    content: counter(toc, decimal-leading-zero);
+    font: 400 0.75rem/1.75 var(--mono);
+    color: var(--faint);
+  }
+  .toc a:hover {
+    border-left-color: var(--ink);
+  }
+}
+@media (max-width: 1023px) {
+  .toc {
+    position: sticky;
+    top: var(--nav-h);
+    z-index: 10;
+    margin-inline: calc(-1 * var(--gutter));
+    margin-bottom: 8px;
+    background: rgba(5, 5, 6, 0.86);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    border-block: 1px solid var(--line);
+  }
+  .toc-title {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .toc ol {
+    display: flex;
+    gap: 6px;
+    padding: 10px var(--gutter);
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--gutter), #000 calc(100% - 40px), transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 var(--gutter), #000 calc(100% - 40px), transparent);
+  }
+  .toc ol::-webkit-scrollbar {
+    display: none;
+  }
+  .toc li {
+    flex: none;
+  }
+  .toc li:last-child {
+    padding-right: 32px;
+  }
+  .toc a {
+    padding: 7px 14px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-size: 0.875rem;
+    white-space: nowrap;
+  }
+  .toc a:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+}
+
+/* ---------- Doc sections ---------- */
+.doc-sec {
+  padding-top: clamp(56px, 7vw, 96px);
+  scroll-margin-top: calc(var(--nav-h) + 8px);
+}
+@media (max-width: 1023px) {
+  .doc-sec {
+    /* leave room for the sticky TOC bar under the nav */
+    scroll-margin-top: calc(var(--nav-h) + 56px);
+  }
+}
+.doc-sec:first-child {
+  padding-top: clamp(24px, 3vw, 40px);
+}
+.doc-sec + .doc-sec {
+  margin-top: clamp(56px, 7vw, 96px);
+  border-top: 1px solid var(--line);
+}
+.doc-sec > .eyebrow {
+  margin-bottom: 18px;
+}
+.doc-sec h2 {
+  font-size: clamp(2rem, 1.5rem + 1.9vw, 3rem);
+  line-height: 1.08;
+  margin-bottom: 20px;
+}
+.doc-sec h3 {
+  font-size: clamp(1.375rem, 1.2rem + 0.6vw, 1.625rem);
+  margin: 48px 0 14px;
+}
+.doc-sec h3:first-child {
+  margin-top: 0;
+}
+.doc-body p,
+.doc-body li {
+  color: var(--read);
+}
+.doc-body p + p,
+.doc-body p + ul,
+.doc-body ul + p,
+.doc-body p + .cmd,
+.doc-body .cmd + p {
+  margin-top: 1em;
+}
+.doc-body .lede {
+  color: var(--muted);
+  font-size: clamp(1.0625rem, 1rem + 0.3vw, 1.25rem);
+}
+.doc-body strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+.doc-body a:not(.btn):not(.link-arrow) {
+  color: var(--ink);
+  text-decoration-color: rgba(255, 255, 255, 0.3);
+}
+.doc-body a:not(.btn):not(.link-arrow):hover {
+  text-decoration-color: currentColor;
+}
+.doc-body code {
+  font-size: 0.84em;
+  overflow-wrap: anywhere;
+}
+/* Plain bullet list with a small dash marker */
+.list {
+  margin: 1em 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+.list > li {
+  position: relative;
+  padding-left: 24px;
+}
+.list > li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 0.78em;
+  width: 10px;
+  height: 1px;
+  background: var(--faint);
+}
+.doc-body > .doc-sec > * + .grid,
+.doc-body .block {
+  margin-top: 28px;
+}
+.doc-body figure.window,
+.doc-body .shot {
+  margin-top: 36px;
+}
+.doc-body .shot figcaption {
+  text-align: left;
+}
+
+/* ---------- Callout ---------- */
+.callout {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 16px;
+  margin-top: 28px;
+  padding: 20px 22px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01));
+}
+.callout::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 22px;
+  right: 22px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(134, 160, 251, 0.7), rgba(94, 214, 162, 0.6), transparent);
+}
+.callout-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+}
+.callout-icon svg {
+  width: 16px;
+  height: 16px;
+}
+.callout p {
+  color: var(--read);
+}
+.callout p:first-child {
+  margin-top: 5px;
+}
+.callout strong {
+  color: var(--ink);
+}
+
+/* ---------- Command block ---------- */
+.cmd {
+  position: relative;
+  margin: 16px 0 0;
+  padding: 14px 18px;
+  border-radius: var(--r-sm);
+  background: #08090b;
+  border: 1px solid var(--line-strong);
+  font-size: 0.875rem;
+  line-height: 1.7;
+  color: var(--ink);
+  overflow-x: auto;
+}
+.cmd code {
+  font-size: inherit;
+  white-space: pre;
+}
+.cmd .c {
+  color: var(--faint);
+}
+.cmd .p {
+  color: var(--faint);
+  user-select: none;
+}
