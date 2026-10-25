@@ -645,6 +645,9 @@ html:not(.js) .site-nav::before {
   margin-top: 16px;
   max-width: 22em;
 }
+.foot-brand .foot-meta {
+  max-width: none;
+}
 .foot-meta {
   margin-top: 12px;
   font: 400 0.8125rem/1.5 var(--mono);
@@ -677,7 +680,8 @@ html:not(.js) .site-nav::before {
   margin-top: clamp(40px, 6vw, 72px);
   padding-top: 24px;
   border-top: 1px solid var(--line);
-  max-width: 64em;
+  /* The rule spans the full width like the columns above; only the text keeps a measure. */
+  padding-right: max(0px, calc(100% - 52rem));
   font-size: 0.8125rem;
   line-height: 1.6;
   color: var(--faint);
