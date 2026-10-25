@@ -402,6 +402,10 @@
   color: var(--ink);
   overflow-wrap: normal;
 }
+/* A file name may wrap only after an underscore (the <wbr>), never inside "x64-setup.exe". */
+.files dt code span {
+  white-space: nowrap;
+}
 .files dd {
   margin: 6px 0 0;
   font-size: 0.875rem;
