@@ -283,6 +283,16 @@
   .seq-step {
     grid-template-columns: minmax(0, 1fr);
   }
+  /* Phones: zoom into the pane (a 480x400 region of the 1600x1000 shot) so the terminal
+     text, the limit banner and the continue menu stay readable. --mx/--my place that region. */
+  .seq-fig .crop {
+    aspect-ratio: 1.2;
+  }
+  .seq-fig .crop > img {
+    width: 333.33%;
+    left: var(--mx, var(--l));
+    top: var(--my, 0);
+  }
 }
 
 @media (prefers-reduced-motion: no-preference) {
