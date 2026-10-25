@@ -432,32 +432,6 @@
   transform-origin: 50% 0;
   will-change: transform;
 }
-.split {
-  display: grid;
-  gap: clamp(32px, 5vw, 72px);
-  align-items: center;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-  margin-top: clamp(80px, 10vw, 144px);
-}
-.split-copy {
-  display: grid;
-  gap: 16px;
-  justify-items: start;
-}
-.split-copy h3 {
-  font-size: clamp(1.75rem, 1.2rem + 1.8vw, 2.75rem);
-  line-height: 1.08;
-  letter-spacing: -0.02em;
-}
-.split-copy p:not(.eyebrow) {
-  color: var(--muted);
-  max-width: 28em;
-}
-@media (max-width: 859px) {
-  .split {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
 @media (prefers-reduced-motion: reduce) {
   .grid-video {
     transform: none;
