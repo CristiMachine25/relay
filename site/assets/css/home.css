@@ -131,16 +131,10 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  column-gap: 0;
-  row-gap: 4px;
+  gap: 4px 22px;
 }
 .hero-facts > span {
   white-space: nowrap;
-}
-.hero-facts > span + span::before {
-  content: "\00b7";
-  margin-inline: 10px;
-  color: var(--line-strong);
 }
 .hero-facts a {
   color: var(--muted);
@@ -571,6 +565,7 @@
   .card-w4:nth-child(5) {
     grid-column: auto;
     display: flex;
+    align-items: stretch;
   }
 }
 
