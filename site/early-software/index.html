@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Relay is early software</title>
+<meta name="description" content="Relay is new, made by one developer, and will have bugs. What that means, what is solid today, how to use it safely and how to report a problem.">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#050506">
+<link rel="canonical" href="https://cristimachine25.github.io/relay/early-software/">
+<link rel="icon" href="../favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<link rel="preload" href="../assets/fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../assets/fonts/hanken-grotesk-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../assets/css/base.css">
+<link rel="stylesheet" href="../assets/css/pages.css">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Relay">
+<meta property="og:title" content="Relay is early software">
+<meta property="og:description" content="Relay is new, made by one developer, and will have bugs. What that means, what is solid today, how to use it safely and how to report a problem.">
+<meta property="og:url" content="https://cristimachine25.github.io/relay/early-software/">
+<meta property="og:image" content="https://cristimachine25.github.io/relay/assets/og.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="Relay showing several AI accounts with meters of how much of each limit is left.">
+<meta name="twitter:card" content="summary_large_image">
+
+<!-- Hide-for-reveal states only apply with JS. If motion.js never loads, show everything again. -->
+<script>(function(d){d.classList.add("js");setTimeout(function(){window.relayMotion||d.classList.remove("js")},4000)})(document.documentElement)</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="../">
+      <img src="../assets/app-icon.png" alt="" width="28" height="28">
+      <span>Relay</span>
+    </a>
+    <nav class="nav-links" aria-label="Main">
+      <ul>
+        <li><a href="../#features">Features</a></li>
+        <li><a href="../#tools">Tools</a></li>
+        <li><a href="../#faq">FAQ</a></li>
+        <li><a href="../install/">Install</a></li>
+        <li><a href="../early-software/" aria-current="page">Early software</a></li>
+        <li><a href="https://github.com/CristiMachine25/relay">GitHub</a></li>
+      </ul>
+    </nav>
+    <div class="nav-actions">
+      <a class="btn btn-primary btn-sm" href="https://github.com/CristiMachine25/relay/releases/latest">Download</a>
+      <details class="nav-menu">
+        <summary><span class="nav-burger" aria-hidden="true"></span><span class="nav-menu-text">Menu</span></summary>
+        <nav class="nav-sheet" aria-label="Menu">
+          <ul>
+            <li><a href="../#features">Features</a></li>
+            <li><a href="../#tools">Tools</a></li>
+            <li><a href="../#faq">FAQ</a></li>
+            <li><a href="../install/">Install</a></li>
+            <li><a href="../early-software/" aria-current="page">Early software</a></li>
+            <li><a href="https://github.com/CristiMachine25/relay">GitHub</a></li>
+          </ul>
+        </nav>
+      </details>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+<section class="page-hero" aria-labelledby="page-title">
+  <div class="wrap">
+    <div class="section-head" data-reveal-stagger>
+      <p class="eyebrow">Early software</p>
+      <h1 id="page-title">Relay is early software</h1>
+      <p class="lede">It&rsquo;s new, it&rsquo;s made by one person, and it will have bugs. Here&rsquo;s what that means for you, how to use it safely, and how to help make it better.</p>
+      <ul class="meta-line" aria-label="About this release">
+        <li>v0.2.1</li>
+        <li>One developer</li>
+        <li>MIT, no warranty</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<div class="wrap doc">
+  <nav class="toc" aria-labelledby="toc-title">
+    <p class="toc-title eyebrow plain" id="toc-title">On this page</p>
+    <ol>
+      <li><a href="#meaning">What that means</a></li>
+      <li><a href="#today">Solid and rough</a></li>
+      <li><a href="#before">Before you rely on it</a></li>
+      <li><a href="#bugs">Found a bug?</a></li>
+      <li><a href="#warranty">No warranty</a></li>
+      <li><a href="#next">What&rsquo;s next</a></li>
+    </ol>
+  </nav>
+
+  <div class="doc-body">
+
+    <section class="doc-sec" id="meaning" aria-labelledby="meaning-title">
+      <h2 id="meaning-title" data-reveal>What that means</h2>
+      <ul class="list">
+        <li><strong>It&rsquo;s version 0.2.</strong> Relay is a young open-source project, built and tested mostly by one developer. It almost certainly has bugs, and setups unlike the developer&rsquo;s are the likeliest to find them.</li>
+        <li><strong>The numbers are a guide, not a guarantee.</strong> Usage comes from each provider&rsquo;s own endpoints, some documented and some only observed. Providers can change or break them without notice, and Relay&rsquo;s numbers can then be wrong or missing until it catches up.</li>
+        <li><strong>The installers aren&rsquo;t signed.</strong> Windows and macOS warn you the first time you open Relay. That&rsquo;s expected; the <a href="../install/">Install page</a> explains why and how to get past it.</li>
+      </ul>
+    </section>
+
+    <section class="doc-sec" id="today" aria-labelledby="today-title">
+      <h2 id="today-title" data-reveal>What&rsquo;s solid, what&rsquo;s rough</h2>
+      <p>An honest snapshot of v0.2.1, taken from the project&rsquo;s own <a href="https://github.com/CristiMachine25/relay/blob/main/docs/PLAN.md">plan and status notes</a>.</p>
+      <div class="compare" data-reveal-stagger>
+        <article class="compare-col is-solid">
+          <h3><span class="compare-dot" aria-hidden="true"></span>Solid today</h3>
+          <ul>
+            <li>Finding installed CLIs and existing account folders, and adding, importing and removing accounts.</li>
+            <li>Launching a CLI with the right account in a new terminal, or resuming the last session.</li>
+            <li>Live limits for Claude Code and Codex, with reset countdowns and history.</li>
+            <li>The terminal grid: up to nine panes, each on its own account, and continuing a chat on another account at a limit.</li>
+            <li>Moving your setup between computers with a <code>.relay</code> file.</li>
+            <li>The test suites run on Windows, macOS and Linux before every release build.</li>
+          </ul>
+        </article>
+        <article class="compare-col is-rough">
+          <h3><span class="compare-dot" aria-hidden="true"></span>Rough edges</h3>
+          <ul>
+            <li>Gemini and Copilot limits are best-effort.</li>
+            <li>Usage endpoints can change without notice, so any tool&rsquo;s numbers can break for a while.</li>
+            <li>Gemini&rsquo;s daily quotas get no &ldquo;use it or lose it&rdquo; reminder.</li>
+            <li>For Codex, Gemini and Copilot, a resumed pane started fresh picks the account&rsquo;s newest conversation in that folder, which may not be the one you meant.</li>
+            <li>Desktop apps other than Claude Desktop open as-is, with a single account.</li>
+            <li>No automatic updates and no signed installers yet.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="doc-sec" id="before" aria-labelledby="before-title">
+      <h2 id="before-title" data-reveal>Before you rely on it</h2>
+      <ul class="list">
+        <li><strong>Keep your usual way into each tool.</strong> Relay uses each CLI&rsquo;s own login and folders, so the tools keep working without it. If Relay misbehaves, you can always open the CLI directly.</li>
+        <li><strong>Don&rsquo;t make billing decisions on one number.</strong> Before you upgrade a plan or buy more usage, check the provider&rsquo;s own usage page.</li>
+        <li><strong>Export your setup before big changes.</strong> In <strong>Settings &gt; Move to another computer</strong>, <strong>Export your setup</strong> saves your accounts, skills and preferences to a <code>.relay</code> file. Sign-ins are optional and encrypted with a passphrase you choose, and importing only adds, never replaces.</li>
+      </ul>
+      <figure class="shot" data-reveal>
+        <div class="window">
+          <img src="../assets/screens/export-900.webp"
+               srcset="../assets/screens/export-900.webp 900w, ../assets/screens/export.webp 1600w"
+               sizes="(min-width: 1024px) 736px, calc(100vw - 32px)"
+               width="1600" height="1000" loading="lazy" decoding="async"
+               alt="Relay's Export your setup dialog: a list of accounts to include, plus checkboxes for skills, agents and instructions, preferences, and encrypted sign-ins.">
+        </div>
+        <figcaption>Settings &gt; Export your setup. Demo data.</figcaption>
+      </figure>
+    </section>
+
+    <section class="doc-sec" id="bugs" aria-labelledby="bugs-title">
+      <h2 id="bugs-title" data-reveal>Found a bug?</h2>
+      <p>Thank you. A good report is the most useful thing you can give a one-person project. <a href="https://github.com/CristiMachine25/relay/issues">Search the open issues</a> first, then <a href="https://github.com/CristiMachine25/relay/issues/new">open a new one</a> with:</p>
+      <ol class="steps">
+        <li><strong>Your system:</strong> Windows, macOS or Linux, and its version.</li>
+        <li><strong>Your Relay version,</strong> for example 0.2.1. It&rsquo;s in the name of the installer you downloaded.</li>
+        <li><strong>Which tool and plan</strong> were involved, such as Claude Code on Max or Codex on ChatGPT Plus.</li>
+        <li><strong>What you did, what you expected</strong> and what happened instead.</li>
+        <li><strong>Screenshots,</strong> with account emails cropped or blurred.</li>
+        <li><strong>The log, if there is one.</strong> Relay keeps a log of what it does, including errors, in <code>Relay.log</code>. Read it through before attaching, and remove anything private.</li>
+      </ol>
+      <div class="table-wrap block">
+        <table class="paths">
+          <caption class="sr-only">Where Relay writes its log file</caption>
+          <thead>
+            <tr><th scope="col">System</th><th scope="col">Log file</th></tr>
+          </thead>
+          <tbody>
+            <tr><th scope="row">Windows</th><td><code>%LOCALAPPDATA%\<wbr>dev.switchyard.app\<wbr>logs\<wbr>Relay.log</code></td></tr>
+            <tr><th scope="row">macOS</th><td><code>~/<wbr>Library/<wbr>Logs/<wbr>dev.switchyard.app/<wbr>Relay.log</code></td></tr>
+            <tr><th scope="row">Linux</th><td><code>~/<wbr>.local/<wbr>share/<wbr>dev.switchyard.app/<wbr>logs/<wbr>Relay.log</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="btn-row block" data-reveal>
+        <a class="btn btn-primary" href="https://github.com/CristiMachine25/relay/issues/new">Open an issue</a>
+        <a class="btn btn-secondary" href="https://github.com/CristiMachine25/relay/issues">See open issues</a>
+      </div>
+      <div class="callout" data-reveal>
+        <span class="callout-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></svg></span>
+        <p><strong>Security problem?</strong> Please don&rsquo;t post the details publicly. Use GitHub&rsquo;s private <a href="https://github.com/CristiMachine25/relay/security/advisories/new">security advisory form</a> instead.</p>
+      </div>
+    </section>
+
+    <section class="doc-sec" id="warranty" aria-labelledby="warranty-title">
+      <h2 id="warranty-title" data-reveal>No warranty</h2>
+      <p>Relay is free, open-source software under the <a href="https://github.com/CristiMachine25/relay/blob/main/LICENSE">MIT license</a>, provided <strong>as is, without warranty of any kind</strong>. You use it at your own risk; the author is not liable for lost work, missed limits, account problems or any other damage.</p>
+      <p>Relay is an independent project, not affiliated with or endorsed by Anthropic, OpenAI, Google or GitHub. It uses each tool&rsquo;s own login and its documented or observed usage endpoints. Following each provider&rsquo;s terms of service, including how you use multiple accounts, is your responsibility.</p>
+    </section>
+
+    <section class="doc-sec" id="next" aria-labelledby="next-title">
+      <h2 id="next-title" data-reveal>What&rsquo;s next</h2>
+      <p>More tools are planned. They aren&rsquo;t in Relay yet, and plans can change:</p>
+      <ul class="planned" aria-label="Planned tools" data-reveal-stagger>
+        <li>Cursor</li>
+        <li>Antigravity</li>
+        <li>Kiro</li>
+        <li>Amp</li>
+        <li>OpenRouter</li>
+      </ul>
+      <p>Also on the list: signed installers, automatic updates, and routing rules such as &ldquo;long refactors go to Max accounts&rdquo;.</p>
+      <h3 data-reveal>Help build it</h3>
+      <p>Issues and pull requests are welcome. Adding a provider centers on one Rust trait, <code>ProviderAdapter</code>, plus a few tables on the Rust and UI sides, and the compiler points at most of them. The <a href="https://github.com/CristiMachine25/relay#contributing">Contributing section of the README</a> walks through it.</p>
+      <p class="block"><a class="link-arrow" href="https://github.com/CristiMachine25/relay">Source on GitHub</a></p>
+    </section>
+
+  </div>
+</div>
+
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <div class="foot-top">
+      <div class="foot-brand">
+        <a class="brand" href="../">
+          <img src="../assets/app-icon.png" alt="" width="28" height="28" loading="lazy" decoding="async">
+          <span>Relay</span>
+        </a>
+        <p>Free and open source. Made by one developer.</p>
+        <p class="foot-meta">v0.2.1 &middot; MIT License &middot; Windows,&nbsp;macOS,&nbsp;Linux</p>
+      </div>
+      <nav class="foot-col" aria-labelledby="foot-relay">
+        <h2 id="foot-relay">Relay</h2>
+        <ul>
+          <li><a href="../install/">Install</a></li>
+          <li><a href="../early-software/" aria-current="page">Early software</a></li>
+          <li><a href="https://github.com/CristiMachine25/relay/releases">Releases</a></li>
+        </ul>
+      </nav>
+      <nav class="foot-col" aria-labelledby="foot-project">
+        <h2 id="foot-project">Project</h2>
+        <ul>
+          <li><a href="https://github.com/CristiMachine25/relay">Source on GitHub</a></li>
+          <li><a href="https://github.com/CristiMachine25/relay/issues">Report a bug</a></li>
+          <li><a href="https://github.com/CristiMachine25/relay/blob/main/LICENSE">MIT License</a></li>
+        </ul>
+      </nav>
+    </div>
+    <p class="foot-legal">Relay is an independent project, not affiliated with or endorsed by Anthropic, OpenAI, Google or GitHub. Product names and logos belong to their owners and are shown only to say which tools Relay works with.</p>
+  </div>
+  <p class="foot-mark" aria-hidden="true">Relay</p>
+</footer>
+
+<script src="../assets/js/download.js"></script>
+<script src="../assets/js/motion.js" defer></script>
+</body>
+</html>

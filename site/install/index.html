@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Install Relay</title>
+<meta name="description" content="Download Relay for Windows, macOS or Linux, pick the right file, and get past the one-time unknown-developer warning on the unsigned installers.">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#050506">
+<link rel="canonical" href="https://cristimachine25.github.io/relay/install/">
+<link rel="icon" href="../favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<link rel="preload" href="../assets/fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../assets/fonts/hanken-grotesk-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../assets/css/base.css">
+<link rel="stylesheet" href="../assets/css/pages.css">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Relay">
+<meta property="og:title" content="Install Relay">
+<meta property="og:description" content="Download Relay for Windows, macOS or Linux, pick the right file, and get past the one-time unknown-developer warning on the unsigned installers.">
+<meta property="og:url" content="https://cristimachine25.github.io/relay/install/">
+<meta property="og:image" content="https://cristimachine25.github.io/relay/assets/og.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="Relay showing several AI accounts with meters of how much of each limit is left.">
+<meta name="twitter:card" content="summary_large_image">
+
+<!-- Hide-for-reveal states only apply with JS. If motion.js never loads, show everything again. -->
+<script>(function(d){d.classList.add("js");setTimeout(function(){window.relayMotion||d.classList.remove("js")},4000)})(document.documentElement)</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="../">
+      <img src="../assets/app-icon.png" alt="" width="28" height="28">
+      <span>Relay</span>
+    </a>
+    <nav class="nav-links" aria-label="Main">
+      <ul>
+        <li><a href="../#features">Features</a></li>
+        <li><a href="../#tools">Tools</a></li>
+        <li><a href="../#faq">FAQ</a></li>
+        <li><a href="../install/" aria-current="page">Install</a></li>
+        <li><a href="../early-software/">Early software</a></li>
+        <li><a href="https://github.com/CristiMachine25/relay">GitHub</a></li>
+      </ul>
+    </nav>
+    <div class="nav-actions">
+      <a class="btn btn-primary btn-sm" href="https://github.com/CristiMachine25/relay/releases/latest">Download</a>
+      <details class="nav-menu">
+        <summary><span class="nav-burger" aria-hidden="true"></span><span class="nav-menu-text">Menu</span></summary>
+        <nav class="nav-sheet" aria-label="Menu">
+          <ul>
+            <li><a href="../#features">Features</a></li>
+            <li><a href="../#tools">Tools</a></li>
+            <li><a href="../#faq">FAQ</a></li>
+            <li><a href="../install/" aria-current="page">Install</a></li>
+            <li><a href="../early-software/">Early software</a></li>
+            <li><a href="https://github.com/CristiMachine25/relay">GitHub</a></li>
+          </ul>
+        </nav>
+      </details>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+<section class="page-hero" aria-labelledby="page-title">
+  <div class="wrap">
+    <div class="section-head" data-reveal-stagger>
+      <p class="eyebrow">Install</p>
+      <h1 id="page-title">Install Relay</h1>
+      <p class="lede">Download the installer for your computer, open it once past a one-time warning, and Relay finds the AI tools you already use.</p>
+      <div data-download>
+        <div class="btn-row">
+          <a class="btn btn-primary btn-lg" href="https://github.com/CristiMachine25/relay/releases/latest">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>
+            <span data-dl-label>Download Relay</span>
+          </a>
+          <a class="btn btn-secondary btn-lg" href="#warnings">Why the warning?</a>
+        </div>
+        <p class="dl-note"><span data-dl-note>v0.2.1 for Windows, macOS and Linux.</span> <span data-dl-others></span></p>
+      </div>
+      <ul class="meta-line" aria-label="About this release">
+        <li>Free</li>
+        <li>Open source, MIT</li>
+        <li>v0.2.1</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<div class="wrap doc">
+  <nav class="toc" aria-labelledby="toc-title">
+    <p class="toc-title eyebrow plain" id="toc-title">On this page</p>
+    <ol>
+      <li><a href="#files">Pick your file</a></li>
+      <li><a href="#warnings">Why the warning</a></li>
+      <li><a href="#steps">Open it the first time</a></li>
+      <li><a href="#first-run">First run</a></li>
+      <li><a href="#update">Update and uninstall</a></li>
+      <li><a href="#source">Build from source</a></li>
+    </ol>
+  </nav>
+
+  <div class="doc-body">
+
+    <section class="doc-sec" id="files" aria-labelledby="files-title">
+      <h2 id="files-title" data-reveal>Pick your file</h2>
+      <p>Every release has an installer for each system. They are all on the <a href="https://github.com/CristiMachine25/relay/releases/latest">Releases page</a>, under <strong>Assets</strong>. <code>&lt;version&gt;</code> is the release number, for example <code>0.2.1</code>.</p>
+
+      <div class="os-cards" data-reveal-stagger>
+        <article class="os-card">
+          <header>
+            <h3>Windows</h3>
+            <span class="os-tag">10 / 11</span>
+          </header>
+          <dl class="files">
+            <div>
+              <dt><code>Relay_&lt;version&gt;_<wbr><span>x64-setup.exe</span></code></dt>
+              <dd>The usual installer. Pick this one if unsure.</dd>
+            </div>
+            <div>
+              <dt><code>.msi</code></dt>
+              <dd>The same app as a Windows Installer package.</dd>
+            </div>
+          </dl>
+          <a class="link-arrow" href="https://github.com/CristiMachine25/relay/releases/latest">Releases</a>
+        </article>
+
+        <article class="os-card">
+          <header>
+            <h3>macOS</h3>
+            <span class="os-tag">.dmg</span>
+          </header>
+          <dl class="files">
+            <div>
+              <dt><code>Relay_&lt;version&gt;_<wbr><span>aarch64.dmg</span></code></dt>
+              <dd>Apple Silicon: M1 and later.</dd>
+            </div>
+            <div>
+              <dt><code>Relay_&lt;version&gt;_<wbr><span>amd64.dmg</span></code></dt>
+              <dd>Intel Macs.</dd>
+            </div>
+          </dl>
+          <p class="os-hint">Not sure? Apple menu &gt; About This Mac shows <strong>Chip</strong> (Apple) or <strong>Processor</strong> (Intel).</p>
+          <a class="link-arrow" href="https://github.com/CristiMachine25/relay/releases/latest">Releases</a>
+        </article>
+
+        <article class="os-card">
+          <header>
+            <h3>Linux</h3>
+            <span class="os-tag">x86-64</span>
+          </header>
+          <dl class="files">
+            <div>
+              <dt><code>.AppImage</code></dt>
+              <dd>Any distribution. Nothing to install.</dd>
+            </div>
+            <div>
+              <dt><code>.deb</code></dt>
+              <dd>Debian, Ubuntu and their relatives.</dd>
+            </div>
+            <div>
+              <dt><code>.rpm</code></dt>
+              <dd>Fedora and other RPM-based systems.</dd>
+            </div>
+          </dl>
+          <a class="link-arrow" href="https://github.com/CristiMachine25/relay/releases/latest">Releases</a>
+        </article>
+      </div>
+    </section>
+
+    <section class="doc-sec" id="warnings" aria-labelledby="warnings-title">
+      <h2 id="warnings-title" data-reveal>Why does my computer warn me?</h2>
+      <p class="lede">Because Relay&rsquo;s installers are not code-signed or notarized yet. The warning is expected, and it shows only the first time.</p>
+      <p>Windows and macOS trust an app more when its maker has paid to prove who they are: a code-signing certificate on Windows, and a paid Apple Developer account for signing and notarization on Mac. Relay is a free project made by one developer, and it doesn&rsquo;t have those yet. (The Mac builds carry only an ad hoc signature, which macOS doesn&rsquo;t treat as an identified developer.)</p>
+      <p>So the first time you open it, Windows SmartScreen or macOS Gatekeeper says the app comes from an <strong>unknown developer</strong>. That doesn&rsquo;t mean Relay is harmful. It does mean you should only ever get it from the official <a href="https://github.com/CristiMachine25/relay/releases/latest">GitHub Releases page</a>, because the warning can&rsquo;t tell you whether a copy from somewhere else was changed.</p>
+
+      <div class="callout" data-reveal>
+        <span class="callout-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 6v5.5c0 4.6 3.1 8.2 7.5 9.5 4.4-1.3 7.5-4.9 7.5-9.5V6L12 3Z"/><path d="m9 12 2 2 4-4"/></svg></span>
+        <p><strong>Only download Relay from <a href="https://github.com/CristiMachine25/relay/releases/latest">github.com/CristiMachine25/relay/releases</a>.</strong> Not from mirrors, download sites or links in messages.</p>
+      </div>
+
+      <h3 data-reveal>Every build is made in the open</h3>
+      <p>The installers aren&rsquo;t built on anyone&rsquo;s laptop. GitHub Actions builds them from the public source code, using a <a href="https://github.com/CristiMachine25/relay/blob/main/.github/workflows/release.yml">release workflow</a> you can read line by line. It runs the tests first, then builds on Windows, macOS and Linux machines and attaches the files to a release.</p>
+
+      <ol class="flow" aria-label="How a release is built" data-reveal-stagger>
+        <li>
+          <span class="flow-k">01</span>
+          <strong>Public source</strong>
+          <span>The code on GitHub, open for anyone to read.</span>
+        </li>
+        <li>
+          <span class="flow-k">02</span>
+          <strong>GitHub Actions</strong>
+          <span>Runs the tests, then builds each installer.</span>
+        </li>
+        <li>
+          <span class="flow-k">03</span>
+          <strong>Releases page</strong>
+          <span>The files you download, attached to the release.</span>
+        </li>
+      </ol>
+
+      <p>If you&rsquo;d rather not trust a downloaded binary at all, that&rsquo;s reasonable: <a href="#source">build Relay from source</a> instead.</p>
+    </section>
+
+    <section class="doc-sec" id="steps" aria-labelledby="steps-title">
+      <h2 id="steps-title" data-reveal>Open it the first time</h2>
+      <p>You do this once. After that, Relay opens like any other app.</p>
+
+      <h3 id="windows" data-reveal>Windows</h3>
+      <ol class="steps">
+        <li>Run <code>Relay_&lt;version&gt;_x64-setup.exe</code> (or the <code>.msi</code>). Your browser may first ask whether to keep a file that isn&rsquo;t commonly downloaded; choose to keep it.</li>
+        <li>SmartScreen shows <strong>Windows protected your PC</strong>. Click <strong>More info</strong>.</li>
+        <li>The publisher shows as unknown. Click <strong>Run anyway</strong>, then follow the installer.</li>
+      </ol>
+      <figure class="mock-fig" data-reveal>
+        <div class="mock mock-win" aria-hidden="true">
+          <p class="mock-title">Windows protected your PC</p>
+          <p class="mock-text">Windows SmartScreen prevented an unrecognized app from starting.</p>
+          <dl class="mock-rows">
+            <div><dt>App:</dt><dd>Relay_0.2.1_x64-setup.exe</dd></div>
+            <div><dt>Publisher:</dt><dd>Unknown publisher</dd></div>
+          </dl>
+          <div class="mock-actions">
+            <span class="mock-btn is-target">Run anyway</span>
+            <span class="mock-btn">Don&rsquo;t run</span>
+          </div>
+        </div>
+        <figcaption>Simplified illustration, not a screenshot. After <strong>More info</strong>, choose <strong>Run anyway</strong>.</figcaption>
+      </figure>
+
+      <h3 id="macos" data-reveal>macOS</h3>
+      <ol class="steps">
+        <li>Open the <code>.dmg</code> and drag <strong>Relay</strong> into <strong>Applications</strong>.</li>
+        <li>Open Relay. macOS says it can&rsquo;t verify the developer. Close that message; don&rsquo;t move the app to the Trash.</li>
+        <li>Open <strong>System Settings &gt; Privacy &amp; Security</strong>, scroll down to <strong>Security</strong> and click <strong>Open Anyway</strong>.</li>
+        <li>Confirm with <strong>Open Anyway</strong> again (and your password if asked). Relay opens, and from now on it opens normally.</li>
+      </ol>
+      <figure class="mock-fig" data-reveal>
+        <div class="mock mock-mac" aria-hidden="true">
+          <p class="mock-crumb">Privacy &amp; Security</p>
+          <p class="mock-group">Security</p>
+          <div class="mock-row">
+            <p class="mock-text">&ldquo;Relay&rdquo; was blocked to protect your Mac.</p>
+            <span class="mock-btn is-target">Open Anyway</span>
+          </div>
+        </div>
+        <figcaption>Simplified illustration, not a screenshot. The button sits near the bottom of Privacy &amp; Security.</figcaption>
+      </figure>
+      <p>Prefer Terminal? This removes the quarantine flag macOS puts on downloaded apps, which has the same effect:</p>
+      <pre class="cmd"><code><span class="p">$ </span>xattr -dr com.apple.quarantine /Applications/Relay.app</code></pre>
+
+      <h3 id="linux" data-reveal>Linux</h3>
+      <ol class="steps">
+        <li>For the <code>.AppImage</code>, make it executable, then run it:
+          <pre class="cmd"><code><span class="p">$ </span>chmod +x Relay_*.AppImage
+<span class="p">$ </span>./Relay_*.AppImage</code></pre>
+        </li>
+        <li>For the <code>.deb</code> or <code>.rpm</code>, install it with your package manager as usual. There&rsquo;s no warning to get past.</li>
+      </ol>
+    </section>
+
+    <section class="doc-sec" id="first-run" aria-labelledby="first-run-title">
+      <h2 id="first-run-title" data-reveal>First run</h2>
+      <p>Relay works with the AI command-line tools you already have. It doesn&rsquo;t install them for you.</p>
+      <ul class="list">
+        <li><strong>It finds what&rsquo;s already there.</strong> Relay looks for the installed CLIs and their existing config folders, including side-by-side ones like <code>~/.claude-work</code>. Importing keeps each one where it is and doesn&rsquo;t change its sign-in.</li>
+        <li><strong>Add more accounts from the app.</strong> Under <strong>Add an account</strong>, create a new profile and sign in once: a terminal opens with that tool&rsquo;s own sign-in. Every account keeps its own folder, so switching never means logging out.</li>
+        <li><strong>Live usage is your call.</strong> With <strong>Check usage live</strong> on, Relay sends each account&rsquo;s own login token only to that provider&rsquo;s servers to read its limits. Turn it off in <strong>Settings</strong> to use local session logs only.</li>
+      </ul>
+      <ul class="logo-row tools-row" aria-label="Supported tools" data-reveal-stagger>
+        <li class="logo-chip"><img src="../assets/logos/claude.svg" alt="" width="20" height="20" loading="lazy" decoding="async">Claude Code</li>
+        <li class="logo-chip"><img src="../assets/logos/openai.svg" alt="" width="20" height="20" loading="lazy" decoding="async">Codex</li>
+        <li class="logo-chip"><img src="../assets/logos/gemini.svg" alt="" width="20" height="20" loading="lazy" decoding="async">Gemini CLI</li>
+        <li class="logo-chip"><img src="../assets/logos/copilot.svg" alt="" width="20" height="20" loading="lazy" decoding="async">Copilot CLI</li>
+      </ul>
+      <figure class="shot" data-reveal>
+        <div class="window">
+          <img src="../assets/screens/add-account-900.webp"
+               srcset="../assets/screens/add-account-900.webp 900w, ../assets/screens/add-account.webp 1600w"
+               sizes="(min-width: 1024px) 736px, calc(100vw - 32px)"
+               width="1600" height="1000" loading="lazy" decoding="async"
+               alt="Relay's Add an account dialog listing profiles found on this computer, such as Claude Code and Codex folders, with the ones not yet added ready to import.">
+        </div>
+        <figcaption>Add an account &gt; Find on this computer. Demo data.</figcaption>
+      </figure>
+    </section>
+
+    <section class="doc-sec" id="update" aria-labelledby="update-title">
+      <h2 id="update-title" data-reveal>Update and uninstall</h2>
+      <h3>Updating</h3>
+      <p>Relay doesn&rsquo;t update itself yet. When a new version comes out, download it from <a href="https://github.com/CristiMachine25/relay/releases/latest">Releases</a> and install it over the old one (on Linux, replace the AppImage). Your accounts, settings and history carry over. To hear about new versions, watch the repository&rsquo;s releases on GitHub.</p>
+      <p>Relay used to be called Agent Hub, so its data folders still use the internal id <code>dev.switchyard.app</code>. That&rsquo;s on purpose: it keeps upgrades seamless.</p>
+
+      <h3>Uninstalling</h3>
+      <p>Uninstall Relay the normal way for your system: <strong>Settings &gt; Apps</strong> on Windows, drag it from <strong>Applications</strong> to the Trash on macOS, or remove the package or AppImage on Linux. Your AI tools&rsquo; own folders, such as <code>~/.claude</code>, are left alone.</p>
+      <p>Relay&rsquo;s data folder stays behind unless you delete it, so a reinstall picks up where you left off. It holds your accounts list, settings and history, and by default a <code>profiles</code> folder with the account folders Relay created for you, including their sign-ins. Delete it only if you want a completely clean slate:</p>
+      <div class="table-wrap block">
+        <table class="paths">
+          <caption class="sr-only">Where Relay keeps its data</caption>
+          <thead>
+            <tr><th scope="col">System</th><th scope="col">Data folder</th></tr>
+          </thead>
+          <tbody>
+            <tr><th scope="row">Windows</th><td><code>%APPDATA%\<wbr>dev.switchyard.app</code></td></tr>
+            <tr><th scope="row">macOS</th><td><code>~/<wbr>Library/<wbr>Application Support/<wbr>dev.switchyard.app</code></td></tr>
+            <tr><th scope="row">Linux</th><td><code>~/<wbr>.local/<wbr>share/<wbr>dev.switchyard.app</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="doc-sec" id="source" aria-labelledby="source-title">
+      <h2 id="source-title" data-reveal>Build from source</h2>
+      <p>You&rsquo;ll need <strong>Node.js 22.12</strong> or newer, <strong>Rust</strong> (stable) and the <a href="https://v2.tauri.app/start/prerequisites/">Tauri prerequisites</a> for your system. Then, in a clone of the <a href="https://github.com/CristiMachine25/relay">repository</a>:</p>
+      <pre class="cmd block"><code><span class="p">$ </span>npm install
+<span class="p">$ </span>npm run app:dev     <span class="c"># run the desktop app with hot reload</span>
+<span class="p">$ </span>npm run app:build   <span class="c"># build installers into src-tauri/target/release/bundle</span></code></pre>
+      <p>Builds you make yourself are unsigned too, but they come from code you can read. More detail is in the <a href="https://github.com/CristiMachine25/relay#build-from-source">README</a>.</p>
+    </section>
+
+  </div>
+</div>
+
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <div class="foot-top">
+      <div class="foot-brand">
+        <a class="brand" href="../">
+          <img src="../assets/app-icon.png" alt="" width="28" height="28" loading="lazy" decoding="async">
+          <span>Relay</span>
+        </a>
+        <p>Free and open source. Made by one developer.</p>
+        <p class="foot-meta">v0.2.1 &middot; MIT License &middot; Windows,&nbsp;macOS,&nbsp;Linux</p>
+      </div>
+      <nav class="foot-col" aria-labelledby="foot-relay">
+        <h2 id="foot-relay">Relay</h2>
+        <ul>
+          <li><a href="../install/" aria-current="page">Install</a></li>
+          <li><a href="../early-software/">Early software</a></li>
+          <li><a href="https://github.com/CristiMachine25/relay/releases">Releases</a></li>
+        </ul>
+      </nav>
+      <nav class="foot-col" aria-labelledby="foot-project">
+        <h2 id="foot-project">Project</h2>
+        <ul>
+          <li><a href="https://github.com/CristiMachine25/relay">Source on GitHub</a></li>
+          <li><a href="https://github.com/CristiMachine25/relay/issues">Report a bug</a></li>
+          <li><a href="https://github.com/CristiMachine25/relay/blob/main/LICENSE">MIT License</a></li>
+        </ul>
+      </nav>
+    </div>
+    <p class="foot-legal">Relay is an independent project, not affiliated with or endorsed by Anthropic, OpenAI, Google or GitHub. Product names and logos belong to their owners and are shown only to say which tools Relay works with.</p>
+  </div>
+  <p class="foot-mark" aria-hidden="true">Relay</p>
+</footer>
+
+<script src="../assets/js/download.js"></script>
+<script src="../assets/js/motion.js" defer></script>
+</body>
+</html>
