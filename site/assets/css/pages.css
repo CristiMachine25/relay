@@ -1,0 +1,871 @@
+/* Relay site: long-form pages (Install, Early software, 404).
+   Loaded after base.css. Uses only its tokens; adds the page hero, the doc layout with a
+   sticky table of contents, and the blocks those pages share. */
+
+:root {
+  /* Long-form body text: a touch brighter than --muted for reading comfort (12:1 on ground). */
+  --read: #c6c8cf;
+  --measure: 46rem;
+}
+
+/* Current page in the mobile menu sheet */
+.nav-sheet a[aria-current="page"] {
+  color: var(--ink);
+}
+.nav-sheet a[aria-current="page"]::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* ---------- Page hero ---------- */
+.page-hero {
+  position: relative;
+  padding-block: clamp(64px, 10vw, 136px) clamp(48px, 7vw, 96px);
+  overflow: hidden;
+}
+/* Soft accent haze behind the headline (decorative) */
+.page-hero::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: -30%;
+  left: 50%;
+  width: min(1100px, 140vw);
+  aspect-ratio: 2 / 1;
+  transform: translateX(-50%);
+  background:
+    radial-gradient(40% 50% at 35% 50%, rgba(134, 160, 251, 0.12), transparent 70%),
+    radial-gradient(35% 45% at 70% 55%, rgba(94, 214, 162, 0.07), transparent 70%);
+  filter: blur(40px);
+  pointer-events: none;
+}
+.page-hero .section-head {
+  margin-bottom: 0;
+  max-width: 860px;
+}
+.page-hero h1 {
+  font-size: clamp(2.75rem, 1.6rem + 4.6vw, 5.5rem);
+}
+.page-hero [data-download] {
+  margin-top: 12px;
+}
+.meta-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.meta-line li {
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font: 500 0.75rem/1.4 var(--mono);
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* ---------- Doc layout: sticky table of contents + reading column ---------- */
+.doc {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  padding-bottom: var(--section);
+}
+.doc-body {
+  min-width: 0;
+  max-width: var(--measure);
+  overflow-wrap: break-word;
+}
+@media (min-width: 1024px) {
+  .doc {
+    grid-template-columns: 200px minmax(0, 1fr);
+    gap: clamp(48px, 6vw, 96px);
+    align-items: start;
+  }
+}
+
+/* Table of contents. Desktop: sticky column. Mobile: a sticky horizontal scroller under the nav. */
+.toc-title {
+  margin-bottom: 14px;
+}
+.toc ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: toc;
+}
+.toc a {
+  display: block;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.9375rem;
+  line-height: 1.35;
+}
+.toc a:hover {
+  color: var(--ink);
+}
+@media (min-width: 1024px) {
+  .toc {
+    position: sticky;
+    top: calc(var(--nav-h) + 40px);
+    padding-top: 6px;
+  }
+  .toc ol {
+    border-left: 1px solid var(--line);
+  }
+  .toc li {
+    counter-increment: toc;
+  }
+  .toc a {
+    position: relative;
+    display: flex;
+    gap: 10px;
+    margin-left: -1px;
+    padding: 7px 0 7px 16px;
+    border-left: 1px solid transparent;
+    transition: color 160ms ease, border-color 160ms ease;
+  }
+  .toc a::before {
+    content: counter(toc, decimal-leading-zero);
+    font: 400 0.75rem/1.75 var(--mono);
+    color: var(--faint);
+  }
+  .toc a:hover {
+    border-left-color: var(--ink);
+  }
+}
+@media (max-width: 1023px) {
+  .toc {
+    position: sticky;
+    top: var(--nav-h);
+    z-index: 10;
+    margin-inline: calc(-1 * var(--gutter));
+    margin-bottom: 8px;
+    background: rgba(5, 5, 6, 0.86);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    border-block: 1px solid var(--line);
+  }
+  .toc-title {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .toc ol {
+    display: flex;
+    gap: 6px;
+    padding: 10px var(--gutter);
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--gutter), #000 calc(100% - 40px), transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 var(--gutter), #000 calc(100% - 40px), transparent);
+  }
+  .toc ol::-webkit-scrollbar {
+    display: none;
+  }
+  .toc li {
+    flex: none;
+  }
+  .toc li:last-child {
+    padding-right: 32px;
+  }
+  .toc a {
+    padding: 7px 14px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-size: 0.875rem;
+    white-space: nowrap;
+  }
+  .toc a:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+}
+
+/* ---------- Doc sections ---------- */
+.doc-sec {
+  padding-top: clamp(48px, 5.5vw, 80px);
+  scroll-margin-top: calc(var(--nav-h) + 8px);
+}
+@media (max-width: 1023px) {
+  .doc-sec {
+    /* leave room for the sticky TOC bar under the nav */
+    scroll-margin-top: calc(var(--nav-h) + 56px);
+  }
+}
+.doc-sec:first-child {
+  padding-top: clamp(24px, 3vw, 40px);
+}
+.doc-sec + .doc-sec {
+  margin-top: clamp(40px, 5vw, 72px);
+  border-top: 1px solid var(--line);
+}
+.doc-sec > .eyebrow {
+  margin-bottom: 18px;
+}
+.doc-sec h2 {
+  font-size: clamp(2rem, 1.5rem + 1.9vw, 3rem);
+  line-height: 1.08;
+  margin-bottom: 20px;
+}
+.doc-sec h3 {
+  font-size: clamp(1.375rem, 1.2rem + 0.6vw, 1.625rem);
+  margin: 48px 0 14px;
+}
+.doc-sec h3:first-child {
+  margin-top: 0;
+}
+.doc-body p,
+.doc-body li {
+  color: var(--read);
+}
+.doc-body p + p,
+.doc-body p + ul,
+.doc-body ul + p,
+.doc-body p + .cmd,
+.doc-body .cmd + p {
+  margin-top: 1em;
+}
+.doc-body .lede {
+  color: var(--muted);
+  font-size: clamp(1.0625rem, 1rem + 0.3vw, 1.25rem);
+}
+.doc-body strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+.doc-body a:not(.btn):not(.link-arrow) {
+  color: var(--ink);
+  text-decoration-color: rgba(255, 255, 255, 0.3);
+}
+.doc-body a:not(.btn):not(.link-arrow):hover {
+  text-decoration-color: currentColor;
+}
+.doc-body code {
+  font-size: 0.84em;
+  overflow-wrap: anywhere;
+}
+/* Plain bullet list with a small dash marker */
+.list {
+  margin: 1em 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+.list > li {
+  position: relative;
+  padding-left: 24px;
+}
+.list > li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 0.78em;
+  width: 10px;
+  height: 1px;
+  background: var(--faint);
+}
+.doc-body > .doc-sec > * + .grid,
+.doc-body .block {
+  margin-top: 28px;
+}
+.doc-body figure.window,
+.doc-body .shot {
+  margin-top: 36px;
+}
+.doc-body .shot figcaption {
+  text-align: left;
+}
+
+/* ---------- Callout ---------- */
+.callout {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 16px;
+  margin-top: 28px;
+  padding: 20px 22px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01));
+}
+.callout::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 22px;
+  right: 22px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(134, 160, 251, 0.7), rgba(94, 214, 162, 0.6), transparent);
+}
+.callout-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+}
+.callout-icon svg {
+  width: 16px;
+  height: 16px;
+}
+.callout p {
+  color: var(--read);
+}
+.callout p:first-child {
+  margin-top: 5px;
+}
+.callout strong {
+  color: var(--ink);
+}
+
+/* ---------- Command block ---------- */
+.cmd {
+  position: relative;
+  margin: 16px 0 0;
+  padding: 14px 18px;
+  border-radius: var(--r-sm);
+  background: #08090b;
+  border: 1px solid var(--line-strong);
+  font-size: 0.875rem;
+  line-height: 1.7;
+  color: var(--ink);
+  overflow-x: auto;
+}
+.cmd code {
+  font-size: inherit;
+  white-space: pre;
+}
+.cmd .c {
+  color: var(--faint);
+}
+.cmd .p {
+  color: var(--faint);
+  user-select: none;
+}
+
+/* ---------- OS cards (Install: pick your file) ---------- */
+.os-cards {
+  display: grid;
+  gap: 14px;
+  margin-top: 32px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 196px), 1fr));
+}
+.os-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 22px 22px 20px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0) 55%), var(--panel);
+  transition: border-color 200ms ease;
+}
+.os-card:hover {
+  border-color: var(--line-strong);
+}
+.os-card header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+.doc-sec .os-card h3 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+.os-tag {
+  font: 500 0.6875rem/1 var(--mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.files {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+}
+.files dt code {
+  display: inline-block;
+  font-size: 0.78rem;
+  color: var(--ink);
+  overflow-wrap: normal;
+}
+.files dd {
+  margin: 6px 0 0;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+.doc-body .os-hint {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--faint);
+}
+.os-hint strong {
+  font-weight: 500;
+  color: var(--muted);
+}
+.os-card .link-arrow {
+  margin-top: auto;
+  font-size: 0.875rem;
+}
+
+/* ---------- Flow: three steps joined by a hairline (Install: how a release is built) ---------- */
+.flow {
+  position: relative;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 28px 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: none;
+}
+.flow > li {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  padding: 18px 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--panel);
+}
+/* connector arrow between cards */
+.flow > li + li::before {
+  content: "";
+  position: absolute;
+  top: 28px;
+  left: -13px;
+  width: 13px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(134, 160, 251, 0.8), rgba(94, 214, 162, 0.8));
+}
+.flow-k {
+  font: 500 0.6875rem/1 var(--mono);
+  letter-spacing: 0.1em;
+  color: var(--faint);
+}
+.flow strong {
+  margin-top: 6px;
+  font: 500 1.125rem/1.25 var(--serif);
+  color: var(--ink);
+}
+.doc-body .flow span:not(.flow-k) {
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+@media (max-width: 599px) {
+  .flow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .flow > li + li::before {
+    top: -13px;
+    left: 28px;
+    width: 1px;
+    height: 13px;
+    background: linear-gradient(180deg, rgba(134, 160, 251, 0.8), rgba(94, 214, 162, 0.8));
+  }
+}
+
+/* ---------- Numbered steps ---------- */
+.steps {
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+  display: grid;
+  gap: 4px;
+}
+.steps > li {
+  position: relative;
+  counter-increment: step;
+  padding: 4px 0 18px 48px;
+}
+.steps > li::before {
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  background: var(--panel);
+  font: 500 0.8125rem/1 var(--mono);
+  color: var(--ink);
+}
+/* hairline joining the numbers */
+.steps > li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 15px;
+  top: 34px;
+  bottom: 2px;
+  width: 1px;
+  background: var(--line);
+}
+.steps .cmd {
+  margin-top: 12px;
+}
+
+/* ---------- Illustrative dialog mock-ups (generic, clearly labelled, not screenshots) ---------- */
+.mock-fig {
+  margin-top: 20px;
+}
+.mock-fig + p {
+  margin-top: 32px;
+}
+.mock {
+  max-width: 440px;
+  padding: 22px 24px;
+  border-radius: var(--r-md);
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  background:
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.012) 0 8px, transparent 8px 16px),
+    var(--panel);
+  font-family: var(--sans);
+  user-select: none;
+}
+.doc-body .mock p,
+.doc-body .mock dd {
+  color: var(--muted);
+}
+.mock-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+.doc-body .mock .mock-title {
+  color: var(--ink);
+}
+.mock-text {
+  margin-top: 8px;
+  font-size: 0.875rem;
+}
+.mock-rows {
+  display: grid;
+  gap: 2px;
+  margin: 14px 0 0;
+  font-size: 0.8125rem;
+}
+.mock-rows div {
+  display: flex;
+  gap: 8px;
+}
+.mock-rows dt {
+  min-width: 72px;
+  color: var(--faint);
+}
+.mock-rows dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.mock-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+.mock-btn {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 6px;
+  border: 1px solid var(--line-strong);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.mock-btn.is-target {
+  color: var(--ink);
+  border-color: transparent;
+  box-shadow:
+    0 0 0 1px rgba(134, 160, 251, 0.9),
+    0 0 0 5px rgba(134, 160, 251, 0.18);
+}
+.mock-crumb {
+  font-size: 1.0625rem;
+  font-weight: 600;
+}
+.doc-body .mock .mock-crumb {
+  color: var(--ink);
+}
+.mock-group {
+  margin-top: 16px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.doc-body .mock .mock-group {
+  color: var(--faint);
+}
+.mock-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  margin-top: 8px;
+  padding: 12px 14px;
+  border-radius: var(--r-sm);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line);
+}
+.mock-row .mock-text {
+  margin: 0;
+}
+.mock-fig figcaption {
+  margin-top: 12px;
+  text-align: left;
+  font-size: 0.8125rem;
+}
+.mock-fig figcaption strong {
+  font-weight: 500;
+  color: var(--muted);
+}
+
+/* Logo chips inside a doc section */
+.tools-row {
+  margin-top: 28px;
+}
+
+/* ---------- Path table ---------- */
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--panel);
+}
+.paths {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+.paths th,
+.paths td {
+  padding: 12px 16px;
+  text-align: left;
+  vertical-align: top;
+  border-top: 1px solid var(--line);
+}
+.paths thead th {
+  border-top: 0;
+  font: 500 var(--fs-eyebrow) / 1.4 var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.paths tbody th {
+  width: 7.5rem;
+  font-weight: 500;
+  color: var(--ink);
+}
+.paths td code {
+  font-size: 0.8125rem;
+}
+
+/* ---------- Compare: solid today vs rough edges (Early software) ---------- */
+.compare {
+  display: grid;
+  gap: 14px;
+  margin-top: 28px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+}
+.compare-col {
+  padding: 24px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0) 55%), var(--panel);
+}
+.doc-sec .compare-col h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+  font-size: 1.375rem;
+}
+.compare-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+.is-solid .compare-dot {
+  background: var(--full);
+  box-shadow: 0 0 12px rgba(94, 214, 162, 0.55);
+}
+.is-rough .compare-dot {
+  background: var(--half);
+  box-shadow: 0 0 12px rgba(230, 194, 95, 0.45);
+}
+.compare-col ul {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.doc-body .compare-col li {
+  position: relative;
+  padding-left: 26px;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+.compare-col li::before {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font: 500 0.875rem/1.6 var(--mono);
+  color: var(--faint);
+}
+.is-solid li::before {
+  content: "\2713";
+  color: var(--full);
+}
+.is-rough li::before {
+  content: "~";
+  color: var(--half);
+}
+
+/* ---------- Planned tools (text only: no logos until they're supported) ---------- */
+.planned {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0 20px;
+  padding: 0;
+  list-style: none;
+}
+.doc-body .planned li {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 40px;
+  padding: 0 16px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 999px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--ink);
+}
+.planned li::after {
+  content: "planned";
+  font: 500 0.625rem/1 var(--mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+/* ---------- 404 ---------- */
+.nf {
+  position: relative;
+  display: grid;
+  align-items: center;
+  min-height: calc(100vh - var(--nav-h));
+  min-height: calc(100svh - var(--nav-h));
+  padding-block: clamp(64px, 10vw, 120px);
+  overflow: hidden;
+}
+.nf::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: 10%;
+  left: 50%;
+  width: min(900px, 140vw);
+  aspect-ratio: 2 / 1;
+  transform: translateX(-50%);
+  background:
+    radial-gradient(40% 50% at 40% 50%, rgba(243, 109, 109, 0.08), transparent 70%),
+    radial-gradient(35% 45% at 65% 55%, rgba(134, 160, 251, 0.1), transparent 70%);
+  filter: blur(40px);
+  pointer-events: none;
+}
+.nf-in {
+  display: grid;
+  justify-items: center;
+  gap: 22px;
+  max-width: 780px;
+  margin-inline: auto;
+  text-align: center;
+}
+.nf h1 {
+  font-size: clamp(2.75rem, 1.4rem + 5.4vw, 6rem);
+}
+.nf .lede {
+  max-width: 32em;
+}
+.nf .btn-row {
+  justify-content: center;
+  margin-top: 8px;
+}
+.nf-more {
+  font-size: var(--fs-small);
+  color: var(--faint);
+}
+.nf-more a {
+  color: var(--muted);
+}
+/* A tiny usage meter, like the app's, run all the way down (decorative) */
+.nf-meter {
+  width: min(320px, 100%);
+  margin-block: 6px 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--panel);
+  text-align: left;
+  font: 500 0.75rem/1.4 var(--mono);
+  color: var(--faint);
+}
+.nf-meter-top,
+.nf-meter-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.nf-meter-top {
+  color: var(--muted);
+}
+.nf-left {
+  color: var(--empty);
+}
+.nf-bar {
+  display: flex;
+  gap: 3px;
+  height: 6px;
+  margin: 10px 0;
+}
+.nf-bar::before {
+  content: "";
+  flex: 1;
+  border-radius: 3px;
+  background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.08) 0 calc(10% - 3px), transparent calc(10% - 3px) 10%);
+}
+.nf-bar span {
+  width: 3px;
+  border-radius: 3px;
+  background: var(--empty);
+  box-shadow: 0 0 10px rgba(243, 109, 109, 0.7);
+}
