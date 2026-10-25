@@ -5,15 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Relay: your work, handed to the account that still has quota</title>
 <meta name="description" content="A free, open-source desktop app for Windows, macOS and Linux. Keep all your Claude, ChatGPT, Gemini and Copilot accounts signed in side by side, see how much of every limit is left, and launch your CLI with the right account in one click.">
-<meta name="color-scheme" content="dark light">
-<meta name="theme-color" content="#0E0F12" media="(prefers-color-scheme: dark)">
-<meta name="theme-color" content="#F5F3EE" media="(prefers-color-scheme: light)">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#050506">
 <link rel="canonical" href="https://cristimachine25.github.io/relay/">
 <link rel="icon" href="favicon.png" type="image/png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="preload" href="assets/fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="assets/fonts/hanken-grotesk-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="assets/site.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/home.css">
 
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Relay">
@@ -23,426 +23,619 @@
 <meta property="og:image" content="https://cristimachine25.github.io/relay/assets/og.png">
 <meta property="og:image:width" content="1280">
 <meta property="og:image:height" content="640">
-<meta property="og:image:alt" content="Relay showing several AI accounts with segmented meters of how much quota each has left.">
+<meta property="og:image:alt" content="Relay showing several AI accounts with meters of how much of each limit is left.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Relay: your work, handed to the account that still has quota.">
 <meta name="twitter:description" content="Every AI account signed in side by side, every limit in view, one-click launch. Free, open source, local-only.">
-<meta name="twitter:image" content="https://cristimachine25.github.io/relay/assets/og.png">
 
-<script>
-  /* Picks the download label for this visitor's OS. Runs inline so the button never changes after paint. */
-  function relayDownload(root) {
-    var ua = navigator.userAgent || "";
-    var p = ((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "").toLowerCase();
-    var os = null;
-    if (/android|iphone|ipad|ipod/i.test(ua)) os = "mobile";
-    else if (p.indexOf("win") === 0 || /windows/i.test(ua)) os = "windows";
-    else if (p.indexOf("mac") === 0 || /mac os x/i.test(ua)) os = "macos";
-    else if (p.indexOf("linux") > -1 || /linux|x11|cros/i.test(ua)) os = "linux";
-    if (!os) return;
-    var names = { windows: "Windows", macos: "macOS", linux: "Linux" };
-    var files = { windows: ".exe or .msi", macos: ".dmg for Apple Silicon and Intel", linux: ".AppImage or .deb" };
-    var label = root.querySelector("[data-dl-label]");
-    var note = root.querySelector("[data-dl-note]");
-    var others = root.querySelector("[data-dl-others]");
-    if (os === "mobile") {
-      note.textContent = "Relay is a desktop app for Windows, macOS and Linux. Open this page on your computer to install it.";
-      return;
-    }
-    label.textContent = "Download for " + names[os];
-    note.textContent = "v0.2.1, " + files[os] + ".";
-    var rest = Object.keys(names).filter(function (k) { return k !== os; });
-    others.innerHTML = 'Also for <a href="https://github.com/CristiMachine25/relay/releases/latest">' + names[rest[0]] +
-      '</a> and <a href="https://github.com/CristiMachine25/relay/releases/latest">' + names[rest[1]] + "</a>.";
-  }
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Relay",
+  "description": "A free, open-source desktop app that keeps your Claude, ChatGPT, Gemini and Copilot accounts signed in side by side, shows how much of every limit is left, and launches each CLI with the account you pick.",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "Windows, macOS, Linux",
+  "softwareVersion": "0.2.1",
+  "license": "https://opensource.org/licenses/MIT",
+  "isAccessibleForFree": true,
+  "downloadUrl": "https://github.com/CristiMachine25/relay/releases/latest",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
 </script>
+
+<!-- Hide-for-reveal states only apply with JS. If motion.js never loads, show everything again. -->
+<script>(function(d){d.classList.add("js");setTimeout(function(){window.relayMotion||d.classList.remove("js")},4000)})(document.documentElement)</script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
 
-<header class="top">
-  <div class="wrap top-in">
-    <a class="brand" href="./" aria-label="Relay home">
+<header class="site-nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="./">
       <img src="assets/app-icon.png" alt="" width="28" height="28">
       <span>Relay</span>
     </a>
-    <nav aria-label="Main">
+    <nav class="nav-links" aria-label="Main">
       <ul>
-        <li class="nav-opt"><a href="#features">Features</a></li>
-        <li class="nav-opt"><a href="#tools">Tools</a></li>
-        <li class="nav-opt"><a href="#privacy">Privacy</a></li>
-        <li class="nav-opt"><a href="#faq">FAQ</a></li>
+        <li><a href="./#features">Features</a></li>
+        <li><a href="./#tools">Tools</a></li>
+        <li><a href="./#faq">FAQ</a></li>
+        <li><a href="install/">Install</a></li>
+        <li><a href="early-software/">Early software</a></li>
         <li><a href="https://github.com/CristiMachine25/relay">GitHub</a></li>
       </ul>
     </nav>
+    <div class="nav-actions">
+      <a class="btn btn-primary btn-sm" href="https://github.com/CristiMachine25/relay/releases/latest">Download</a>
+      <details class="nav-menu">
+        <summary><span class="nav-burger" aria-hidden="true"></span><span class="nav-menu-text">Menu</span></summary>
+        <nav class="nav-sheet" aria-label="Menu">
+          <ul>
+            <li><a href="./#features">Features</a></li>
+            <li><a href="./#tools">Tools</a></li>
+            <li><a href="./#faq">FAQ</a></li>
+            <li><a href="install/">Install</a></li>
+            <li><a href="early-software/">Early software</a></li>
+            <li><a href="https://github.com/CristiMachine25/relay">GitHub</a></li>
+          </ul>
+        </nav>
+      </details>
+    </div>
   </div>
 </header>
 
 <main id="main">
 
-<!-- Hero -->
-<section class="hero" aria-labelledby="hero-title">
-  <div class="wrap hero-in">
+<!-- ===== Hero ===== -->
+<section class="hero" aria-labelledby="hero-title" data-scroll>
+  <div class="hero-glow" aria-hidden="true"><span></span><span></span></div>
+  <div class="wrap">
     <div class="hero-copy">
-      <h1 id="hero-title">Your work, handed to the account that still has quota.</h1>
-      <p class="lede">Relay keeps every Claude, ChatGPT, Gemini and Copilot account you pay for signed in side by side, shows how much of each limit is left, and opens Claude Code, Codex, Gemini CLI or Copilot CLI with the one you pick.</p>
-
-      <div class="dl" id="download">
-        <a class="btn btn-primary" href="https://github.com/CristiMachine25/relay/releases/latest">
-          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>
-          <span data-dl-label>Download Relay</span>
-        </a>
-        <a class="btn btn-quiet" href="https://github.com/CristiMachine25/relay">Source on GitHub</a>
+      <div class="hero-icon hero-in" style="--i:0">
+        <img src="assets/app-icon.png" alt="" width="128" height="128">
+      </div>
+      <h1 id="hero-title" class="hero-title"><span class="w" style="--i:0">Your</span> <span class="w" style="--i:1">work,</span> <span class="w" style="--i:2">handed</span> <span class="w" style="--i:3">to</span> <span class="w" style="--i:4">the</span> <span class="w" style="--i:5">account</span> <span class="w g" style="--i:6;--gx:0%">that</span> <span class="w g" style="--i:7;--gx:33%">still</span> <span class="w g" style="--i:8;--gx:66%">has</span> <span class="w g" style="--i:9;--gx:100%">quota.</span></h1>
+      <p class="lede hero-in" style="--i:6">Relay keeps every Claude, ChatGPT, Gemini and Copilot account you pay for signed in side by side, shows what is left of every limit, and opens the right CLI with the account you pick.</p>
+      <div class="hero-in" style="--i:7" data-download>
+        <div class="btn-row">
+          <a class="btn btn-primary btn-lg" href="https://github.com/CristiMachine25/relay/releases/latest">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>
+            <span data-dl-label>Download Relay</span>
+          </a>
+          <a class="btn btn-secondary btn-lg" href="https://github.com/CristiMachine25/relay">Source on GitHub</a>
+        </div>
         <p class="dl-note"><span data-dl-note>v0.2.1 for Windows, macOS and Linux.</span> <span data-dl-others></span></p>
       </div>
-      <script>relayDownload(document.getElementById("download"));</script>
-
-      <p class="hero-foot">Free and open source under the MIT license. No account, no server, no telemetry.</p>
+      <p class="hero-facts hero-in" style="--i:8"><span>Free</span> <span>Open source</span> <span>Windows, macOS, Linux</span> <span><a href="early-software/">Early software</a></span></p>
     </div>
 
-    <figure class="board-fig">
-      <div class="board" id="board" aria-hidden="true">
-        <div class="board-head">
-          <span class="board-title">Best account right now</span>
-          <span class="board-clock" data-clock>Tue 14:20</span>
-        </div>
-
-        <div class="best" data-best>
-          <div class="best-name">
-            <span class="dot" data-best-dot></span>
-            <strong data-best-name>H2 Max</strong>
-            <span class="best-tool" data-best-tool>Claude Code, Max 5x</span>
-          </div>
-          <div class="best-figure">
-            <span class="big" data-best-pct>64%</span>
-            <span class="big-cap">left of the<br>5-hour session</span>
-          </div>
-          <div class="meter meter-big" data-best-meter></div>
-          <div class="best-sub">
-            <span data-best-reset>Resets in 2h 10m</span>
-            <span class="fake-btn" data-best-btn>Launch Claude</span>
-          </div>
-        </div>
-
-        <ul class="rows" data-rows></ul>
-
-        <div class="toast" data-toast>
-          <span class="toast-msg" data-toast-msg>Launched Claude as H2 Max</span>
-          <code class="toast-cmd" data-toast-cmd>CLAUDE_CONFIG_DIR=~/.claude-h2 claude</code>
-        </div>
-      </div>
-      <figcaption>
-        <span class="sr-only">Demo of the Relay board with five accounts. Each meter has 20 segments showing how much of a limit is left, colored from green for plenty to red for empty. When the account in use reaches its limit, Relay hands the work to the next best account and launches it. Simulated time, made-up accounts.</span>
-        <span aria-hidden="true">Simulated time, made-up accounts.</span>
-        <button class="pause" type="button" data-pause aria-pressed="false">Pause demo</button>
-      </figcaption>
-    </figure>
-  </div>
-</section>
-
-<!-- Problem -->
-<section class="problem" aria-labelledby="problem-title">
-  <div class="wrap">
-    <h2 id="problem-title" class="sr-only">The problem</h2>
-    <p class="problem-text">
-      Two Claude Max plans, ChatGPT Pro, a Copilot seat. One hits its 5-hour limit in the middle of a task, so you log out, log in to another, guess which one still has quota, and on Sunday a weekly limit resets with
-      <span class="inline-meter" role="img" aria-label="60 percent">
-        <span class="meter meter-inline" data-static="60"></span>
-      </span>
-      of it never used.
-    </p>
-  </div>
-</section>
-
-<!-- What you see -->
-<section class="sec" id="features" aria-labelledby="features-title">
-  <div class="wrap">
-    <div class="sec-head">
-      <h2 id="features-title">One board for every limit you have</h2>
-      <p>Meters show what is left, not what is used, because that is the number you act on. Green means plenty, red means you are about to stop.</p>
+    <div class="hero-stage hero-in" style="--i:9">
+      <figure class="window window-lg hero-shot" data-scroll="enter">
+        <img src="assets/screens/overview.webp"
+             srcset="assets/screens/overview-900.webp 900w, assets/screens/overview.webp 1600w"
+             sizes="(min-width: 1280px) 1200px, calc(100vw - 32px)"
+             width="1600" height="1000" fetchpriority="high"
+             alt="Relay's Overview screen: the best account to use right now (H2 Max, 70% of its weekly limit left), two alternatives, alerts, and every account's limits.">
+      </figure>
     </div>
 
-    <div class="tour">
-      <div class="tour-list" role="tablist" aria-label="Screens" aria-orientation="vertical">
-        <button role="tab" id="tab-limits" aria-controls="panel-limits" aria-selected="true">
-          <strong>Live limits</strong>
-          <span>5-hour session, weekly, weekly Opus, Codex windows, Gemini model quotas and Copilot premium requests, each with a reset countdown and history.</span>
-        </button>
-        <button role="tab" id="tab-alerts" aria-controls="panel-alerts" aria-selected="false" tabindex="-1">
-          <strong>Warnings before the wall</strong>
-          <span>A notification when an account is nearly out, when it hits a limit, when it comes back, and when lots of quota is about to reset unused.</span>
-        </button>
-        <button role="tab" id="tab-accounts" aria-controls="panel-accounts" aria-selected="false" tabindex="-1">
-          <strong>Each account on its own</strong>
-          <span>Limits over time, local session activity, and the profile folder that keeps the account signed in.</span>
-        </button>
-      </div>
-
-      <div class="tour-panels">
-        <div class="shot" role="tabpanel" id="panel-limits" aria-labelledby="tab-limits">
-          <picture>
-            <source srcset="assets/shots/overview-light.webp" media="(prefers-color-scheme: light)">
-            <img src="assets/shots/overview-dark.webp" width="1240" height="820" alt="The Overview screen: H2 Max is the best account right now with 70% of its weekly limit left, three other accounts are suggested beside it, a use-it-or-lose-it alert, and every account listed with its segmented meters." loading="lazy" decoding="async">
-          </picture>
-        </div>
-        <div class="shot" role="tabpanel" id="panel-alerts" aria-labelledby="tab-alerts" hidden>
-          <picture>
-            <source srcset="assets/shots/notifications-light.webp" media="(prefers-color-scheme: light)">
-            <img src="assets/shots/notifications-dark.webp" width="1240" height="820" alt="The Notifications screen: H2 Max has 70% of its weekly limit resetting unused in 9 hours, Personal Plus hit its 5-hour limit, and Personal Pro has 4% of its weekly limit left." loading="lazy" decoding="async">
-          </picture>
-        </div>
-        <div class="shot" role="tabpanel" id="panel-accounts" aria-labelledby="tab-accounts" hidden>
-          <picture>
-            <source srcset="assets/shots/accounts-light.webp" media="(prefers-color-scheme: light)">
-            <img src="assets/shots/accounts-dark.webp" width="1240" height="820" alt="The Accounts screen: accounts grouped by tool on the left; on the right, Work Max 20x with launch buttons, its three limits and a usage chart." loading="lazy" decoding="async">
-          </picture>
-        </div>
-      </div>
-    </div>
-
-    <div class="recommend">
-      <div class="recommend-copy">
-        <h3>A pick for the task in front of you</h3>
-        <p>Choose coding, a long refactor, a quick question, research or review. Relay weighs every account's session and weekly limits and tells you which one to use, with two fallbacks in case you disagree.</p>
-      </div>
-      <ol class="picks" aria-label="Example recommendation for a long refactor">
-        <li><span class="dot" style="--c:#199E70"></span><span class="pick-name">H2 Max</span><span class="pick-why">70% of weekly left, resets in 9h. Use it before it's gone.</span></li>
-        <li><span class="dot" style="--c:#3987E5"></span><span class="pick-name">Work Max 20x</span><span class="pick-why">59% of weekly left, 36% of the 5-hour session.</span></li>
-        <li><span class="dot" style="--c:#C98500"></span><span class="pick-name">ChatGPT Pro</span><span class="pick-why">42% of weekly left.</span></li>
-      </ol>
-    </div>
-  </div>
-</section>
-
-<!-- Launch -->
-<section class="sec sec-alt" id="launch" aria-labelledby="launch-title">
-  <div class="wrap">
-    <div class="sec-head">
-      <h2 id="launch-title">Launch with the right account in one click</h2>
-      <p>Each account lives in its own config folder, so switching never means logging out. Launch from the window, from the tray menu, or press <kbd>Ctrl</kbd> <kbd>K</kbd> (<kbd>Cmd</kbd> <kbd>K</kbd> on a Mac), type a name and press Enter. Your terminal opens with that account, or picks up your last session.</p>
-    </div>
-
-    <div class="launch-grid">
-      <div class="shot">
-        <picture>
-          <source srcset="assets/shots/palette-light.webp" media="(prefers-color-scheme: light)">
-          <img src="assets/shots/palette-dark.webp" width="1240" height="820" alt="The launcher, opened with Cmd or Ctrl+K over the Accounts screen: a list of launch actions such as Launch Claude as H2 Max, each with a small meter of what is left." loading="lazy" decoding="async">
-        </picture>
-      </div>
-      <div class="ran">
-        <p class="ran-title">Every launch shows exactly what ran</p>
-        <pre class="term"><code><span class="prompt">$</span> CLAUDE_CONFIG_DIR=~/.claude-h2 claude
-<span class="prompt">$</span> CODEX_HOME=~/.codex-pro codex
-<span class="prompt">$</span> GEMINI_CLI_HOME=~/.gemini-ai-pro gemini</code></pre>
-        <p class="ran-note">Claude Desktop opens with the chosen account too. Nothing is copied between accounts unless you ask for it.</p>
-      </div>
-    </div>
-
-    <div class="grid-preview">
-      <div class="grid-copy">
-        <h3>Several accounts side by side, in one window</h3>
-        <p>The terminal grid runs up to nine AI CLIs at once, each pane on a different account with its own meter. When one hits its limit, the pane offers the next account with quota and resumes the same chat there.</p>
-      </div>
-      <div class="tgrid" role="img" aria-label="Preview of the terminal grid: four panes, each running an AI CLI on a different account. One pane has reached its 5-hour limit and offers to continue on another account.">
-        <div class="pane">
-          <div class="pane-head"><span class="dot" style="--c:#3987E5"></span>Work Max 20x<span class="pane-pct q-half">36% left</span></div>
-          <pre><span class="p">&gt;</span> move billing to the new client
-  Reading src/billing/client.ts
-  Editing src/billing/invoice.ts
-  <span class="ok">3 files changed</span></pre>
-        </div>
-        <div class="pane pane-limit">
-          <div class="pane-head"><span class="dot" style="--c:#199E70"></span>H2 Max<span class="pane-pct q-empty">Limit reached</span></div>
-          <pre><span class="p">&gt;</span> write the migration for orders
-  Running tests (12 of 40)</pre>
-          <div class="pane-stop">
-            <span>5-hour limit reached. Back in 1h 19m.</span>
-            <span class="fake-btn">Continue on Personal Pro</span>
-          </div>
-        </div>
-        <div class="pane">
-          <div class="pane-head"><span class="dot" style="--c:#C98500"></span>ChatGPT Pro<span class="pane-pct q-full">78% left</span></div>
-          <pre><span class="p">›</span> add tests for parseInvoice
-  Wrote tests/parse_invoice.test.ts
-  <span class="ok">9 passed</span></pre>
-        </div>
-        <div class="pane">
-          <div class="pane-head"><span class="dot" style="--c:#9085E9"></span>Gemini AI Pro<span class="pane-pct q-full">65% left</span></div>
-          <pre><span class="p">&gt;</span> summarize open issues labeled bug
-  Found 14 issues in 3 areas
-  <span class="cursor"></span></pre>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- Tools -->
-<section class="sec" id="tools" aria-labelledby="tools-title">
-  <div class="wrap">
-    <div class="sec-head">
-      <h2 id="tools-title">Works with the tools you already use</h2>
-      <p>Relay uses each tool's own sign-in and its official CLI. It does not proxy your prompts or replace any app.</p>
-    </div>
-    <div class="table-scroll">
-      <table class="tools">
-        <thead>
-          <tr><th scope="col">Tool</th><th scope="col">Plans</th><th scope="col">Limits it tracks</th><th scope="col">Launches</th></tr>
-        </thead>
-        <tbody>
-          <tr>
-            <th scope="row"><span class="mono-mark" aria-hidden="true">C</span>Claude Code</th>
-            <td>Pro, Max 5x, Max 20x, Team</td>
-            <td>5-hour session, weekly, weekly Opus</td>
-            <td>CLI and Claude Desktop</td>
-          </tr>
-          <tr>
-            <th scope="row"><span class="mono-mark" aria-hidden="true">X</span>Codex CLI</th>
-            <td>ChatGPT Plus, Pro, Team</td>
-            <td>5-hour and weekly windows</td>
-            <td>CLI</td>
-          </tr>
-          <tr>
-            <th scope="row"><span class="mono-mark" aria-hidden="true">G</span>Gemini CLI</th>
-            <td>Google AI Pro, Ultra, free tier</td>
-            <td>Daily quota per model</td>
-            <td>CLI</td>
-          </tr>
-          <tr>
-            <th scope="row"><span class="mono-mark" aria-hidden="true">P</span>GitHub Copilot CLI</th>
-            <td>Copilot Pro, Pro+, Business</td>
-            <td>Monthly premium requests</td>
-            <td>CLI</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <p class="tools-next">Planned next: Cursor, Antigravity, Kiro, Amp and OpenRouter. Adding a provider means implementing one Rust trait, so <a href="https://github.com/CristiMachine25/relay">pull requests are welcome</a>.</p>
-  </div>
-</section>
-
-<!-- Privacy -->
-<section class="sec sec-alt" id="privacy" aria-labelledby="privacy-title">
-  <div class="wrap privacy">
-    <div class="privacy-copy">
-      <h2 id="privacy-title">Everything stays on your computer</h2>
-      <ul class="facts">
-        <li><strong>No Relay server.</strong> No account with us, no telemetry, no analytics. Your data lives in the app's folder on your disk.</li>
-        <li><strong>Tokens go only where they came from.</strong> To read live limits, Relay sends each account's own saved sign-in to that provider's own servers (its usage, profile and sign-in renewal endpoints), and nowhere else.</li>
-        <li><strong>Live usage is optional.</strong> Turn it off in Settings and Relay works from local session logs only.</li>
-        <li><strong>Uninstall leaves your setup alone.</strong> Every CLI folder stays exactly as it was.</li>
-      </ul>
-    </div>
-    <div class="share" aria-labelledby="share-title">
-      <h3 id="share-title">Sharing you control</h3>
-      <p>Per account, choose what it shares with your main setup.</p>
-      <ul class="toggles">
-        <li><span>Skills</span><span class="sw on" role="img" aria-label="Shared"></span></li>
-        <li><span>Plugins</span><span class="sw on" role="img" aria-label="Shared"></span></li>
-        <li><span>Agents and commands</span><span class="sw on" role="img" aria-label="Shared"></span></li>
-        <li><span>Instructions</span><span class="sw on" role="img" aria-label="Shared"></span></li>
-        <li><span>MCP servers</span><span class="sw" role="img" aria-label="Not shared"></span></li>
-        <li><span>Settings</span><span class="sw" role="img" aria-label="Not shared"></span></li>
-        <li><span>Chat history</span><span class="sw" role="img" aria-label="Not shared"></span></li>
-        <li class="never"><span>Credentials</span><span class="never-label">Never shared</span></li>
+    <div class="works-with">
+      <p class="eyebrow plain">Works with</p>
+      <ul class="logo-row center" data-reveal-stagger>
+        <li class="logo-chip"><img src="assets/logos/claude.svg" alt="" width="20" height="20">Claude Code</li>
+        <li class="logo-chip"><img src="assets/logos/openai.svg" alt="" width="20" height="20">Codex</li>
+        <li class="logo-chip"><img src="assets/logos/gemini.svg" alt="" width="20" height="20">Gemini CLI</li>
+        <li class="logo-chip"><img src="assets/logos/copilot.svg" alt="" width="20" height="20">Copilot CLI</li>
       </ul>
     </div>
   </div>
 </section>
 
-<!-- How it works -->
-<section class="sec" id="how" aria-labelledby="how-title">
+<!-- ===== Problem ===== -->
+<section class="home-section problem" aria-labelledby="problem-title">
   <div class="wrap">
-    <div class="sec-head">
-      <h2 id="how-title">Running in a minute</h2>
+    <h2 id="problem-title" class="eyebrow">The problem</h2>
+    <div class="problem-lines">
+      <p class="problem-line" data-scroll="enter">You pay for more than one plan.</p>
+      <p class="problem-line" data-scroll="enter">You hit a limit <span class="dim">mid-task.</span></p>
+      <p class="problem-line" data-scroll="enter">Half your weekly quota resets <span class="dim">unused.</span></p>
     </div>
-    <ol class="steps">
-      <li>
-        <span class="step-n" aria-hidden="true">1</span>
-        <h3>Install</h3>
-        <p>About 3 MB for Windows, macOS or Linux. It sits in the tray and starts with your computer if you want it to.</p>
-      </li>
-      <li>
-        <span class="step-n" aria-hidden="true">2</span>
-        <h3>It finds your accounts</h3>
-        <p>Relay detects installed CLIs and the config folders already on your disk, including side-by-side ones like <code>~/.claude-work</code>. Add a new account and you sign in once, in its own folder.</p>
-      </li>
-      <li>
-        <span class="step-n" aria-hidden="true">3</span>
-        <h3>Launch</h3>
-        <p>Pick the account with quota left and your terminal opens with it. When it runs out, pass it on to the next one.</p>
-      </li>
-    </ol>
+    <p class="lede problem-answer" data-reveal>Logging out and back in, guessing which account still has room, watching a reset come and go. Relay keeps every account signed in side by side and tells you which one to use next.</p>
   </div>
 </section>
 
-<!-- FAQ -->
-<section class="sec sec-alt" id="faq" aria-labelledby="faq-title">
-  <div class="wrap faq-wrap">
-    <h2 id="faq-title">Questions</h2>
-    <div class="faq">
+<!-- ===== Pinned presentation: hit a limit, keep going =====
+     Without JS or with reduced motion each step is a caption beside its screenshot, stacked. -->
+<section class="seq" data-sequence style="--steps:4" aria-labelledby="seq-title">
+  <div class="seq-stage">
+    <div class="wrap seq-grid">
+      <div class="seq-head">
+        <p class="eyebrow">Continue on another account</p>
+        <h2 id="seq-title">Hit a limit. <span class="dim">Keep going.</span></h2>
+      </div>
+      <div class="seq-step" data-seq-step>
+        <div class="seq-cap">
+          <p class="seq-num"><span>01</span> / 04</p>
+          <h3>Working on Work Max 20x</h3>
+          <p>Claude Code is writing a migration in your orders project, in a pane of Relay&rsquo;s terminal grid. The meter in the pane header shows what this account has left.</p>
+        </div>
+        <figure class="window seq-fig">
+          <div class="crop" style="--ar:1.923;--w:134.23%;--l:-34.23%">
+            <img src="assets/screens/pane-before-900.webp"
+                 srcset="assets/screens/pane-before-900.webp 900w, assets/screens/pane-before.webp 1600w"
+                 sizes="(min-width: 860px) 80vw, 134vw"
+                 width="1600" height="1000" loading="lazy" decoding="async"
+                 alt="A terminal pane running Claude Code on the Work Max 20x account: it reads the schema, writes a migration and runs tests, 12 of 40.">
+          </div>
+        </figure>
+      </div>
+      <div class="seq-step" data-seq-step>
+        <div class="seq-cap">
+          <p class="seq-num"><span>02</span> / 04</p>
+          <h3>Limit hit, mid-task</h3>
+          <p>The 5-hour session runs out at test 12 of 40. Relay notices, tells you, and offers the account with the most left: <strong>Continue on H2&nbsp;Max</strong>.</p>
+        </div>
+        <figure class="window seq-fig">
+          <div class="crop" style="--ar:1.923;--w:134.23%;--l:-34.23%">
+            <img src="assets/screens/pane-limit-900.webp"
+                 srcset="assets/screens/pane-limit-900.webp 900w, assets/screens/pane-limit.webp 1600w"
+                 sizes="(min-width: 860px) 80vw, 134vw"
+                 width="1600" height="1000" loading="lazy" decoding="async"
+                 alt="The same pane after the account hits its limit: a red &ldquo;You&rsquo;ve hit your limit&rdquo; line and a banner offering Continue on H2 Max, 70% left.">
+          </div>
+        </figure>
+      </div>
+      <div class="seq-step" data-seq-step>
+        <div class="seq-cap">
+          <p class="seq-num"><span>03</span> / 04</p>
+          <h3>Pick an account that still has quota</h3>
+          <p>Or choose one yourself. Every other account of the same tool is listed with what it has left; signed-out ones are greyed out.</p>
+        </div>
+        <figure class="window seq-fig">
+          <div class="crop" style="--ar:1.923;--w:134.23%;--l:-34.23%">
+            <img src="assets/screens/continue-menu-900.webp"
+                 srcset="assets/screens/continue-menu-900.webp 900w, assets/screens/continue-menu.webp 1600w"
+                 sizes="(min-width: 860px) 80vw, 134vw"
+                 width="1600" height="1000" loading="lazy" decoding="async"
+                 alt="The continue menu in the pane header listing H2 Max with 70% left, Personal Pro with 4% left and a signed-out Team seat.">
+          </div>
+        </figure>
+      </div>
+      <div class="seq-step" data-seq-step>
+        <div class="seq-cap">
+          <p class="seq-num"><span>04</span> / 04</p>
+          <h3>Same chat, same folder, on H2&nbsp;Max</h3>
+          <p>The session ends and resumes on H2 Max in the same folder, and the tests finish. The chat carries over when chat history sharing is on for both accounts.</p>
+        </div>
+        <figure class="window seq-fig">
+          <div class="crop" style="--ar:1.923;--w:134.23%;--l:-34.23%">
+            <img src="assets/screens/pane-continued-900.webp"
+                 srcset="assets/screens/pane-continued-900.webp 900w, assets/screens/pane-continued.webp 1600w"
+                 sizes="(min-width: 860px) 80vw, 134vw"
+                 width="1600" height="1000" loading="lazy" decoding="async"
+                 alt="The pane now running on H2 Max: it resumes the most recent conversation in the folder and the tests finish, 40 passed.">
+          </div>
+        </figure>
+      </div>
+      <div class="seq-progress" aria-hidden="true"><span></span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Video moment: the terminal grid ===== -->
+<section class="home-section grid-sec" aria-labelledby="grid-title">
+  <div class="wrap">
+    <div class="section-head center" data-reveal-stagger>
+      <p class="eyebrow">Terminal grid</p>
+      <h2 id="grid-title">Every agent in view. <span class="dim">Each on its own account.</span></h2>
+      <p class="lede">Run up to nine AI CLIs side by side, each pane on its own account with its own meter. Keep several sessions, each with its own layout, in a list beside the grid. Hidden sessions keep running.</p>
+    </div>
+    <div data-reveal>
+      <figure class="window window-lg grid-video" data-scroll="enter">
+        <video data-autoplay muted playsinline loop preload="none" width="1280" height="720"
+               poster="assets/screens/grid-9-900.webp"
+               aria-label="Relay's terminal grid filling up with nine panes, each running an AI CLI on a different account with its own usage meter.">
+          <source src="assets/media/grid.mp4" type="video/mp4">
+        </video>
+      </figure>
+    </div>
+
+    <div class="split">
+      <div class="split-copy" data-reveal-stagger>
+        <p class="eyebrow">One click</p>
+        <h3>Hit a limit? Keep going in one click.</h3>
+        <p>When a pane&rsquo;s account runs out, the pane offers the next account of the same tool with quota left. Click it and the work carries on in the same folder.</p>
+      </div>
+      <div data-reveal style="--d:120ms">
+        <figure class="window">
+          <video data-autoplay muted playsinline loop preload="none" width="1280" height="720"
+                 poster="assets/media/continue-poster.webp"
+                 aria-label="A terminal pane hits its usage limit; one click continues the session on another account.">
+            <source src="assets/media/continue.mp4" type="video/mp4">
+          </video>
+        </figure>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Features bento ===== -->
+<section class="home-section features" id="features" aria-labelledby="features-title">
+  <div class="wrap">
+    <div class="section-head" data-reveal-stagger>
+      <p class="eyebrow">Features</p>
+      <h2 id="features-title">One board for every limit you have. <span class="dim">And the right account a click away.</span></h2>
+    </div>
+    <div class="bento" data-reveal-stagger>
+      <article class="card card-w7">
+        <div class="card-copy">
+          <h3>Every limit, live</h3>
+          <p>5-hour session, weekly, weekly Opus, Codex windows, Gemini model quotas and Copilot premium requests, each with a reset countdown and history charts.</p>
+        </div>
+        <div class="card-shot">
+          <div class="crop" style="--ar:2.429;--w:119.76%;--l:-18.56%;--t:-76.36%">
+            <img src="assets/screens/overview-charts-900.webp"
+                 srcset="assets/screens/overview-charts-900.webp 900w, assets/screens/overview-charts.webp 1600w"
+                 sizes="(min-width: 1000px) 900px, 160vw"
+                 width="1600" height="1000" loading="lazy" decoding="async"
+                 alt="Relay&rsquo;s usage history: weekly and monthly limits used per account over 30 days, and which accounts were used most.">
+          </div>
+        </div>
+      </article>
+      <article class="card card-w5">
+        <div class="card-copy">
+          <h3>Every account stays signed in</h3>
+          <p>Each account gets its own config home (<code>CLAUDE_CONFIG_DIR</code>, <code>CODEX_HOME</code>&hellip;), so switching never means logging out.</p>
+        </div>
+        <div class="card-shot">
+          <div class="crop" style="--ar:1.729;--w:165.29%;--l:-23.97%">
+            <img src="assets/screens/accounts-900.webp"
+                 srcset="assets/screens/accounts-900.webp 900w, assets/screens/accounts.webp 1600w"
+                 sizes="(min-width: 1000px) 900px, 160vw"
+                 width="1600" height="1000" loading="lazy" decoding="async"
+                 alt="The Accounts screen: Claude, Codex, Gemini and Copilot accounts listed with their meters, and Work Max 20x&rsquo;s limits and launch buttons.">
+          </div>
+        </div>
+      </article>
+      <article class="card card-w4">
+        <div class="card-copy">
+          <h3>Finds your accounts</h3>
+          <p>Relay detects installed CLIs and the config folders already on your disk, including side-by-side ones like <code>~/.claude-work</code>. Importing keeps each one where it is.</p>
+        </div>
+        <div class="card-shot">
+          <div class="crop" style="--ar:1.099;--w:217.39%;--l:-58.70%;--t:-9.70%">
+            <img src="assets/screens/add-account-900.webp"
+                 srcset="assets/screens/add-account-900.webp 900w, assets/screens/add-account.webp 1600w"
+                 sizes="(min-width: 1000px) 900px, 160vw"
+                 width="1600" height="1000" loading="lazy" decoding="async"
+                 alt="The Add an account dialog listing profiles found on this computer, with two new ones ready to import.">
+          </div>
+        </div>
+      </article>
+      <article class="card card-w4">
+        <div class="card-copy">
+          <h3>Launch with <kbd>Ctrl</kbd> <kbd>K</kbd></h3>
+          <p>Press <kbd>Ctrl</kbd> <kbd>K</kbd> (<kbd>&#8984;</kbd> <kbd>K</kbd> on a Mac), type an account or screen name and press Enter. Your terminal opens with that account.</p>
+        </div>
+        <div class="card-shot">
+          <div class="crop" style="--ar:1.100;--w:227.27%;--l:-63.64%;--t:-15.62%">
+            <img src="assets/screens/palette-900.webp"
+                 srcset="assets/screens/palette-900.webp 900w, assets/screens/palette.webp 1600w"
+                 sizes="(min-width: 1000px) 900px, 160vw"
+                 width="1600" height="1000" loading="lazy" decoding="async"
+                 alt="The launcher: a list of Launch Claude as H2 Max, Launch Codex as ChatGPT Pro and more, each with how much it has left.">
+          </div>
+        </div>
+      </article>
+      <article class="card card-w4">
+        <div class="card-copy">
+          <h3>Move to a new computer</h3>
+          <p>Export accounts, skills and preferences to one <code>.relay</code> file and import it on Windows, macOS or Linux. Sign-ins are optional and encrypted. Import only adds.</p>
+        </div>
+        <div class="card-shot">
+          <div class="crop" style="--ar:1.101;--w:232.56%;--l:-66.28%;--t:-10.40%">
+            <img src="assets/screens/export-900.webp"
+                 srcset="assets/screens/export-900.webp 900w, assets/screens/export.webp 1600w"
+                 sizes="(min-width: 1000px) 900px, 160vw"
+                 width="1600" height="1000" loading="lazy" decoding="async"
+                 alt="The Export your setup dialog with accounts, skills and preferences ticked, and sign-ins left optional.">
+          </div>
+        </div>
+      </article>
+      <article class="card card-w6">
+        <div class="card-copy">
+          <h3>Use it or lose it</h3>
+          <p>A notification when an account is nearly out, hits a limit or comes back, and when lots of a weekly or monthly limit is about to reset unused.</p>
+        </div>
+        <div class="card-shot">
+          <div class="crop" style="--ar:1.803;--w:118.34%;--l:-17.75%">
+            <img src="assets/screens/notifications-900.webp"
+                 srcset="assets/screens/notifications-900.webp 900w, assets/screens/notifications.webp 1600w"
+                 sizes="(min-width: 1000px) 900px, 160vw"
+                 width="1600" height="1000" loading="lazy" decoding="async"
+                 alt="The Notifications screen: H2 Max&rsquo;s weekly limit resets unused in 9 hours, Personal Plus hit its 5-hour limit, Personal Pro has 4% left.">
+          </div>
+        </div>
+      </article>
+      <article class="card card-w6">
+        <div class="card-copy">
+          <h3>Skills from skills.sh</h3>
+          <p>Browse or search the public skills.sh directory, read a skill&rsquo;s <code>SKILL.md</code> and install it for any of your tools in one step. Nothing already there is overwritten.</p>
+        </div>
+        <div class="card-shot">
+          <div class="crop" style="--ar:1.793;--w:165.29%;--l:-23.97%">
+            <img src="assets/screens/skills-900.webp"
+                 srcset="assets/screens/skills-900.webp 900w, assets/screens/skills.webp 1600w"
+                 sizes="(min-width: 1000px) 900px, 160vw"
+                 width="1600" height="1000" loading="lazy" decoding="async"
+                 alt="The Skills screen: featured skills from skills.sh and the shared folders for Claude Code, Codex, Gemini CLI and Copilot CLI.">
+          </div>
+        </div>
+      </article>
+      <article class="card card-w12">
+        <div class="card-copy">
+          <h3>Shared knowledge</h3>
+          <p>Each tool gets one shared profile for skills, agents, instructions, plugins and settings. Every account links to it, so they all work the same way. Sign-in tokens are never shared.</p>
+        </div>
+        <div class="card-shot">
+          <div class="crop" style="--ar:2.817;--w:118.34%;--l:-17.75%;--t:-25.00%">
+            <img src="assets/screens/knowledge-900.webp"
+                 srcset="assets/screens/knowledge-900.webp 900w, assets/screens/knowledge.webp 1600w"
+                 sizes="(min-width: 1000px) 900px, 160vw"
+                 width="1600" height="1000" loading="lazy" decoding="async"
+                 alt="The Knowledge screen for Claude Code: shared skills, agents and commands, instructions, plugins and settings, used by four accounts.">
+          </div>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Supported tools ===== -->
+<section class="home-section tools" id="tools" aria-labelledby="tools-title">
+  <div class="wrap">
+    <div class="section-head" data-reveal-stagger>
+      <p class="eyebrow">Tools</p>
+      <h2 id="tools-title">Works with the tools <span class="dim">you already use.</span></h2>
+      <p class="lede">Relay uses each tool&rsquo;s own sign-in and its official CLI. It doesn&rsquo;t proxy your prompts or replace any app.</p>
+    </div>
+    <ul class="tool-grid" role="list" data-reveal-stagger>
+      <li class="tool" style="--tint:217, 119, 87">
+        <div class="tool-logo"><img src="assets/logos/claude.svg" alt="" width="36" height="36" loading="lazy" decoding="async"></div>
+        <h3>Claude Code</h3>
+        <dl>
+          <div><dt>Plans</dt><dd>Pro, Max 5x, Max 20x, Team</dd></div>
+          <div><dt>Limits it tracks</dt><dd>5-hour session, weekly, weekly Opus</dd></div>
+          <div><dt>Launches</dt><dd>CLI and Claude Desktop</dd></div>
+        </dl>
+      </li>
+      <li class="tool" style="--tint:255, 255, 255">
+        <div class="tool-logo"><img src="assets/logos/openai.svg" alt="" width="36" height="36" loading="lazy" decoding="async"></div>
+        <h3>Codex CLI</h3>
+        <dl>
+          <div><dt>Plans</dt><dd>ChatGPT Plus, Pro, Team</dd></div>
+          <div><dt>Limits it tracks</dt><dd>5-hour and weekly windows</dd></div>
+          <div><dt>Launches</dt><dd>CLI</dd></div>
+        </dl>
+      </li>
+      <li class="tool" style="--tint:120, 140, 255">
+        <div class="tool-logo"><img src="assets/logos/gemini.svg" alt="" width="36" height="36" loading="lazy" decoding="async"></div>
+        <h3>Gemini CLI</h3>
+        <dl>
+          <div><dt>Plans</dt><dd>Google AI Pro, Ultra, free tier</dd></div>
+          <div><dt>Limits it tracks</dt><dd>Daily quota per model</dd></div>
+          <div><dt>Launches</dt><dd>CLI</dd></div>
+        </dl>
+      </li>
+      <li class="tool" style="--tint:255, 255, 255">
+        <div class="tool-logo"><img src="assets/logos/copilot.svg" alt="" width="36" height="36" loading="lazy" decoding="async"></div>
+        <h3>GitHub Copilot CLI</h3>
+        <dl>
+          <div><dt>Plans</dt><dd>Copilot Pro, Pro+, Business</dd></div>
+          <div><dt>Limits it tracks</dt><dd>Monthly premium requests</dd></div>
+          <div><dt>Launches</dt><dd>CLI</dd></div>
+        </dl>
+      </li>
+    </ul>
+    <p class="tools-next" data-reveal><span class="eyebrow plain">Planned next</span> Cursor, Antigravity, Kiro, Amp and OpenRouter. Adding a provider starts with one Rust adapter, so pull requests are welcome.</p>
+  </div>
+</section>
+
+<!-- ===== Privacy ===== -->
+<section class="home-section privacy" id="privacy" aria-labelledby="privacy-title">
+  <div class="wrap">
+    <div class="section-head" data-reveal-stagger>
+      <p class="eyebrow">Privacy</p>
+      <h2 id="privacy-title">Everything stays on <span class="dim">your computer.</span></h2>
+    </div>
+    <ul class="privacy-big" role="list" data-reveal-stagger>
+      <li><span class="privacy-zero" aria-hidden="true">0</span><span class="sr-only">No </span>Relay servers</li>
+      <li><span class="privacy-zero" aria-hidden="true">0</span><span class="sr-only">No </span>Telemetry or analytics</li>
+      <li><span class="privacy-zero" aria-hidden="true">0</span><span class="sr-only">No </span>Accounts with us</li>
+    </ul>
+    <ul class="privacy-list" role="list" data-reveal-stagger>
+      <li>
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6"/><path d="M20 4 11 13"/><path d="M19 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4"/></svg>
+        <h3>Tokens go only where they came from</h3>
+        <p>To read live limits, Relay sends each account&rsquo;s own saved sign-in to that provider&rsquo;s own servers (its usage, profile and sign-in renewal endpoints), and nowhere else.</p>
+      </li>
+      <li>
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+        <h3>Sign-ins are never shared</h3>
+        <p>Relay never copies or links credential files between accounts, even when they share skills, settings or chat history.</p>
+      </li>
+      <li>
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="10" rx="5"/><circle cx="8" cy="12" r="2.5"/></svg>
+        <h3>Live usage is optional</h3>
+        <p>Turn it off in Settings and Relay works from local session logs only.</p>
+      </li>
+      <li>
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>
+        <h3>Uninstall leaves your setup alone</h3>
+        <p>Relay&rsquo;s data lives in its own folder on your disk. Every CLI folder stays exactly as it was.</p>
+      </li>
+    </ul>
+  </div>
+</section>
+
+<!-- ===== Early software callout ===== -->
+<section class="home-section early" aria-labelledby="early-title">
+  <div class="wrap">
+    <div class="early-card" data-reveal>
+      <div class="early-head">
+        <p class="eyebrow">Early software</p>
+        <h2 id="early-title">New, made by one developer, <span class="dim">and it will have bugs.</span></h2>
+      </div>
+      <div class="early-body">
+        <p>Relay is a young open-source project, built and tested by one person. The usage numbers come from provider endpoints that can change or break without notice, so treat what it shows as a guide, not a guarantee.</p>
+        <p>The installers aren&rsquo;t code-signed yet, so Windows and macOS warn you the first time you open Relay. That&rsquo;s expected, and getting past it takes a couple of clicks.</p>
+        <p class="early-links">
+          <a class="link-arrow" href="early-software/">What &ldquo;early&rdquo; means</a>
+          <a class="link-arrow" href="install/">How to install</a>
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== FAQ ===== -->
+<section class="home-section faq" id="faq" aria-labelledby="faq-title">
+  <div class="wrap faq-grid">
+    <div class="faq-head" data-reveal-stagger>
+      <p class="eyebrow">FAQ</p>
+      <h2 id="faq-title">Questions, <span class="dim">answered.</span></h2>
+      <p class="lede">Something missing? <a href="https://github.com/CristiMachine25/relay/issues">Ask on GitHub</a>.</p>
+    </div>
+    <div class="faq-list" data-reveal-stagger>
       <details>
-        <summary>Is this allowed by the providers' terms?</summary>
-        <p>Relay does not get around any limit. Each account signs in through the tool's own login and runs the official CLI, and Relay only reads the limits each provider already shows you. Whether you may hold several accounts with one provider is up to that provider, so check their terms for the plans you use.</p>
+        <summary>Is it free?</summary>
+        <div class="faq-a"><p>Yes. Relay is open source under the <a href="https://github.com/CristiMachine25/relay/blob/main/LICENSE">MIT license</a>, with no paid tier and no account to create. You keep paying your AI providers as you do now, just with less of it going to waste.</p></div>
+      </details>
+      <details>
+        <summary>Is this allowed by the providers&rsquo; terms?</summary>
+        <div class="faq-a"><p>Relay does not get around any limit. Each account signs in through the tool&rsquo;s own login and runs the official CLI, and Relay only reads the limits each provider already shows you. Whether you may hold several accounts with one provider is up to that provider, so check their terms for the plans you use.</p></div>
       </details>
       <details>
         <summary>Can Relay see my chats or code?</summary>
-        <p>No. It reads usage numbers and local session statistics such as token counts. It never sends your prompts, chats or code anywhere, and there is no Relay server to send them to.</p>
+        <div class="faq-a"><p>No. It reads usage numbers and local session statistics such as token counts. It never sends your prompts, chats or code anywhere, and there is no Relay server to send them to.</p></div>
+      </details>
+      <details>
+        <summary>Where do my sign-ins live, and are they ever shared between accounts?</summary>
+        <div class="faq-a"><p>Each sign-in stays where its CLI keeps it: in that account&rsquo;s own config folder, or in the macOS Keychain for Claude Code on a Mac. Relay never copies or links credential files between accounts, even when they share skills, settings or chat history.</p><p>The only time Relay writes them anywhere else is an export you ask for, and only if you tick Sign-ins. They are then encrypted with a passphrase you choose.</p></div>
+      </details>
+      <details>
+        <summary>Why does Windows or macOS warn me when I open it?</summary>
+        <div class="faq-a"><p>The installers aren&rsquo;t code-signed or notarized yet, so your system doesn&rsquo;t recognize the developer. On Windows, choose More info, then Run anyway. On macOS, open System Settings &gt; Privacy &amp; Security and choose Open Anyway. Only download Relay from its GitHub Releases page. <a href="install/">Step-by-step install guide</a>.</p></div>
+      </details>
+      <details>
+        <summary>Is it stable?</summary>
+        <div class="faq-a"><p>Not yet. Relay is early software built and tested by one person, and it almost certainly has bugs. The usage numbers come from provider endpoints that can change without notice, so treat them as a guide. <a href="early-software/">What early software means here</a>.</p></div>
+      </details>
+      <details>
+        <summary>Which tools and plans work?</summary>
+        <div class="faq-a"><p>Claude Code (Pro, Max 5x, Max 20x, Team, plus Claude Desktop), Codex CLI (ChatGPT Plus, Pro, Team), Gemini CLI (Google AI Pro, Ultra, free tier) and GitHub Copilot CLI (Copilot Pro, Pro+, Business). Cursor, Antigravity, Kiro, Amp and OpenRouter are planned.</p></div>
+      </details>
+      <details>
+        <summary>How does &ldquo;continue on another account&rdquo; work?</summary>
+        <div class="faq-a"><p>When a pane in the terminal grid hits its limit, it offers the account of the same tool that is the best pick right now, or you choose another from the list. One click ends the session and resumes it on that account, in the same folder.</p><p>The chat itself carries over only when chat history sharing is on for both accounts. If it isn&rsquo;t, the pane offers to turn it on.</p></div>
+      </details>
+      <details>
+        <summary>How accurate are the numbers?</summary>
+        <div class="faq-a"><p>They come from each provider&rsquo;s own usage endpoints, some official and some only observed, and those can change without notice. Live usage works for Claude and Codex and is best-effort for Gemini and Copilot. With live usage turned off, Relay works from local session logs instead. Treat the numbers as a guide, not a guarantee.</p></div>
       </details>
       <details>
         <summary>Does it work offline?</summary>
-        <p>Launching works offline. Live limits need the network, because they come from each provider's usage endpoint. Without it, Relay shows the last numbers it saw and when it saw them.</p>
+        <div class="faq-a"><p>Launching works offline. Live limits need the network, because they come from each provider&rsquo;s usage endpoint. Without it, Relay shows the last numbers it saw and when it saw them.</p></div>
       </details>
       <details>
-        <summary>Does it run on Linux?</summary>
-        <p>Yes. Download the <code>.AppImage</code> for any distribution or the <code>.deb</code> for Debian and Ubuntu.</p>
+        <summary>Which systems does it run on?</summary>
+        <div class="faq-a"><p>Windows 10 and 11 (.exe or .msi), macOS on Apple Silicon and Intel (.dmg), and Linux (.AppImage for any distribution, .deb for Debian and Ubuntu, .rpm for Fedora).</p></div>
       </details>
       <details>
-        <summary>Why does Windows warn me when I run the installer?</summary>
-        <p>The early builds are not code-signed yet, so SmartScreen does not recognize them. Choose <strong>More info</strong>, then <strong>Run anyway</strong>. You can build from source if you prefer; the steps are in the README.</p>
+        <summary>Will it mess with my existing setup?</summary>
+        <div class="faq-a"><p>No. Each account Relay creates gets its own config folder, and your main folders such as <code>~/.claude</code> and <code>~/.codex</code> stay where they are and keep working as before. Importing accounts Relay finds keeps each one where it is and doesn&rsquo;t change its sign-in. Uninstalling leaves every CLI folder exactly as it was.</p></div>
       </details>
       <details>
-        <summary>What does it cost?</summary>
-        <p>Nothing. Relay is open source under the MIT license. You keep paying your AI providers as you do now, just with less of it going to waste.</p>
+        <summary>Can I move my setup to a new computer?</summary>
+        <div class="faq-a"><p>Yes. Export your accounts, skills and preferences to a <code>.relay</code> file and import it in Relay on Windows, macOS or Linux. Sign-ins are optional and encrypted with a passphrase you choose. Importing only adds: nothing already on the computer is replaced.</p></div>
+      </details>
+      <details>
+        <summary>How do I update?</summary>
+        <div class="faq-a"><p>There&rsquo;s no automatic updater yet. Download the new version from <a href="https://github.com/CristiMachine25/relay/releases/latest">Releases</a> and install it over the old one. Your accounts, settings and history carry over.</p></div>
+      </details>
+      <details>
+        <summary>How can I report a bug or help?</summary>
+        <div class="faq-a"><p><a href="https://github.com/CristiMachine25/relay/issues">Open an issue</a> on GitHub with what you did and what happened. For a security problem, please don&rsquo;t post details publicly; use GitHub&rsquo;s private <a href="https://github.com/CristiMachine25/relay/security/advisories/new">security advisory</a> form instead. Pull requests are welcome too, including new providers.</p></div>
+      </details>
+      <details>
+        <summary>What&rsquo;s next?</summary>
+        <div class="faq-a"><p>More providers (Cursor, Antigravity, Kiro, Amp, z.ai and OpenRouter credit balance), routing rules per task type, signed builds, automatic updates, and packages for Homebrew, winget, Flathub and the AUR.</p></div>
       </details>
     </div>
   </div>
 </section>
 
-<!-- Closing download -->
-<section class="closing" aria-labelledby="closing-title">
-  <div class="wrap closing-in">
-    <h2 id="closing-title">Use every plan you pay for.</h2>
-    <p class="closing-sub">Keep your flow instead of waiting for a reset.</p>
-    <div class="dl" id="download-2">
-      <a class="btn btn-primary" href="https://github.com/CristiMachine25/relay/releases/latest">
-        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>
-        <span data-dl-label>Download Relay</span>
-      </a>
-      <p class="dl-note"><span data-dl-note>v0.2.1 for Windows, macOS and Linux.</span> <span data-dl-others></span></p>
+<!-- ===== Closing call to action ===== -->
+<section class="home-section cta" aria-labelledby="cta-title" data-scroll>
+  <div class="cta-glow" aria-hidden="true"></div>
+  <div class="wrap">
+    <div class="cta-in" data-reveal-stagger>
+      <img class="cta-icon" src="assets/app-icon.png" alt="" width="128" height="128" loading="lazy" decoding="async">
+      <h2 id="cta-title">Use every plan <span class="grad-text">you pay for.</span></h2>
+      <p class="lede">Keep your flow instead of waiting for a reset.</p>
+      <div data-download>
+        <div class="btn-row">
+          <a class="btn btn-primary btn-lg" href="https://github.com/CristiMachine25/relay/releases/latest">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>
+            <span data-dl-label>Download Relay</span>
+          </a>
+          <a class="btn btn-secondary btn-lg" href="install/">How to install</a>
+        </div>
+        <p class="dl-note"><span data-dl-note>v0.2.1 for Windows, macOS and Linux.</span> <span data-dl-others></span></p>
+      </div>
     </div>
-    <script>relayDownload(document.getElementById("download-2"));</script>
   </div>
 </section>
+
+<!-- @sections -->
 
 </main>
 
-<footer class="foot">
-  <div class="wrap foot-in">
-    <div class="foot-brand">
-      <img src="assets/app-icon.png" alt="" width="24" height="24">
-      <span>Relay</span>
+<footer class="site-foot">
+  <div class="wrap">
+    <div class="foot-top">
+      <div class="foot-brand">
+        <a class="brand" href="./">
+          <img src="assets/app-icon.png" alt="" width="28" height="28" loading="lazy" decoding="async">
+          <span>Relay</span>
+        </a>
+        <p>Free and open source. Made by one developer.</p>
+        <p class="foot-meta">v0.2.1 &middot; MIT License &middot; Windows, macOS, Linux</p>
+      </div>
+      <nav class="foot-col" aria-labelledby="foot-relay">
+        <h2 id="foot-relay">Relay</h2>
+        <ul>
+          <li><a href="install/">Install</a></li>
+          <li><a href="early-software/">Early software</a></li>
+          <li><a href="https://github.com/CristiMachine25/relay/releases">Releases</a></li>
+        </ul>
+      </nav>
+      <nav class="foot-col" aria-labelledby="foot-project">
+        <h2 id="foot-project">Project</h2>
+        <ul>
+          <li><a href="https://github.com/CristiMachine25/relay">Source on GitHub</a></li>
+          <li><a href="https://github.com/CristiMachine25/relay/issues">Report a bug</a></li>
+          <li><a href="https://github.com/CristiMachine25/relay/blob/main/LICENSE">MIT License</a></li>
+        </ul>
+      </nav>
     </div>
-    <ul class="foot-links">
-      <li><a href="https://github.com/CristiMachine25/relay">GitHub</a></li>
-      <li><a href="https://github.com/CristiMachine25/relay/releases">Releases</a></li>
-      <li><a href="https://github.com/CristiMachine25/relay/blob/main/LICENSE">MIT license</a></li>
-      <li><a href="https://github.com/CristiMachine25/relay/issues">Report an issue</a></li>
-    </ul>
-    <p class="disclaimer">Relay is an independent project, not affiliated with or endorsed by Anthropic, OpenAI, Google or GitHub. Product names belong to their owners and are used only to say what Relay works with. Usage endpoints can change without notice.</p>
+    <p class="foot-legal">Relay is an independent project, not affiliated with or endorsed by Anthropic, OpenAI, Google or GitHub. Product names and logos belong to their owners and are shown only to say which tools Relay works with.</p>
   </div>
+  <p class="foot-mark" aria-hidden="true">Relay</p>
 </footer>
 
-<script src="assets/site.js" defer></script>
+<script src="assets/js/download.js"></script>
+<script src="assets/js/motion.js" defer></script>
 </body>
 </html>
