@@ -281,7 +281,7 @@ export function continueCandidates(
   usage: Record<string, UsageSnapshot>,
   recs: Recommendation[]
 ): Account[] {
-  const score = new Map(recs.map((r) => [r.accountId, r.score]))
+  const rank = new Map(recs.map((r, i) => [r.accountId, recs.length - i]))
   const left = (a: Account) => {
     const b = bindingWindow(usage[a.id])
     return b ? leftOf(b) : -1
@@ -293,8 +293,8 @@ export function continueCandidates(
       const ux = usable(x) ? 1 : 0
       const uy = usable(y) ? 1 : 0
       if (ux !== uy) return uy - ux
-      const sx = score.get(x.id) ?? -1
-      const sy = score.get(y.id) ?? -1
+      const sx = rank.get(x.id) ?? 0
+      const sy = rank.get(y.id) ?? 0
       if (sx !== sy) return sy - sx
       return left(y) - left(x)
     })
@@ -317,8 +317,8 @@ export function historyToTurnOn<T extends Shares>(accounts: T[], defaultHome: st
 
 /** Account picker order: provider groups by their best account, accounts by recommendation within a group. */
 export function pickerGroups(accounts: Account[], recs: Recommendation[]): { providerId: Account['providerId']; accounts: Account[] }[] {
-  const score = new Map(recs.map((r) => [r.accountId, r.score]))
-  const s = (a: Account) => (isBlocked(a) ? -3 : isSignedOut(a) ? -2 : (score.get(a.id) ?? -1))
+  const rank = new Map(recs.map((r, i) => [r.accountId, recs.length - i]))
+  const s = (a: Account) => (isBlocked(a) ? -2 : isSignedOut(a) ? -1 : (rank.get(a.id) ?? 0))
   const groups = new Map<Account['providerId'], Account[]>()
   for (const a of accounts) {
     const g = groups.get(a.providerId) ?? []
