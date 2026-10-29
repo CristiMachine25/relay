@@ -35,7 +35,7 @@ pub const USE_IT_MIN_WINDOW_MINUTES: u32 = 3 * 24 * 60;
 /// 0 = unknown/free, 1 = Plus, 2 = Pro/Team/Business, 3 = Max/Pro+/Ultra/Enterprise and ChatGPT Pro 100/200/500.
 pub fn tier(account: &Account) -> u8 {
     let text = account.plan.as_deref().unwrap_or_default().to_ascii_lowercase();
-    let words: Vec<_> = text.split(|c: char| !c.is_ascii_alphanumeric() && c != '+').collect();
+    let words: Vec<_> = text.split(|c: char| !c.is_ascii_alphanumeric() && c != '+').filter(|word| !word.is_empty()).collect();
     if ["max", "pro+", "ultra", "enterprise", "premium"].iter().any(|k| words.contains(k))
         || words.windows(2).any(|pair| pair[0] == "pro" && ["plus", "100", "200", "500"].contains(&pair[1]))
     {
@@ -291,6 +291,7 @@ pub(crate) mod tests {
         a.tags = vec!["maximum".into(), "project".into(), "Pro".into()];
         assert_eq!(tier(&a), 0);
         assert_eq!(tier(&account("a", "Prototype")), 0);
+        assert_eq!(tier(&account("a", "Pro  200")), 3);
     }
 
     #[test]

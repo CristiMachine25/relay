@@ -167,6 +167,7 @@ describe('recommend', () => {
   it('does not infer a plan from tags or partial words', () => {
     expect(tier({ plan: null, tags: ['maximum', 'project', 'Pro'] })).toBe(0)
     expect(tier({ plan: 'Prototype', tags: [] })).toBe(0)
+    expect(tier({ plan: 'Pro  200', tags: [] })).toBe(3)
   })
 
   it('treats a passed reset as unverified without hiding a current exhausted window', () => {
