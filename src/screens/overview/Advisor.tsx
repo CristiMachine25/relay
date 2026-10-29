@@ -10,7 +10,7 @@ import { formatAgo, formatCountdown, formatPct, resetText, windowName } from '@/
 import { AccountDot, ProviderMark, Segmented } from '@/components/ui'
 import { Meter } from '@/components/Meter'
 import { PrimaryLaunch } from '@/components/PrimaryLaunch'
-import { nextExhaustedReset } from './availability'
+import { isLastKnownUsage, nextExhaustedReset } from './availability'
 
 export function Advisor() {
   const { task, setTask, recs, recsLoading, recsError, accounts, usage, now, providers, launching } = useStore()
@@ -24,7 +24,7 @@ export function Advisor() {
   const account = top && candidates.find((a) => a.id === top.accountId)
   const snap = account && usage[account.id]
   const window = bindingWindow(snap)
-  const lastKnown = snap?.stale || !!(window?.resetsAt && Date.parse(window.resetsAt) <= now)
+  const lastKnown = isLastKnownUsage(snap, now)
   const prov = account && providers.find((p) => p.id === account.providerId)
   const target = primaryTarget(prov)
   const canEmbed = prov?.cliInstalled === true
@@ -113,7 +113,7 @@ export function Alternative({ rec, account, snap }: { rec: Recommendation; accou
   const prov = useStore((s) => s.providers.find((p) => p.id === account.providerId))
   const window = bindingWindow(snap)
   const now = useStore((s) => s.now)
-  const lastKnown = snap?.stale || !!(window?.resetsAt && Date.parse(window.resetsAt) <= now)
+  const lastKnown = isLastKnownUsage(snap, now)
   return (
     <li className="py-4">
       <div className="flex items-center gap-2"><AccountDot account={account} /><span className="min-w-0 flex-1 truncate font-medium">{account.label}</span></div>

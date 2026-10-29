@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { Account, UsageSnapshot } from '@shared/types'
 import { DEFAULT_SHARING } from '@shared/types'
-import { nextExhaustedReset } from './availability'
+import { isLastKnownUsage, nextExhaustedReset } from './availability'
 
 vi.mock('@/api', () => ({ api: { platform: 'darwin' }, errorText: String }))
 vi.mock('@/terminals/store', () => ({ useGrid: (selector: (s: { restored: boolean }) => unknown) => selector({ restored: true }) }))
@@ -28,6 +28,13 @@ describe('task advisor', () => {
     expect(html).not.toContain('Open workspace')
     expect(html).not.toContain('Resume last chat')
   })
+  it('labels all advice as last known when a non-binding general window reset has passed', () => {
+    const snap = snapshot(80, 24)
+    snap.windows.push({ id: 'five_hour', label: '5-hour session', usedPercent: 30, resetsAt: new Date(now - 60_000).toISOString() })
+    seed({ usage: { work: snap }, now })
+    expect(renderToStaticMarkup(<Advisor />)).toContain('Last known usage')
+    expect(renderToStaticMarkup(<Alternative account={account} rec={rec} snap={snap} />)).toContain('20% left · last known')
+  })
   it('reports ranking failure separately from account exhaustion', () => {
     seed({ recsError: 'Offline' })
     const html = renderToStaticMarkup(<Advisor />)
@@ -43,5 +50,16 @@ describe('exhausted reset hint', () => {
     expect(nextExhaustedReset([{ ...account, status: 'needs-login' }], { work: snapshot(100, 1) }, now)).toBeUndefined()
     expect(nextExhaustedReset([account], { work: snapshot(100, -1) }, now)).toBeUndefined()
     expect(nextExhaustedReset([account], { work: snapshot(100, 2) }, now)?.account.id).toBe('work')
+  })
+})
+
+describe('usage freshness', () => {
+  it('ignores model-only resets when a general window exists, but considers them for model-only accounts', () => {
+    const snap = snapshot(80, 24)
+    const modelWindow = { id: 'seven_day_opus', label: 'Weekly Opus', usedPercent: 90, resetsAt: new Date(now - 60_000).toISOString() }
+    snap.windows.push(modelWindow)
+    expect(isLastKnownUsage(snap, now)).toBe(false)
+    expect(isLastKnownUsage({ ...snap, windows: [modelWindow] }, now)).toBe(true)
+    expect(isLastKnownUsage({ ...snap, stale: true }, now)).toBe(true)
   })
 })
