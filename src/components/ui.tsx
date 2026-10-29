@@ -133,9 +133,9 @@ export function Segmented<T extends string>({
             tabIndex={on ? 0 : -1}
             onClick={() => onChange(o.id)}
             className={clsx(
-              'rounded-[5px] px-2.5 transition-colors whitespace-nowrap',
-              size === 'sm' ? 'h-6 text-xs' : 'h-7 text-sm',
-              on ? 'bg-raised text-ink font-semibold shadow-[inset_0_0_0_1px_rgb(var(--rivet))]' : 'text-muted hover:text-ink'
+              'rounded-[7px] px-3 transition-colors whitespace-nowrap',
+              size === 'sm' ? 'h-7 text-xs' : 'h-8 text-sm',
+              on ? 'bg-hop/15 text-hop font-semibold shadow-[inset_0_0_0_1px_rgb(var(--hop)/0.3)]' : 'text-muted hover:text-ink'
             )}
           >
             {o.label}
@@ -238,7 +238,7 @@ export function Dialog({
         style={{ maxWidth: width }}
       >
         <div className="flex items-center justify-between border-b border-rivet px-5 py-3">
-          <h2 className="font-serif text-[17px] font-semibold">{title}</h2>
+          <h2 className="font-sans text-[17px] font-semibold">{title}</h2>
           <button data-close className="btn btn-ghost btn-sm -mr-2 px-1.5" onClick={onClose} aria-label="Close">
             <X size={16} />
           </button>
@@ -263,7 +263,7 @@ export function EmptyState({ title, body, action }: { title: string; body: strin
 export function SectionTitle({ children, aside }: { children: ReactNode; aside?: ReactNode }) {
   return (
     <div className="mb-3 flex items-center justify-between gap-3">
-      <h2 className="font-serif text-[17px] font-semibold">{children}</h2>
+      <h2 className="font-sans text-[17px] font-semibold">{children}</h2>
       {aside}
     </div>
   )
