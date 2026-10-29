@@ -4,7 +4,7 @@ import { Meter } from '@/components/Meter'
 const STEPS = [
   { title: 'Add an account', body: 'Pick the Claude, Codex, Gemini and Copilot profiles already on this computer, or create a fresh profile for another login.' },
   { title: 'See what is left', body: 'Each account gets a meter for every limit window, with its reset countdown.' },
-  { title: 'Launch the best one', body: 'The account with the most room for your task sits at the top, one click away.' }
+  { title: 'Start your work', body: 'Choose a task, review the suggested account, and open a session in your workspace.' }
 ]
 
 /** Overview before any account exists: what the board will show, and the one way to start it. */
@@ -13,11 +13,11 @@ export function FirstRun({ onAdd }: { onAdd: () => void }) {
     <section aria-labelledby="firstrun-title" className="rounded-lg border border-rivet bg-deck">
       <div className="grid grid-cols-1 min-[1100px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div className="px-6 py-8">
-          <h2 id="firstrun-title" className="font-serif text-[26px] font-semibold leading-8">
-            No accounts yet
+          <h2 id="firstrun-title" className="font-sans text-[26px] font-semibold leading-8">
+            Your next session starts here
           </h2>
           <p className="mt-2 max-w-[60ch] text-muted">
-            Add the AI accounts you use and this screen answers one question: which one to use right now.
+            Connect the AI accounts you already use. Relay helps you choose where to work based on available quota, without sending your task to an AI service.
           </p>
           <ol className="mt-6 max-w-[60ch] space-y-4">
             {STEPS.map((s, i) => (

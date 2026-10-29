@@ -55,7 +55,7 @@ export function Advisor() {
       </div>
       <div className="grid min-[1100px]:grid-cols-[minmax(0,1fr)_300px]">
         <div className="min-w-0 p-6">
-          <h3 id="advisor-title" className="text-xs font-semibold uppercase tracking-[0.14em] text-hop">Suggested for your task</h3>
+          <h3 id="advisor-title" className="text-sm font-semibold text-muted">Suggested for your task</h3>
           {recsLoading ? (
             <p role="status" className="flex items-center gap-2 py-8 text-muted"><Loader2 size={16} className="animate-spin" /> Finding an account for this task…</p>
           ) : recsError ? (
@@ -77,8 +77,9 @@ export function Advisor() {
                 <button className="min-w-0 truncate text-2xl font-semibold tracking-tight hover:underline" onClick={() => go('accounts', account.id)}>{account.label}</button>
               </div>
               <p className="mt-2 flex items-center gap-2 text-muted"><ProviderMark id={account.providerId} size={15} />{PROVIDER_META[account.providerId].product}{account.plan ? ` · ${account.plan}` : ''}</p>
+              <p className="mt-4 max-w-[72ch] text-muted">{top.reason}</p>
               {window ? (
-                <div className="mt-6 rounded-lg border border-rivet bg-ground p-4">
+                <div className="mt-4 rounded-lg border border-rivet bg-ground p-4">
                   <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                     <p><strong className="text-3xl font-semibold tracking-tight">{formatPct(leftOf(window))}</strong><span className="ml-2 text-muted">{lastKnown ? 'last known, left of' : 'left of'} {windowName(window.label)}</span></p>
                     <span className="text-xs text-muted">{resetText(window.resetsAt, now) ?? 'Reset time unavailable'}</span>
@@ -87,8 +88,7 @@ export function Advisor() {
                   <p className="mt-2 text-xs text-muted">{lastKnown ? 'Last known usage · refresh to verify' : 'Usage checked'} {formatAgo(snap?.fetchedAt, now)}</p>
                 </div>
               ) : <p className="mt-5 rounded-lg border border-rivet p-4 text-muted">Usage unknown. Check this account’s limits before starting a long session.</p>}
-              <p className="mt-4 max-w-[72ch] text-muted">{top.reason}</p>
-              <div className="mt-6 flex flex-wrap gap-2">
+              <div className="mt-4 flex flex-wrap gap-2">
                 {canEmbed && <button className="btn btn-primary btn-lg" disabled={starting || !restored} onClick={() => void openWorkspace()}><SquareTerminal size={16} />{starting ? 'Opening…' : !restored ? 'Connecting workspace…' : 'Open workspace'}</button>}
                 <button className={canEmbed ? 'btn btn-lg' : 'btn btn-primary btn-lg'} disabled={launching === account.id + target} onClick={() => void launch(account.id, target)}><ArrowUpRight size={15} />{canEmbed ? 'External terminal' : primaryVerb(account.providerId, prov)}</button>
                 {canEmbed && <button className="btn btn-ghost btn-lg" disabled={starting || !restored} onClick={() => void openWorkspace(true)}><RotateCcw size={14} />Resume last chat</button>}
@@ -98,7 +98,7 @@ export function Advisor() {
         </div>
         <aside aria-label="Other account choices" className="border-t border-rivet bg-ground/40 p-6 min-[1100px]:border-l min-[1100px]:border-t-0">
           <h3 className="text-sm font-semibold">Other options</h3>
-          {recsLoading || recsError ? <p className="mt-4 text-xs text-muted">Choose any account from the board below.</p> : usable.length > 1 ? <ul className="mt-2 divide-y divide-rivet">{usable.slice(1, 4).map((rec) => <Alternative key={rec.accountId} rec={rec} account={candidates.find((a) => a.id === rec.accountId)!} snap={usage[rec.accountId]} />)}</ul> : <p className="mt-4 text-xs text-muted">No other suggestions for this selection.</p>}
+          {recsLoading || recsError ? <p className="mt-4 text-xs text-muted">Choose any account from the board below.</p> : usable.length > 1 ? <ul className="mt-2 divide-y divide-rivet">{usable.slice(1, 3).map((rec) => <Alternative key={rec.accountId} rec={rec} account={candidates.find((a) => a.id === rec.accountId)!} snap={usage[rec.accountId]} />)}</ul> : <p className="mt-4 text-xs text-muted">No other suggestions for this selection.</p>}
           <details className="mt-5 border-t border-rivet pt-4 text-xs text-muted">
             <summary className="cursor-pointer font-medium text-ink">How Relay chooses</summary>
             <p className="mt-2 leading-relaxed">Local rules compare available quota, reset times, plan tier, your tags, and pinned accounts. These are suggestions, not model quality benchmarks. No task is sent to an AI service.</p>
