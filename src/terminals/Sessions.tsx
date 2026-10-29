@@ -74,7 +74,7 @@ export function SessionsPanel() {
     >
       {/* The same header as the Accounts panel. */}
       <div data-tauri-drag-region="deep" className="flex h-14 shrink-0 items-center gap-1 border-b border-rivet pl-4 pr-3">
-        <h2 className="flex-1 font-serif text-lg font-semibold">Sessions</h2>
+        <h2 className="flex-1 font-sans text-lg font-semibold">Sessions</h2>
         <button
           className="side-icon-btn"
           onClick={newSession}

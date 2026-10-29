@@ -89,7 +89,7 @@ export function SkillDetail({ listing, installed, tools, onChanged }: { listing:
       <header className="shrink-0 border-b border-rivet bg-ground px-6 pb-4 pt-5">
         <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
           <div className="min-w-0 flex-1">
-            <h2 id={`${uid}-name`} className="break-words font-serif text-lg font-semibold">
+            <h2 id={`${uid}-name`} className="break-words font-sans text-lg font-semibold">
               {listing.name}
             </h2>
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
@@ -168,7 +168,7 @@ export function SkillDetail({ listing, installed, tools, onChanged }: { listing:
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="px-6 pb-12 pt-5">
-          {description && <p className="max-w-[68ch] font-serif text-md">{description}</p>}
+          {description && <p className="max-w-[68ch] font-sans text-md">{description}</p>}
           <p className={clsx('flex max-w-[68ch] items-start gap-2 text-xs text-muted', description && 'mt-3')}>
             <ShieldAlert size={14} className="mt-px shrink-0" aria-hidden />
             Skills are instructions and scripts your agent follows. Read SKILL.md before you install one from a source you don't know.
