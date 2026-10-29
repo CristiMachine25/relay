@@ -1,155 +1,67 @@
-# Relay: design plan
+# Relay design system
 
-> 2026-10-23: renamed to Relay. Name history: AI Hopper → Baton → Switchyard → Agent Hub → Relay.
+## Work dispatch desk
 
-## The one question
+Relay helps people select an available AI account and continue their work. Start work leads with the task, account recommendation, explanation, and launch action. Quota supports that decision; it is not the headline on every screen.
 
-Every screen serves one question: **which account should I use right now, and how do I get into it?**
-The answer must be readable in under two seconds, and the launch must be one click (or `Ctrl/Cmd+K`, type, Enter).
-
-## Concept: the fuel board
-
-Each account is a tank. Each rate-limit window (5-hour session, weekly, weekly Opus, monthly premium
-requests) is a gauge on that tank. The app is the board you glance at before picking which tank to draw from.
-
-- Meters show **what is left**, not what is used. "36% left" is the number people act on.
-- Meters are **segmented** (20 cells of 5%), like a battery or a fuel strip. Segments make small differences
-  countable at a glance and look like nothing else in a generic dashboard. This is where the boldness goes.
-- **Color = how much is left.** The fill color of a meter comes from a four-step scale, and nothing else in the
-  UI uses those colors. Accounts carry an identity color, but only as a small mark and as a chart series.
-- The recommendation ("Use now") is the single loud moment: a big meter, the account name large, one primary
-  button. Everything else is quiet rows on a flat surface separated by lines, not floating cards.
+The shell groups Start work, Terminals, and Accounts together. Knowledge and Skills form a tools-and-context group. Notifications remains visible, while Settings and usage refresh stay at the bottom. Find and launch is available from every screen. Navigation labels can evolve without changing persisted route identifiers or keyboard shortcuts.
 
 ## Palette
 
-Dark is the default look, whatever the OS setting: a slightly cool near-black taken from the app icon's charcoal
-tile, not grey and not blue-black. Surfaces step up in a fixed order, well < ground < panel < raised, each step
-far enough apart that a panel never merges into the ground. Light (paper) and System stay available in Settings.
+All surfaces use the semantic CSS tokens in `src/index.css`. Charts and terminal themes read those same tokens. Blue means an action or selection; the quota colors retain their separate meaning.
 
-Interactive color (focus, selection, primary button) is periwinkle, from the icon's route (`#7397FB` family),
-deliberately outside the quota scale, so "periwinkle" always means "you can act here" and green-to-red always
-means "quota left". It is also far from Anthropic's terracotta, so the app never looks like it borrows their branding.
+| Role | Dark | Light |
+| --- | --- | --- |
+| Canvas | #111B28 | #F0F4F8 |
+| Recessed area | #0D1621 | #E6EDF4 |
+| Surface | #192638 | #FFFFFF |
+| Raised / hover | #24354A | #DCE6F1 |
+| Border | #3A4D63 | #BECDDC |
+| Primary text | #EDF3FA | #172B40 |
+| Secondary text | #ACBACB | #536578 |
+| Quiet text | #9BABBF | #516275 |
+| Action | #9AB7FF | #315BC7 |
+| On action | #0F1F3E | #FFFFFF |
+| Quota full | #6ADCAB | #117143 |
+| Quota half | #EDCB74 | #825A00 |
+| Quota low | #F8AA6F | #A6460A |
+| Quota empty | #FF8B91 | #B82630 |
 
-| Name | Role | Dark (default) | Light |
-|---|---|---|---|
-| Ground / Paper | App ground, terminal background | `#0E0F12` | `#F5F3EE` |
-| Panel | Sidebar, panels, pane headers, overlays | `#16181C` | `#FBFAF7` |
-| Well | Side lists (accounts, terminal sessions), code previews | `#0A0B0D` | `#ECE9E2` |
-| Raised | Hover, selected rows, tooltips | `#212329` | `#EEEBE4` |
-| Line | Borders, dividers | `#2B2E35` | `#DCD7CD` |
-| Cell off | Unlit meter cells (the meter well) | `#272A31` | `#E2DED5` |
-| Text | Primary text | `#E9EAEF` | `#1F1D1A` |
-| Muted | Secondary text | `#9DA1AC` | `#605C54` |
-| Faint | Hints, tertiary text | `#868A95` | `#6D6960` |
-| Periwinkle | Actions, focus ring, selection | `#86A0FB` | `#4556D6` |
-| On periwinkle | Text on the primary button | `#0A0F28` | `#FFFFFF` |
-| Quota scale | Full / Half / Low / Empty (left) | `#5ED6A2` `#E6C25F` `#EF904E` `#F36D6D` | `#16804A` `#926800` `#B6500E` `#C42E34` |
+Account identity colors and provider marks remain distinct from availability. Every unavailable, stale, or low-quota state needs text; color alone is insufficient.
 
-Full leans toward the icon's mint; the four quota colors were re-tuned for the near-black ground.
-Thresholds for the quota scale (percent left): Full ≥ 50, Half 20–49, Low 5–19, Empty < 5.
-Every color state also carries a word ("Limit reached", "Low") so color is never the only signal.
+## Typography and spacing
 
-Contrast (WCAG 2.x ratios, computed from the hex values above):
+Hanken Grotesk is the product typeface, including headings and figures. IBM Plex Mono is reserved for terminal output, paths, and commands. Product copy uses sentence case and tabular figures.
 
-| Pair | Dark | Light |
-|---|---|---|
-| Text on ground / panel / raised | 15.9 / 14.8 / 13.1 | 15.2 / 16.1 / 14.1 |
-| Muted on ground / panel / well / raised | 7.4 / 6.9 / 7.6 / 6.1 | 6.0 / 6.4 / 5.5 / 5.6 |
-| Faint on ground / panel / well / raised | 5.6 / 5.2 / 5.7 / 4.6 | 4.9 / 5.2 / 4.5 / 4.6 |
-| On periwinkle text on periwinkle | 7.6 | 5.9 |
-| Periwinkle focus ring on ground / panel | 7.7 / 7.1 | 5.3 / 5.7 |
-| Full / Half / Low / Empty on cell off | 8.0 / 8.4 / 6.0 / 4.9 | 3.7 / 3.7 / 3.8 / 4.1 |
-| Line on ground (non-text, kept subtle) | 1.4 | 1.3 |
+- Body and controls: 14px / 21px.
+- Supporting copy: 12px / 16px.
+- Screen titles: 22px / 28px.
+- Section and dialog titles: 17px, semibold.
+- Primary quota figures: 44px, when useful to a decision.
 
-The xterm theme reads ground, text and periwinkle from the same tokens (cursor in periwinkle, selection at 30%
-periwinkle); its ANSI colors are tuned per theme in `src/terminals/registry.ts`. Charts read grid, axis and
-tooltip colors from the tokens through `src/charts/theme.ts`.
+The expanded sidebar is 224px. Compact mode remains 60px, or 92px on macOS to clear native window controls. Native title and drag rows remain 56px. Standard page content has 16px horizontal padding in compact windows and 28px in wider windows, with a 1440px maximum content width.
 
-Account identity colors come from a validated categorical set (dataviz reference palette, dark steps):
-`#3987E5 #D95926 #199E70 #C98500 #D55181 #9085E9 #E66767 #008300`.
+Controls use an 8px radius; grouped controls use 10px; substantial surfaces and dialogs use 14px. Rows remain flat and aligned. Shadows are reserved for overlays. No decorative gradients or ambient animation.
 
-## Type
+## Screen hierarchy
 
-Claude's interface pairs a book serif for headings and answers with a plain sans for controls. Relay does the same:
+Start work presents the recommendation and explanation, continuation actions, actionable account warnings, the account fleet, then history. Recommendations are local rules using account availability and quota; do not suggest that an AI model evaluated the user's work.
 
-- **Source Serif 4** (variable with the optical-size axis, bundled with @fontsource): screen titles, section
-  headings, the account name and the big percentage in "Best account right now", the app name. Semibold. The
-  optical-size build draws the 44px figure with the display cut and the 17–20px headings with the text cut.
-- **Hanken Grotesk** (variable): everything you click or scan: buttons, rows, labels, small numbers. Its figures
-  are tabular by default, so countdowns don't jitter, and it is neutral enough next to the serif.
-- **IBM Plex Mono** (400 and 600): terminals and anything you could paste into one: command lines, paths, env
-  vars. Terminal bold uses the real 600 weight instead of a synthesized one.
+Accounts retains its provider-grouped master/detail layout. Status, remaining quota, and launch actions precede advanced account configuration. Knowledge explains what is shared before showing files. Skills keeps search, selection, install destination, and installed state clear. Notifications explains what happened and provides the relevant next action. Settings groups related controls with descriptions beside them.
 
-Neither bundled sans nor serif subset carries stylistic sets or character variants, so there are none to enable;
-`tnum` stays on globally as a guard. Text is antialiased (grayscale) on every theme.
+Terminal sessions retain their lifecycle and layout. Chrome uses the shared palette, while terminal geometry, focus behavior, running hidden sessions, and container-based header adaptation remain intact.
 
-Sizes: 13.5px/19px base (desktop density), 12px secondary, 17px serif section and dialog titles, 20px serif screen
-titles and the app name (-0.01em), 44px serif hero figure (-0.025em). Serif text elsewhere tracks -0.008em.
-Sentence case everywhere. No all-caps eyebrows.
+## Interaction requirements
 
-## Icon
+- Launch and resume remain direct actions.
+- Unknown quota is labeled unavailable, never rendered as a measured zero.
+- Stale quota remains visibly uncertain.
+- All numeric navigation shortcuts retain their existing assignments, even when visual order changes.
+- Find and launch remains available with Ctrl/Cmd+K; sidebar collapse remains Ctrl/Cmd+B.
+- Keep the skip link, keyboard focus rings, radiogroup arrow navigation, dialog focus handling, and reduced-motion behavior.
+- Native window controls and drag regions must keep their clear space.
+- Validate narrow layouts and both themes using the browser demo without touching real account data.
 
-Relay is the approved app mark: a periwinkle route hands work to a green route inside a rounded charcoal tile.
-The source artwork is `app-icon.png`. Preserve that artwork when generating platform sizes; the in-app mark
-imports a small generated copy through `src/components/Logo.tsx`. Run `npm run icons:build` to regenerate the
-desktop icon formats, interface copy, and the website's favicon, navigation, and Apple touch icon.
+## Design rationale
 
-## Terminal grid
-
-Panes are flat panels on the ground color with a 36px header: account dot, name, provider, a 10-cell meter for
-the binding window with its reset countdown, status, then icon buttons. The focused pane gets a periwinkle
-border. Headers drop the provider, then the meter and status, as a pane gets narrower (container queries, not
-window breakpoints). A pane whose account hits its limit shows one calm banner with a single "Continue on X"
-button; there is no red alarm. The xterm theme comes from the same tokens.
-
-## Layout
-
-208px sidebar; the button beside Settings or Ctrl/Cmd+B collapses it to icons (60px, 92px on macOS to
-clear the window buttons), and it starts collapsed below 1000px. Every screen has a fixed 56px toolbar with
-its title (and actions such as Refresh on Knowledge); the content scrolls below it. Comfortable at 1240×820,
-usable at 900×600, never scrolls horizontally.
-
-```
-┌─────────────────┬──────────────────────────────────────────────────────────────────────┐
-│ ◆ Relay         │ Overview                                          Find and launch ⌘K │
-│                 ├──────────────────────────────────────────────────────────────────────┤
-│ Overview        │ ┌ Best account right now ──────── [Coding] Long refactor  Quick …  ┐ │
-│ Accounts        │ ├────────────────────────────────────────────┬─────────────────────┤ │
-│ Knowledge       │ │ ● Work Max 20x   Claude Code, Max 20x      │ If not that one     │ │
-│ Skills          │ │ 36%  ▮▮▮▮▮▮▮▯▯▯▯▯▯▯▯▯▯▯▯▯                  │ ● Personal Pro   ▶  │ │
-│ Terminals       │ │ left of 5-hour session, resets in 2h 14m   │ ● ChatGPT Pro    ▶  │ │
-│ Notifications 3 │ │ Weekly ▮▮▮▮▮▮▯▯▯▯  Weekly Opus ▮▮▮▮▮▮▮▮▯▯  │                     │ │
-│                 │ │ 59% of weekly left, resets in 3 days       │                     │ │
-│                 │ │ [▶ Launch Claude]  [Resume last session]   │                     │ │
-│                 │ └────────────────────────────────────────────┴─────────────────────┘ │
-│                 │ Use it or lose it: H2 Max has 70% of its weekly left, resets in 9h   │
-│                 │ All accounts                                     [+ Add account]     │
-│                 │ ● Work Max 20x   5-hour ▮▮▮▮▯▯▯  Weekly ▮▮▮▮▮▯  Opus ▮▯▯  [▶]        │
-│                 │ ● Personal Pro   5-hour ▮▮▮▮▮▮▮  Weekly ▯▯▯▯▯▯  Low       [▶]        │
-│ ↻ Usage updated │ …                                                                    │
-│   2m ago        │ Weekly and monthly limits used     Most used, last 30 days           │
-│ Settings    [«] │ [chart]                            [bars]                            │
-└─────────────────┴──────────────────────────────────────────────────────────────────────┘
-```
-
-Accounts screen is master/detail: provider-grouped list on the left, the selected account on the right.
-Adding an account is a two-step dialog (find on this computer, or create a new isolated profile).
-
-## Principles
-
-1. **Answer first.** The recommendation and its launch button sit at the top of the default screen.
-2. **Structure encodes data.** Meter length and color are the remaining quota. Row order is the recommendation order.
-3. **Quiet chrome.** Flat surfaces, 1px lines, one radius (6px), no gradients, no shadows except on overlays.
-4. **Show what ran.** Every launch toasts the exact command line in mono, with a copy button.
-5. **Motion only for change.** Meters animate when a value changes; nothing else moves. `prefers-reduced-motion` disables it.
-6. **Keyboard first.** Visible periwinkle focus ring, `Ctrl/Cmd+K` palette, `1–7` jump between screens, Enter launches.
-
-## Review against the brief (revisions made)
-
-- First draft used a near-black ground with a single green accent: that is a known template look. The accent
-  is periwinkle, keeping green exclusively for "plenty left". The ground went from warm charcoal to the icon's
-  cool near-black for launch; it stays a tinted black with stepped surfaces, never a single flat black.
-- First draft had a card per account in a grid. Replaced with dense rows so ten accounts fit without scrolling
-  and the windows line up in columns for comparison.
-- Dropped a planned uppercase "PROVIDER" eyebrow over groups; groups use the provider name in normal case
-  with the vendor's small identity mark.
+The previous design repeated quota in a large hero, alternatives, and a complete account board. The dispatch desk emphasizes the next action and places the evidence next to it. Cool slate surfaces and blue selection preserve Relay's route identity while giving tools, accounts, and terminal sessions a consistent working environment. The interface does not borrow another assistant's serif typography or imply a conversational AI feature that does not exist.

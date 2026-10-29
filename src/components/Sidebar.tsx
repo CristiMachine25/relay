@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { useEffect } from 'react'
-import { Bell, Blocks, Gauge, Library, PanelLeftClose, PanelLeftOpen, RefreshCw, Settings, SquareTerminal, Users } from 'lucide-react'
+import { Bell, Blocks, Gauge, Library, PanelLeftClose, PanelLeftOpen, RefreshCw, Search, Settings, SquareTerminal, Users } from 'lucide-react'
 import { useStore, type Screen } from '@/store'
 import { IS_MOCK, api } from '@/api'
 import { formatAgo } from '@/lib/format'
@@ -16,11 +16,11 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { id: 'overview', label: 'Overview', icon: Gauge, key: '1' },
+  { id: 'overview', label: 'Start work', icon: Gauge, key: '1' },
+  { id: 'terminals', label: 'Terminals', icon: SquareTerminal, key: '5' },
   { id: 'accounts', label: 'Accounts', icon: Users, key: '2' },
   { id: 'knowledge', label: 'Knowledge', icon: Library, key: '3' },
   { id: 'skills', label: 'Skills', icon: Blocks, key: '4' },
-  { id: 'terminals', label: 'Terminals', icon: SquareTerminal, key: '5' },
   { id: 'notifications', label: 'Notifications', icon: Bell, key: '6' }
 ]
 
@@ -36,6 +36,7 @@ export const MAC_TRAFFIC_LIGHTS = isTauri() && detectPlatform() === 'darwin'
 export function Sidebar() {
   const screen = useStore((s) => s.screen)
   const go = useStore((s) => s.go)
+  const setPalette = useStore((s) => s.setPalette)
   const unread = useStore((s) => s.notifications.filter((n) => !n.read).length)
   const usage = useStore((s) => s.usage)
   const now = useStore((s) => s.now)
@@ -67,19 +68,33 @@ export function Sidebar() {
       aria-label="Main"
       className={clsx(
         'flex shrink-0 flex-col border-r border-rivet bg-deck transition-[width] duration-150',
-        collapsed ? clsx('sidebar-compact', MAC_TRAFFIC_LIGHTS ? 'w-[92px]' : 'w-[60px]') : 'w-[208px]'
+        collapsed ? clsx('sidebar-compact', MAC_TRAFFIC_LIGHTS ? 'w-[92px]' : 'w-[60px]') : 'w-[224px]'
       )}
     >
       <div
         data-tauri-drag-region="deep"
-        className={clsx('flex h-14 items-center gap-2.5 px-4 compact:justify-center compact:px-0', MAC_TRAFFIC_LIGHTS && 'pl-[92px]')}
+        className={clsx('flex h-14 shrink-0 items-center gap-2.5 px-4 compact:justify-center compact:px-0', MAC_TRAFFIC_LIGHTS && 'pl-[92px]')}
       >
         {!MAC_TRAFFIC_LIGHTS && <Logo size={26} />}
-        <span className="flex-1 font-serif text-lg font-semibold compact:hidden">Relay</span>
+        <span className="flex-1 font-sans text-lg font-semibold compact:hidden">Relay</span>
       </div>
-      <ul className="flex flex-col gap-0.5 px-2 pt-2">
+      <div className="px-3 pb-3 pt-2 compact:px-2">
+        <button
+          className="flex h-9 w-full items-center gap-2 rounded border border-rivet bg-ground px-2.5 text-sm text-muted hover:border-hop/60 hover:text-ink compact:justify-center compact:px-0"
+          onClick={() => setPalette(true)}
+          aria-label="Find and launch"
+          data-tip={`Find and launch (${modKey(api.platform)}+K)`}
+          data-tip-side="right"
+        >
+          <Search size={15} aria-hidden />
+          <span className="flex-1 text-left compact:hidden">Find and launch</span>
+          <span className="text-[11px] compact:hidden">{modKey(api.platform)} K</span>
+        </button>
+      </div>
+      <ul className="flex flex-col gap-1 overflow-y-auto px-3 compact:px-2">
         {NAV.map((n) => (
-          <li key={n.id}>
+          <li key={n.id} className={clsx((n.id === 'knowledge' || n.id === 'notifications') && 'mt-3 border-t border-rivet pt-3')}>
+            {n.id === 'knowledge' && <p className="mb-2 px-2.5 text-xs font-medium text-muted compact:hidden">Tools and context</p>}
             <NavButton item={n} on={screen === n.id} onClick={() => go(n.id)}>
               {n.id === 'notifications' && unread > 0 && (
                 <span
@@ -140,11 +155,10 @@ function NavButton({ item, on, onClick, children }: { item: NavItem; on: boolean
       data-tip={`${item.label} (${item.key})`}
       data-tip-side="right"
       className={clsx(
-        'relative flex h-9 w-full items-center gap-2.5 rounded px-2.5 text-sm transition-colors compact:justify-center',
-        on ? 'bg-raised font-semibold text-ink' : 'text-muted hover:bg-raised/60 hover:text-ink'
+        'relative flex h-10 w-full items-center gap-2.5 rounded px-2.5 text-sm transition-colors compact:justify-center',
+        on ? 'bg-hop/15 font-semibold text-hop' : 'text-muted hover:bg-raised/60 hover:text-ink'
       )}
     >
-      {on && <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r bg-hop" aria-hidden />}
       <Icon size={17} strokeWidth={on ? 2.2 : 1.8} />
       <span className="flex-1 text-left compact:sr-only">{item.label}</span>
       {children}
