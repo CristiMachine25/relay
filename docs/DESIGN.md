@@ -8,18 +8,18 @@ The shell groups Start work, Terminals, and Accounts together. Knowledge and Ski
 
 ## Palette
 
-All surfaces use the semantic CSS tokens in `src/index.css`. Charts and terminal themes read those same tokens. Blue means an action or selection; the quota colors retain their separate meaning.
+All surfaces use the semantic CSS tokens in `src/index.css`. Charts and terminal themes read those same tokens. Dark surfaces are near-black and light surfaces are white, with neutral grays defining depth. Blue means an action or selection; the quota colors retain their separate meaning.
 
 | Role | Dark | Light |
 | --- | --- | --- |
-| Canvas | #111B28 | #F0F4F8 |
-| Recessed area | #0D1621 | #E6EDF4 |
-| Surface | #192638 | #FFFFFF |
-| Raised / hover | #24354A | #DCE6F1 |
-| Border | #3A4D63 | #BECDDC |
-| Primary text | #EDF3FA | #172B40 |
-| Secondary text | #ACBACB | #536578 |
-| Quiet text | #9BABBF | #516275 |
+| Canvas | #080808 | #FFFFFF |
+| Recessed area | #030303 | #FAFAFA |
+| Surface | #111111 | #FFFFFF |
+| Raised / hover | #1D1D1D | #F2F2F2 |
+| Border | #303030 | #E0E0E0 |
+| Primary text | #F5F5F5 | #171717 |
+| Secondary text | #B4B4B4 | #595959 |
+| Quiet text | #9B9B9B | #666666 |
 | Action | #9AB7FF | #315BC7 |
 | On action | #0F1F3E | #FFFFFF |
 | Quota full | #6ADCAB | #117143 |

@@ -6,40 +6,40 @@
 :root,
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --ground: 17 27 40;
-  --well: 13 22 33;
-  --deck: 25 38 56;
-  --raised: 36 53 74;
-  --rivet: 58 77 99;
-  --ink: 237 243 250;
-  --muted: 172 186 203;
-  --faint: 155 171 191;
+  --ground: 8 8 8;
+  --well: 3 3 3;
+  --deck: 17 17 17;
+  --raised: 29 29 29;
+  --rivet: 48 48 48;
+  --ink: 245 245 245;
+  --muted: 180 180 180;
+  --faint: 155 155 155;
   --hop: 154 183 255;
   --hop-ink: 15 31 62;
   --full: 106 220 171;
   --half: 237 203 116;
   --low: 248 170 111;
   --empty: 255 139 145;
-  --cell-off: 46 63 84;
+  --cell-off: 42 42 42;
 }
 
 :root[data-theme='light'] {
   color-scheme: light;
-  --ground: 240 244 248;
-  --well: 230 237 244;
+  --ground: 255 255 255;
+  --well: 250 250 250;
   --deck: 255 255 255;
-  --raised: 220 230 241;
-  --rivet: 190 205 220;
-  --ink: 23 43 64;
-  --muted: 83 101 120;
-  --faint: 81 98 117;
+  --raised: 242 242 242;
+  --rivet: 224 224 224;
+  --ink: 23 23 23;
+  --muted: 89 89 89;
+  --faint: 102 102 102;
   --hop: 49 91 199;
   --hop-ink: 255 255 255;
   --full: 17 113 67;
   --half: 130 90 0;
   --low: 166 70 10;
   --empty: 184 38 48;
-  --cell-off: 214 225 237;
+  --cell-off: 232 232 232;
 }
 
 /* Theme-independent: the Windows close button's hover red. */
