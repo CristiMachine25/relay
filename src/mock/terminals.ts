@@ -1,5 +1,6 @@
 // Fake embedded terminals for the browser preview: prints a banner, echoes what you type, and understands
-// a few demo commands (/limit simulates this account hitting its limit, /exit ends the session).
+// a few demo commands (/limit simulates this account hitting its limit, /exit ends the session). A prompt
+// passed as the last CLI argument shows as if it had been typed.
 import type { Account, AppEvents, RelayApi, ProviderInfo, TerminalInfo, UsageSnapshot } from '@shared/types'
 
 interface Deps {
@@ -27,6 +28,18 @@ const color = (hex: string, s: string) => {
 }
 const BRAND: Record<Account['providerId'], string> = { claude: '#D97757', codex: '#10A37F', gemini: '#4E86F7', copilot: '#8B6CEF' }
 
+/** CLI flags whose next argument is their value, not a prompt. */
+const VALUE_FLAGS = new Set(['--permission-mode', '--model'])
+
+/** The prompt among extra CLI arguments: the last one, unless it is a flag or a flag's value. */
+function promptArg(args: string[]): string | undefined {
+  const last = args.at(-1)
+  if (last === undefined || last.startsWith('-') || VALUE_FLAGS.has(args.at(-2) ?? '')) return undefined
+  return last.trim() || undefined
+}
+
+const quote = (arg: string) => (/^[\w./=:@-]+$/.test(arg) ? arg : `"${arg.replace(/(["\\$`])/g, '\\$1')}"`)
+
 export function createMockTerminals(deps: Deps): RelayApi['terminals'] {
   const terms = new Map<string, Fake>()
   let seq = 0
@@ -47,7 +60,7 @@ export function createMockTerminals(deps: Deps): RelayApi['terminals'] {
     deps.emit('terminal-exit', { id: t.info.id, code })
   }
 
-  function banner(t: Fake, resume: boolean, login: boolean) {
+  function banner(t: Fake, resume: boolean, login: boolean, task?: string) {
     const a = t.account
     const prov = deps.provider(a.providerId)
     const name = prov?.name ?? a.providerId
@@ -68,6 +81,7 @@ export function createMockTerminals(deps: Deps): RelayApi['terminals'] {
     else if (resume) s += `${dim('Resuming the most recent conversation in this folder…')}\r\n\r\n`
     s += dim('Browser preview: this terminal only echoes what you type.') + '\r\n'
     s += dim('Try ') + '/limit' + dim(' to simulate a usage limit, or ') + '/exit' + dim('.') + '\r\n\r\n'
+    if (task) s += `${color(BRAND[a.providerId], '>')} ${dim(task)}\r\n${dim('⎿ Working on it…')}\r\n\r\n`
     out(t, s)
     prompt(t)
   }
@@ -105,6 +119,8 @@ export function createMockTerminals(deps: Deps): RelayApi['terminals'] {
       if (prov && !prov.cliInstalled) throw new Error(`${prov.name} isn't installed. Install it with "${prov.installHint}" and try again.`)
       const id = `term-${++seq}-${Date.now().toString(36)}`
       const cli = prov?.cliCommand ?? a.providerId
+      const base = req.target === 'login' ? [cli, '/login'] : req.resume ? [cli, '--continue'] : [cli]
+      const extra = req.extraArgs ?? []
       const t: Fake = {
         account: a,
         line: '',
@@ -113,7 +129,7 @@ export function createMockTerminals(deps: Deps): RelayApi['terminals'] {
           id,
           accountId: a.id,
           title: a.label,
-          commandLine: req.target === 'login' ? `${cli} /login` : req.resume ? `${cli} --continue` : cli,
+          commandLine: [...base, ...extra].map(quote).join(' '),
           cwd: req.cwd ?? deps.defaultCwd(),
           pid: 4000 + seq,
           startedAt: new Date().toISOString(),
@@ -122,7 +138,7 @@ export function createMockTerminals(deps: Deps): RelayApi['terminals'] {
         }
       }
       terms.set(id, t)
-      setTimeout(() => banner(t, !!req.resume, req.target === 'login'), 60)
+      setTimeout(() => banner(t, !!req.resume, req.target === 'login', promptArg(extra)), 60)
       return structuredClone(t.info)
     },
     async write(id, data) {
