@@ -13,6 +13,10 @@ vi.mock('@xterm/xterm', () => ({
     input: (d: string) => void = () => {}
     cols = 80
     rows = 24
+    constructor(opts?: { cols?: number; rows?: number }) {
+      if (opts?.cols) this.cols = opts.cols
+      if (opts?.rows) this.rows = opts.rows
+    }
     canvases: unknown[] = []
     /** Rows of the active buffer, scrollback first; `wrapped` continues the row above. */
     screen: { text: string; wrapped?: boolean }[] = []
@@ -133,6 +137,14 @@ describe('terminal output buffering', () => {
     disposeTerm('closed')
     output('closed', 'trailing chunk')
     expect(written('closed')).toEqual([])
+  })
+})
+
+describe('terminal size', () => {
+  it('starts at the size its process was spawned with, so an off-screen terminal reads the screen the CLI drew', () => {
+    const e = getTerm('sized', 'dark', undefined, { cols: 100, rows: 30 })
+    expect([e.term.cols, e.term.rows, e.cols, e.rows]).toEqual([100, 30, 100, 30])
+    disposeTerm('sized')
   })
 })
 

@@ -290,7 +290,7 @@ export const useGrid = create<GridState>((set, get) => {
           void killQuietly(info.id)
           return
         }
-        getTerm(info.id, theme())
+        getTerm(info.id, theme(), undefined, { cols, rows })
         set((s) => ({ infos: { ...s.infos, [info.id]: info } }))
         patchPane(uid, { terminalId: info.id })
         if (get().ws.panes[get().ws.focused]?.uid === uid) requestAnimationFrame(() => focusTerm(info.id))

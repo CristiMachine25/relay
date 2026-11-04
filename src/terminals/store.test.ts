@@ -246,6 +246,15 @@ describe('sessions', () => {
     expect(useGrid.getState().ws.panes[0]).toMatchObject({ accountId: 'acc-1', terminalId: 't-auto' })
   })
 
+  it("sizes a new terminal's screen like its process, before any pane shows it", async () => {
+    useGrid.getState().newSession()
+    const started = useGrid.getState().start(0, { accountId: 'acc-1', target: 'cli' })
+    spawns[0]!(info('t-sized'))
+    await started
+    expect(requests[0]).toMatchObject({ cols: 80, rows: 24 })
+    expect(registry.getTerm).toHaveBeenCalledWith('t-sized', 'dark', undefined, { cols: 80, rows: 24 })
+  })
+
   it('finds a pane in the active session or in one in the background', () => {
     const first = useGrid.getState().newSession()
     useGrid.getState().setLayout(2)

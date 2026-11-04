@@ -222,8 +222,12 @@ function inputWriter(id: string): (data: string) => void {
   }
 }
 
-/** The xterm for a backend terminal, created on first use. `scrollback` seeds a re-attached terminal. */
-export function getTerm(id: string, mode: 'dark' | 'light', scrollback?: string): TermEntry {
+/**
+ * The xterm for a backend terminal, created on first use. `scrollback` seeds a re-attached terminal. `size` is
+ * the grid the process was spawned with: until a pane fits it, the xterm must match it, or the CLI's redraws
+ * (cursor moves, line wraps) land in the wrong cells of the buffer that is read off screen.
+ */
+export function getTerm(id: string, mode: 'dark' | 'light', scrollback?: string, size?: { cols: number; rows: number }): TermEntry {
   ensureListeners()
   const existing = entries.get(id)
   if (existing) return existing
@@ -239,7 +243,8 @@ export function getTerm(id: string, mode: 'dark' | 'light', scrollback?: string)
     scrollback: 5000,
     allowProposedApi: true,
     macOptionIsMeta: true,
-    theme: terminalTheme(mode)
+    theme: terminalTheme(mode),
+    ...size
   })
   const fit = new FitAddon()
   term.loadAddon(fit)
