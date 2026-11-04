@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Account, TerminalInfo, TerminalSpawnRequest, UsageSnapshot } from '@shared/types'
+import { CONTINUE_PROMPT } from '@/lib/autopilot'
 
 // A fake backend: spawns answer at once, kills report the exit like the real backend does.
 const fake = vi.hoisted(() => {
@@ -93,6 +94,7 @@ vi.stubGlobal('localStorage', {
 const { api } = await import('@/api')
 
 const NOW = Date.parse('2026-11-04T10:00:00Z')
+const HOUR = 3_600_000
 
 const snap = (accountId: string, used: number, resetsAt?: string, stale?: boolean): UsageSnapshot => ({
   accountId,
@@ -154,6 +156,7 @@ async function boot() {
   return { grid: useGrid, ap: useAutopilot }
 }
 
+const emit = (event: string, payload: unknown) => (fake.handlers[event] ?? []).forEach((cb) => cb(payload))
 const lastSpawn = () => fake.state.requests[fake.state.requests.length - 1]!
 const kinds = (log: { kind: string }[]) => log.map((x) => x.kind)
 /** The run's terminal id right now. */
@@ -190,7 +193,7 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-/** Starts a run on h2 (most left). */
+/** Starts a run on h2 (most left) and lets the "replayed screen" quiet period pass. */
 async function running() {
   const env = await boot()
   await env.ap.getState().start(TASK)
@@ -273,17 +276,217 @@ describe('starting a run', () => {
   })
 })
 
+describe('moving to the next account', () => {
+  it('reacts to limit text on the terminal (debounced) and confirms it with a refresh', async () => {
+    const { grid, ap } = await running()
+    main.server.h2 = { used: 100, resetsAt: new Date(NOW + 2 * HOUR).toISOString() }
+    fake.state.screens.t1 = "Working…\nYou've hit your limit · resets 2pm"
+    emit('terminal-output', { id: 't1', data: 'x' })
+    expect(refresh).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1_100)
+    expect(refresh).toHaveBeenCalledWith('h2')
+    const run = ap.getState().run!
+    expect(ap.getState().phase).toBe('running')
+    expect(run.accountId).toBe('h3')
+    expect(run.handoffs).toBe(1)
+    expect(run.exhausted.h2).toBe(Date.parse(main.server.h2.resetsAt!))
+    expect(api.terminals.kill).toHaveBeenCalledWith('t1')
+    expect(lastSpawn()).toMatchObject({
+      accountId: 'h3',
+      resume: true,
+      resumeSession: 'conv-1',
+      extraArgs: ['--permission-mode', 'bypassPermissions', CONTINUE_PROMPT]
+    })
+    expect(runTerminal(grid, run.paneUid)).toBe('t2')
+    expect(ap.getState().log[0]).toMatchObject({ kind: 'handoff' })
+    expect(ap.getState().log[0]!.text).toMatch(/Claude H2 ran out .*Continued on Claude H3 \(50% left\)/)
+    expect(toast).toHaveBeenLastCalledWith(expect.objectContaining({ kind: 'info' }))
+  })
+
+  it('also checks the screen every 15 seconds without new output', async () => {
+    const { ap } = await running()
+    main.server.h2 = { used: 100 }
+    fake.state.screens.t1 = 'Claude usage limit reached.'
+    await vi.advanceTimersByTimeAsync(15_000)
+    expect(ap.getState().run!.accountId).toBe('h3')
+  })
+
+  it('ignores limit text in the first 20 seconds after a spawn (a resumed chat replays old screens)', async () => {
+    const { ap } = await boot()
+    await ap.getState().start(TASK)
+    main.server.h2 = { used: 100 }
+    fake.state.screens.t1 = "You've hit your limit"
+    emit('terminal-output', { id: 't1', data: 'x' })
+    await vi.advanceTimersByTimeAsync(15_500)
+    expect(refresh).not.toHaveBeenCalled()
+    expect(ap.getState().run!.accountId).toBe('h2')
+    await vi.advanceTimersByTimeAsync(15_000)
+    expect(ap.getState().run!.accountId).toBe('h3')
+  })
+
+  it('hands off when a usage update shows the account at its limit', async () => {
+    const { ap } = await running()
+    setUsage({ h2: 100 })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(ap.getState().run!.accountId).toBe('h3')
+    expect(lastSpawn()).toMatchObject({ accountId: 'h3', resume: true, extraArgs: ['--permission-mode', 'bypassPermissions', CONTINUE_PROMPT] })
+    expect(ap.getState().run!.exhausted.h2).toBe(NOW + 21_000 + HOUR)
+  })
+
+  it('skips accounts the chat history cannot reach', async () => {
+    resetMain([H1, H2, account('h3', 'Claude H3', { sharing: { ...H1.sharing, history: false } })])
+    setUsage({ h1: 70, h2: 20, h3: 30 })
+    updateAccount.mockImplementationOnce(async () => false) // turning history on for h3 failed
+    const { ap } = await running()
+    setUsage({ h2: 100 })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(ap.getState().run!.accountId).toBe('h1')
+  })
+
+  it('moves the grid to the autopilot session before continuing', async () => {
+    const { grid, ap } = await running()
+    const other = grid.getState().newSession()
+    expect(grid.getState().activeId).toBe(other)
+    setUsage({ h2: 100 })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(grid.getState().activeId).toBe(ap.getState().run!.sessionId)
+    expect(runTerminal(grid, ap.getState().run!.paneUid)).toBe('t2')
+  })
+
+  it('waits and retries no sooner than a minute later when the next terminal fails to start', async () => {
+    const { grid, ap } = await running()
+    fake.state.spawnError = 'spawn failed'
+    setUsage({ h2: 100 })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(ap.getState().phase).toBe('waiting')
+    expect(ap.getState().log[0]).toMatchObject({ kind: 'error' })
+    expect(ap.getState().log[0]!.text).toContain('spawn failed')
+    fake.state.spawnError = null
+    setUsage({ h1: 40 })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(fake.state.requests).toHaveLength(2)
+    await vi.advanceTimersByTimeAsync(61_000)
+    expect(fake.state.requests).toHaveLength(3)
+    expect(ap.getState().phase).toBe('running')
+    expect(ap.getState().run!.accountId).toBe('h1')
+    // The pane had no terminal left to ask, so the conversation id seen before the first try is used.
+    expect(lastSpawn()).toMatchObject({ accountId: 'h1', resume: true, resumeSession: 'conv-1' })
+    expect(runTerminal(grid, ap.getState().run!.paneUid)).toBe('t2')
+  })
+})
+
+describe('limit text the usage does not confirm', () => {
+  it('is ignored, logged once, and not re-checked for 2 minutes', async () => {
+    const { ap } = await running()
+    fake.state.screens.t1 = 'The docs say: 5-hour limit reached means wait'
+    emit('terminal-output', { id: 't1', data: 'x' })
+    await vi.advanceTimersByTimeAsync(1_100)
+    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(ap.getState().run!.accountId).toBe('h2')
+    expect(kinds(ap.getState().log)).toEqual(['false-alarm', 'start'])
+    expect(ap.getState().log[0]!.text).toContain('80% left')
+
+    emit('terminal-output', { id: 't1', data: 'x' })
+    await vi.advanceTimersByTimeAsync(110_000)
+    expect(refresh).toHaveBeenCalledTimes(1)
+
+    await vi.advanceTimersByTimeAsync(30_000)
+    expect(refresh).toHaveBeenCalledTimes(2)
+    expect(kinds(ap.getState().log)).toEqual(['false-alarm', 'start'])
+    expect(fake.state.requests).toHaveLength(1)
+  })
+
+  it('is trusted when the usage is stale', async () => {
+    const { ap } = await running()
+    main.server.h2 = { used: 20, stale: true }
+    fake.state.screens.t1 = "You've hit your limit"
+    emit('terminal-output', { id: 't1', data: 'x' })
+    await vi.advanceTimersByTimeAsync(1_100)
+    expect(ap.getState().run!.accountId).toBe('h3')
+  })
+
+  it('is trusted when the account reports no usage at all', async () => {
+    resetMain([H1, H2])
+    setUsage({ h1: 100 })
+    const { ap } = await running()
+    expect(ap.getState().run!.accountId).toBe('h2')
+    fake.state.screens.t1 = "You've hit your limit"
+    emit('terminal-output', { id: 't1', data: 'x' })
+    await vi.advanceTimersByTimeAsync(1_100)
+    expect(ap.getState().phase).toBe('waiting')
+  })
+})
+
+describe('when no account has room', () => {
+  it('waits for the soonest reset, then resumes on the account that came back', async () => {
+    const soon = new Date(NOW + HOUR).toISOString()
+    const later = new Date(NOW + 3 * HOUR).toISOString()
+    resetMain([H1, H2])
+    setUsage({ h1: { used: 100, resetsAt: later }, h2: 20 })
+    const { ap } = await running()
+    setUsage({ h2: { used: 100, resetsAt: soon } })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(ap.getState().phase).toBe('waiting')
+    expect(ap.getState().run!.waitingUntil).toBe(Date.parse(soon))
+    expect(ap.getState().log[0]).toMatchObject({ kind: 'waiting' })
+    expect(fake.state.requests).toHaveLength(1)
+
+    // Reset passes; the next refresh shows room again.
+    main.server.h2 = { used: 0 }
+    await vi.advanceTimersByTimeAsync(Date.parse(soon) - Date.now() + 61_000)
+    expect(ap.getState().phase).toBe('running')
+    expect(ap.getState().run!.accountId).toBe('h2')
+    expect(ap.getState().run!.waitingUntil).toBeUndefined()
+    expect(lastSpawn()).toMatchObject({ accountId: 'h2', resume: true, resumeSession: 'conv-1', extraArgs: ['--permission-mode', 'bypassPermissions', CONTINUE_PROMPT] })
+    expect(api.terminals.kill).toHaveBeenCalledWith('t1')
+    expect(ap.getState().log[0]).toMatchObject({ kind: 'resumed' })
+  })
+
+  it('resumes early when a usage update shows an account with room', async () => {
+    resetMain([H1, H2])
+    setUsage({ h1: 100, h2: 20 })
+    const { ap } = await running()
+    setUsage({ h2: 100 })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(ap.getState().phase).toBe('waiting')
+    await vi.advanceTimersByTimeAsync(5 * 60_000)
+    setUsage({ h1: 30 })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(ap.getState().phase).toBe('running')
+    expect(ap.getState().run!.accountId).toBe('h1')
+  })
+})
+
 describe('stopping', () => {
-  it('keeps the terminal and lets the computer sleep', async () => {
+  it('stops reacting, keeps the terminal, and lets the computer sleep', async () => {
     const { ap } = await running()
     ap.getState().stop()
     expect(ap.getState().phase).toBe('stopped')
     expect(ap.getState().log[0]).toMatchObject({ kind: 'stopped', text: 'Stopped by you' })
     expect(api.system.keepAwake).toHaveBeenLastCalledWith(false)
+    setUsage({ h2: 100 })
+    fake.state.screens.t1 = "You've hit your limit"
+    emit('terminal-output', { id: 't1', data: 'x' })
+    await vi.advanceTimersByTimeAsync(60_000)
     expect(api.terminals.kill).not.toHaveBeenCalled()
+    expect(fake.state.requests).toHaveLength(1)
 
     ap.getState().dismiss()
     expect(ap.getState()).toMatchObject({ phase: 'idle', run: null, log: [] })
+  })
+
+  it('stops when the pane is closed', async () => {
+    const { grid, ap } = await running()
+    await grid.getState().close(0)
+    expect(ap.getState().phase).toBe('stopped')
+    expect(ap.getState().run!.error).toMatch(/closed/)
+  })
+
+  it("stops when the run's account is removed", async () => {
+    const { ap } = await running()
+    main.setState({ accounts: [H1, H3] })
+    expect(ap.getState().phase).toBe('stopped')
+    expect(ap.getState().run!.error).toMatch(/removed/)
   })
 
   it('opens the terminal on request', async () => {
