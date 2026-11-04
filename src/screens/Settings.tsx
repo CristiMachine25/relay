@@ -134,7 +134,7 @@ export function Settings() {
           </Row>
           <Row
             label="Voice in Claude Code"
-            help="Turns on Claude Code's hold-to-talk voice mode in every Claude account Relay starts, so a chat that moves to another account keeps it. Off leaves each account's own setting alone."
+            help="Turns on Claude Code's hold-to-talk voice mode in every Claude account Relay starts, so a chat that moves to another account keeps it. While this is on, Relay turns it back on at every start; turn this off to choose per account with /voice."
           >
             {(ids) => <Switch {...ids} checked={s.claudeVoice} onChange={(v) => save({ claudeVoice: v })} />}
           </Row>

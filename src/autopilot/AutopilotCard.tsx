@@ -1,4 +1,4 @@
-import { Fragment, useId, useRef, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import clsx from 'clsx'
 import {
   AlertTriangle,
@@ -22,7 +22,7 @@ import {
 import type { Account, UsageSnapshot } from '@shared/types'
 import { api, errorText } from '@/api'
 import { useStore } from '@/store'
-import { pickAccount } from '@/lib/autopilot'
+import { nextAccount, pickAccount } from '@/lib/autopilot'
 import { atLimit, historyToTurnOn, isBlocked, isSignedOut } from '@/lib/grid'
 import { bindingWindow, leftOf } from '@/lib/quota'
 import { formatClock, formatCountdown, formatPct, plural, resetText, windowName } from '@/lib/format'
@@ -85,6 +85,7 @@ export function AutopilotCard() {
         {voice && (
           <button
             className="btn btn-ghost btn-sm shrink-0"
+            aria-label="Voice mode is on in every Claude account. Change it in Settings"
             onClick={() => useStore.getState().go('settings')}
             data-tip="Claude Code's hold-to-talk voice mode is on in every Claude account Relay starts"
           >
@@ -188,7 +189,7 @@ function Draft({ claude }: { claude: Account[] }) {
         <label htmlFor={`${ids}-task`} className="text-sm font-semibold text-muted">
           What should it do?
         </label>
-        <div className="rounded-lg border border-rivet bg-ground transition-colors focus-within:border-hop">
+        <div className="rounded-lg border border-rivet bg-ground transition-colors has-[textarea:focus-visible]:border-hop has-[textarea:focus-visible]:ring-2 has-[textarea:focus-visible]:ring-hop">
           <textarea
             ref={box}
             id={`${ids}-task`}
@@ -209,7 +210,7 @@ function Draft({ claude }: { claude: Account[] }) {
             }}
           />
           <div className="flex flex-wrap items-center gap-2 border-t border-rivet px-3 py-2.5">
-            <div role="group" aria-label="Folder" className="flex min-w-0 max-w-full items-center">
+            <div role="group" aria-label={`Working folder: ${folder ?? 'your home folder'}`} className="flex min-w-0 max-w-full items-center">
               <button
                 type="button"
                 className="btn btn-sm min-w-0 max-w-[320px] justify-start"
@@ -380,9 +381,9 @@ function Live({ phase, run }: { phase: Exclude<AutopilotPhase, 'idle'>; run: Aut
   // The newest entry of a stopped run is its stop, so that is where its time ends.
   const end = stopped ? (log[0]?.t ?? now) : now
   const shown = all ? log : log.slice(0, LOG_SHOWN)
-  // Who takes over if this account runs out: the engine's own pick, minus the accounts still out.
-  const out = run ? Object.keys(run.exhausted).filter((id) => run.exhausted[id]! > now) : []
-  const next = run && !stopped ? pickAccount(accounts, usage, { providerId: 'claude', exclude: [run.accountId, ...out] }) : undefined
+  const defaultHome = useStore((s) => s.providers.find((p) => p.id === 'claude')?.defaultHome)
+  // Who takes over if this account runs out: the engine's own pick, other than the account it is on.
+  const next = run && !stopped ? nextAccount(run, accounts, usage, { now, defaultHome, platform: api.platform, others: true }) : undefined
   const nextBind = next && bindingWindow(usage[next.id])
   const path = run ? route(run) : []
   // The buttons that took focus go away with the run; land on the next sensible stop instead.
@@ -470,19 +471,18 @@ function Live({ phase, run }: { phase: Exclude<AutopilotPhase, 'idle'>; run: Aut
                     const a = accounts.find((x) => x.id === id)
                     const current = i === path.length - 1
                     return (
-                      <Fragment key={`${id}-${i}`}>
+                      <li key={`${id}-${i}`} className="flex items-center gap-1.5" aria-current={current ? 'step' : undefined}>
                         {i > 0 && <ArrowRight size={12} className="text-faint" aria-hidden />}
-                        <li
+                        <span
                           className={clsx(
                             'flex h-7 items-center gap-1.5 rounded border px-2.5 text-xs',
                             current ? 'border-hop/50 bg-hop/10 font-medium text-ink' : 'border-rivet text-muted'
                           )}
-                          aria-current={current ? 'step' : undefined}
                         >
                           {a && <AccountDot account={a} size={8} />}
                           {a?.label ?? 'Removed account'}
-                        </li>
-                      </Fragment>
+                        </span>
+                      </li>
                     )
                   })}
                 </ol>

@@ -84,8 +84,8 @@ export function Overview() {
         <p className="mt-2 text-muted">Choose a task. Find an account with room. Keep your work moving.</p>
       </div>
       <ContinueWork />
-      <AutopilotCard />
       <Advisor />
+      <AutopilotCard />
       {alerts.length > 0 && <Alerts alerts={alerts} />}
       <Board />
       <details className="group rounded-lg border border-rivet bg-deck p-5">

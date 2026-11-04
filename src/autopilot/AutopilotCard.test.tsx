@@ -132,10 +132,17 @@ describe('AutopilotCard', () => {
     const html = render({ accounts: [work, home], usage: { w: snap('w', 40), h: snap('h', 50) } }, { phase: 'running', run: run({ legs }), log })
     expect(html).toContain('Route so far')
     // A resume on the same account is one stop, and the current one is marked.
-    expect(html.match(/<li class="flex h-7/g)).toHaveLength(2)
-    expect(html).toMatch(/aria-current="step"[^>]*>.*Work<\/li>/)
+    expect(html.match(/<li class="flex items-center gap-1.5"/g)).toHaveLength(2)
+    expect(html).toMatch(/aria-current="step">(?:(?!<\/li>).)*Work<\/span><\/li>/)
     expect(html).toContain('Next if it runs out:')
     expect(html).toContain('· 50% left')
+  })
+
+  it('never names an account as next that cannot open the chat', () => {
+    const solo = account('s', 'Solo', { sharing: { ...DEFAULT_SHARING, history: false } })
+    const html = render({ accounts: [work, solo], usage: { w: snap('w', 40), s: snap('s', 0) } }, { phase: 'running', run: run(), log })
+    expect(html).not.toContain('Solo</span>')
+    expect(html).toContain('No other account has room')
   })
 
   it('says when a waiting run is back', () => {
