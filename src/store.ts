@@ -33,6 +33,8 @@ interface State {
   notifications: AppNotification[]
   settings: AppSettings | null
   recs: Recommendation[]
+  recsLoading: boolean
+  recsError: string | null
   task: TaskType
   screen: Screen
   selectedId: string | null
@@ -64,6 +66,7 @@ interface State {
 
 let toastSeq = 1
 let settingsSeq = 0
+let recommendationSeq = 0
 let subscribed = false
 /** How many times the backend has pushed accounts / usage, so a load answered before a push never overwrites it. */
 const pushes = { accounts: 0, usage: 0 }
@@ -76,6 +79,8 @@ export const useStore = create<State>((set, get) => ({
   notifications: [],
   settings: null,
   recs: [],
+  recsLoading: false,
+  recsError: null,
   task: 'coding',
   screen: 'overview',
   selectedId: null,
@@ -156,11 +161,15 @@ export const useStore = create<State>((set, get) => ({
 
   async loadRecs() {
     const task = get().task
+    const request = ++recommendationSeq
+    set({ recs: [], recsLoading: true, recsError: null })
     try {
       const recs = await api.recommend(task)
-      if (get().task === task) set({ recs })
+      if (request === recommendationSeq) set({ recs, recsLoading: false })
     } catch {
-      /* recommendations are optional; the board still shows every account */
+      if (request === recommendationSeq) {
+        set({ recsLoading: false, recsError: 'Could not compare accounts. Try again or choose an account below.' })
+      }
     }
   },
 

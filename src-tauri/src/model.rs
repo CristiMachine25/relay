@@ -392,6 +392,13 @@ pub struct AppSettings {
     pub live_usage: bool,
     #[serde(default)]
     pub permission_modes: PermissionModes,
+    /// Turn Claude Code's voice mode on in every Claude account Relay starts.
+    #[serde(default = "yes")]
+    pub claude_voice: bool,
+}
+
+fn yes() -> bool {
+    true
 }
 
 /// Permission mode Relay starts each CLI in, per tool. Values are the tool's own mode names;
@@ -468,6 +475,7 @@ impl Default for AppSettings {
             theme: Theme::Dark,
             live_usage: true,
             permission_modes: PermissionModes::default(),
+            claude_voice: true,
         }
     }
 }

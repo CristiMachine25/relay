@@ -34,19 +34,42 @@ pub const USE_IT_MIN_WINDOW_MINUTES: u32 = 3 * 24 * 60;
 
 /// 0 = unknown/free, 1 = Plus, 2 = Pro/Team/Business, 3 = Max/Pro+/Ultra/Enterprise and ChatGPT Pro 100/200/500.
 pub fn tier(account: &Account) -> u8 {
-    let mut text = account.plan.clone().unwrap_or_default().to_ascii_lowercase();
-    for t in &account.tags {
-        text.push(' ');
-        text.push_str(&t.to_ascii_lowercase());
-    }
-    if ["max", "pro+", "pro plus", "ultra", "enterprise", "pro 100", "pro 200", "pro 500", "premium"].iter().any(|k| text.contains(k)) {
+    let text = account.plan.as_deref().unwrap_or_default().to_ascii_lowercase();
+    let words: Vec<_> = text.split(|c: char| !c.is_ascii_alphanumeric() && c != '+').filter(|word| !word.is_empty()).collect();
+    if ["max", "pro+", "ultra", "enterprise", "premium"].iter().any(|k| words.contains(k))
+        || words.windows(2).any(|pair| pair[0] == "pro" && ["plus", "100", "200", "500"].contains(&pair[1]))
+    {
         3
-    } else if ["pro", "team", "business"].iter().any(|k| text.contains(k)) {
+    } else if ["pro", "team", "business"].iter().any(|k| words.contains(k)) {
         2
-    } else if text.contains("plus") {
+    } else if words.contains(&"plus") {
         1
     } else {
         0
+    }
+}
+
+fn relevant_windows(snap: &UsageSnapshot) -> Vec<&UsageWindow> {
+    let general: Vec<_> = snap.windows.iter().filter(|w| !is_model_window(w)).collect();
+    if general.is_empty() {
+        snap.windows.iter().collect()
+    } else {
+        general
+    }
+}
+
+fn reset_passed(w: &UsageWindow, now: DateTime<Utc>) -> bool {
+    w.resets_at.as_deref().and_then(util::parse_iso).is_some_and(|at| at <= now)
+}
+
+fn quota_evidence(snap: Option<&UsageSnapshot>, now: DateTime<Utc>) -> u8 {
+    let Some(snap) = snap else { return 0 };
+    if tightest(snap).is_none() || relevant_windows(snap).iter().any(|w| reset_passed(w, now)) {
+        0
+    } else if snap.stale == Some(true) {
+        1
+    } else {
+        2
     }
 }
 
@@ -66,8 +89,8 @@ fn tag_matches(account: &Account, task: TaskType) -> bool {
     account.tags.iter().any(|t| kws.contains(&t.trim().to_ascii_lowercase().as_str()))
 }
 
-/// Best first, ties by label. Accounts of a provider in `cli_missing` can still be used in its desktop
-/// app, so they score 1 (not 0) and sort after every other usable account, best quota first.
+/// Current quota evidence first, then task fit, with label ties. Accounts in `cli_missing` may use a desktop
+/// app, so they score 1 (not 0) and sort after every other usable account.
 pub fn recommend(
     task: TaskType,
     provider: Option<ProviderId>,
@@ -76,7 +99,7 @@ pub fn recommend(
     cli_missing: &[ProviderId],
     now: DateTime<Utc>,
 ) -> Vec<Recommendation> {
-    let mut out: Vec<(Recommendation, bool, f64, &str)> = accounts
+    let mut out: Vec<(Recommendation, bool, f64, u8, &str)> = accounts
         .iter()
         .filter(|a| provider.is_none_or(|p| a.provider_id == p))
         .map(|a| {
@@ -88,10 +111,18 @@ pub fn recommend(
                 r.score = 1.0;
                 r.reason = format!("{left} The {} CLI isn't installed on this computer.", a.provider_id.name());
             }
-            (r, missing, raw, a.label.as_str())
+            (r, missing, raw, if raw > 0.0 { quota_evidence(latest.get(&a.id), now) } else { 0 }, a.label.as_str())
         })
         .collect();
-    out.sort_by(|(a, ma, ra, la), (b, mb, rb, lb)| b.score.total_cmp(&a.score).then(ma.cmp(mb)).then(rb.total_cmp(ra)).then_with(|| la.cmp(lb)));
+    out.sort_by(|(a, ma, ra, ea, la), (b, mb, rb, eb, lb)| {
+        (b.score > 0.0)
+            .cmp(&(a.score > 0.0))
+            .then(ma.cmp(mb))
+            .then(eb.cmp(ea))
+            .then(b.score.total_cmp(&a.score))
+            .then(rb.total_cmp(ra))
+            .then_with(|| la.cmp(lb))
+    });
     out.into_iter().map(|(r, ..)| r).collect()
 }
 
@@ -121,6 +152,13 @@ pub fn score_account(account: &Account, task: TaskType, snap: Option<&UsageSnaps
     let Some((snap, tight)) = snap.and_then(|s| tightest(s).map(|w| (s, w))) else {
         return rec(account, 40.0 + fit + tag_bonus + pin_bonus, "No usage data yet.".into());
     };
+    let relevant = relevant_windows(snap);
+    if relevant.iter().any(|w| reset_passed(w, now)) {
+        if let Some(exhausted) = relevant.iter().find(|w| !reset_passed(w, now) && (100.0 - w.used_percent).clamp(0.0, 100.0) < 1.0) {
+            return rec(account, 0.0, format!("{} limit reached.", exhausted.label));
+        }
+        return rec(account, 1.0, "A quota reset has passed. Refresh usage to confirm what is available.".into());
+    }
     let left = (100.0 - tight.used_percent).clamp(0.0, 100.0);
     let resets = tight.resets_at.as_deref().and_then(util::parse_iso).filter(|t| *t > now);
 
@@ -153,7 +191,7 @@ pub fn score_account(account: &Account, task: TaskType, snap: Option<&UsageSnaps
         }
     }
     match task {
-        TaskType::LongRefactor | TaskType::Coding if tier >= 3.0 => reason.push_str(" Top-tier plan suits long sessions."),
+        TaskType::LongRefactor | TaskType::Coding if tier >= 3.0 => reason.push_str(" Higher plan allowance is weighted for this task; session length varies."),
         TaskType::QuickQuestion if left < 50.0 => reason.push_str(" Good for a quick task, saves your bigger accounts."),
         _ => {}
     }
@@ -171,7 +209,7 @@ pub fn score_account(account: &Account, task: TaskType, snap: Option<&UsageSnaps
 fn use_it_or_lose_it(snap: &UsageSnapshot, now: DateTime<Utc>) -> Option<(&UsageWindow, f64)> {
     snap.windows
         .iter()
-        .filter(|w| w.window_minutes.unwrap_or(0) >= USE_IT_MIN_WINDOW_MINUTES)
+        .filter(|w| !is_model_window(w) && w.window_minutes.unwrap_or(0) >= USE_IT_MIN_WINDOW_MINUTES)
         .filter_map(|w| {
             let t = util::parse_iso(w.resets_at.as_deref()?)?;
             let left = (100.0 - w.used_percent).clamp(0.0, 100.0);
@@ -232,6 +270,54 @@ pub(crate) mod tests {
             error_kind: None,
             stale: None,
         }
+    }
+
+    #[test]
+    fn current_evidence_precedes_stale_and_unknown_quota() {
+        let now = Utc::now();
+        let mut unknown = account("unknown", "Max");
+        unknown.tags = vec!["heavy".into()];
+        let accounts = vec![unknown, account("stale", "Max"), account("current", "Pro")];
+        let mut stale = snap("stale", vec![window("five_hour", 0.0, Some(2), 300, now)]);
+        stale.stale = Some(true);
+        let latest = HashMap::from([("stale".into(), stale), ("current".into(), snap("current", vec![window("five_hour", 80.0, Some(2), 300, now)]))]);
+        let result = recommend(TaskType::LongRefactor, None, &accounts, &latest, &[], now);
+        assert_eq!(result.iter().map(|r| r.account_id.as_str()).collect::<Vec<_>>(), ["current", "stale", "unknown"]);
+    }
+
+    #[test]
+    fn plan_tier_ignores_tags_and_partial_words() {
+        let mut a = account("a", "");
+        a.tags = vec!["maximum".into(), "project".into(), "Pro".into()];
+        assert_eq!(tier(&a), 0);
+        assert_eq!(tier(&account("a", "Prototype")), 0);
+        assert_eq!(tier(&account("a", "Pro  200")), 3);
+    }
+
+    #[test]
+    fn passed_reset_is_unverified_but_current_exhaustion_still_blocks() {
+        let now = Utc::now();
+        let a = account("a", "Pro");
+        let expired = window("five_hour", 100.0, Some(-1), 300, now);
+        let mut s = snap("a", vec![expired.clone()]);
+        s.stale = Some(true);
+        let result = score_account(&a, TaskType::Any, Some(&s), now);
+        assert!(result.score > 0.0);
+        assert!(result.reason.contains("reset has passed"));
+        assert!(!result.reason.contains("100%"));
+        s.windows.push(window("seven_day", 100.0, Some(20), 10080, now));
+        assert_eq!(score_account(&a, TaskType::Any, Some(&s), now).score, 0.0);
+    }
+
+    #[test]
+    fn model_only_reset_does_not_earn_general_bonus() {
+        let now = Utc::now();
+        let a = account("a", "Pro");
+        let general = window("seven_day", 50.0, Some(100), 10080, now);
+        let model = window("seven_day_opus", 0.0, Some(2), 10080, now);
+        let plain = score_account(&a, TaskType::Any, Some(&snap("a", vec![general.clone()])), now);
+        let extra = score_account(&a, TaskType::Any, Some(&snap("a", vec![general, model])), now);
+        assert_eq!(plain.score, extra.score);
     }
 
     #[test]

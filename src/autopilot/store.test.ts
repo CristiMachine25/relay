@@ -323,6 +323,7 @@ describe('moving to the next account', () => {
     expect(ap.getState().phase).toBe('running')
     expect(run.accountId).toBe('h3')
     expect(run.handoffs).toBe(1)
+    expect(run.legs!.map((l) => l.accountId)).toEqual(['h2', 'h3'])
     expect(run.exhausted.h2).toBe(Date.parse(main.server.h2.resetsAt!))
     expect(api.terminals.kill).toHaveBeenCalledWith('t1')
     expect(lastSpawn()).toMatchObject({
@@ -723,6 +724,19 @@ describe('across restarts', () => {
     fake.state.screens.t1 += "\nYou've hit your limit"
     await vi.advanceTimersByTimeAsync(15_000)
     expect(ap.getState().run!.accountId).toBe('h3')
+  })
+
+  it('drops damaged route entries from a saved run but keeps the run', async () => {
+    await running()
+    const saved = JSON.parse(storage.get('relay.autopilot')!)
+    saved.run.legs = [null, { accountId: 'h2', at: 1 }, { accountId: 7 }]
+    storage.set('relay.autopilot', JSON.stringify(saved))
+    quitApp()
+
+    const { ap } = await boot()
+    await ap.getState().init()
+    expect(ap.getState().phase).toBe('running')
+    expect(ap.getState().run!.legs).toEqual([{ accountId: 'h2', at: 1 }])
   })
 
   it('leaves alone a run started while the saved one was being restored', async () => {

@@ -446,7 +446,8 @@ export function buildMockDb(p: Platform, now: number = Date.now()): MockDb {
     launchAtLogin: false,
     theme: 'dark',
     liveUsage: true,
-    permissionModes: { ...DEFAULT_PERMISSION_MODES, claude: 'acceptEdits' }
+    permissionModes: { ...DEFAULT_PERMISSION_MODES, claude: 'acceptEdits' },
+    claudeVoice: true
   }
 
   const detected: DetectedAccount[] = [

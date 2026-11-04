@@ -6,7 +6,7 @@ use crate::model::*;
 use crate::providers::{self, Adapter, CommandSpec, Resume};
 use crate::store::AppState;
 use crate::util::non_empty;
-use crate::{awake, knowledge, launcher, notify, pty, recommend, settings, skills, usage, util};
+use crate::{awake, knowledge, launcher, notify, pty, recommend, settings, skills, usage, util, voice};
 use anyhow::anyhow;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -168,6 +168,15 @@ async fn terminal_command(
         let (a, ad) = (account.clone(), adapter.clone());
         let shared = state.shared_dir(account.provider_id);
         let _ = tokio::task::spawn_blocking(move || knowledge::apply_for_account(&a, ad.as_ref(), &shared)).await;
+    }
+    // After sharing: settings.json may have just become a link to the shared one.
+    if !login && account.provider_id == ProviderId::Claude && state.settings.read().await.claude_voice {
+        let home = PathBuf::from(&account.home_dir);
+        match tokio::task::spawn_blocking(move || voice::enable_claude_voice(&home)).await {
+            Ok(Err(e)) => log::warn!("couldn't turn on voice mode for {}: {e:#}", account.label),
+            Err(e) => log::warn!("couldn't turn on voice mode for {}: {e}", account.label),
+            Ok(Ok(_)) => {}
+        }
     }
     Ok((spec, resume))
 }
@@ -701,6 +710,21 @@ pub async fn system_open_path(app: AppHandle, state: St<'_>, path: String) -> Re
 #[tauri::command]
 pub fn system_keep_awake(awake: State<'_, awake::KeepAwake>, on: bool) -> bool {
     awake.set(on)
+}
+
+/// Start the system's dictation in the focused text field. False where there is none (only macOS
+/// has a way to start it for us).
+#[tauri::command]
+pub async fn system_start_dictation(app: AppHandle) -> Res<bool> {
+    if !cfg!(target_os = "macos") {
+        return Ok(false);
+    }
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    app.run_on_main_thread(move || {
+        let _ = tx.send(voice::start_dictation());
+    })
+    .map_err(|e| e.to_string())?;
+    rx.await.map_err(|e| e.to_string())
 }
 
 #[cfg(test)]

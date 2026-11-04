@@ -1,8 +1,9 @@
 // Pure helpers for Autopilot: runs a task in the CLI and, when the account's usage runs out mid-task, moves the
 // same conversation to the account with the most left. The engine (timers, terminals, stores) lives elsewhere.
 import type { Account, ProviderId, UsageSnapshot } from '@shared/types'
-import { atLimit, isUsable } from './grid'
+import { atLimit, historyShared, isUsable } from './grid'
 import { bindingWindow, leftOf, longWindow } from './quota'
+import type { Platform } from './platform'
 
 /** Escape sequences: CSI (colors, cursor), OSC (titles, links; ended by BEL or ESC \) and two-byte ones. */
 const ANSI = /\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[()#*+][0-9A-Za-z]|\x1b[@-Z\\-_]/g
@@ -117,4 +118,25 @@ export function soonestReset(
     if (soonest === undefined || back < soonest) soonest = back
   }
   return soonest
+}
+
+/**
+ * The account a run continues on: the most left, not drained during this run (`exhausted`: id → epoch ms it is
+ * back), and able to open the chat's history. `others` leaves out the current account (to say who is next); the
+ * engine keeps it, since a resume on the same account after a reset is fine.
+ */
+export function nextAccount(
+  run: { accountId: string; exhausted: Record<string, number> },
+  accounts: Account[],
+  usage: Record<string, UsageSnapshot>,
+  opts: { now: number; defaultHome: string | undefined; platform: Platform; others?: boolean }
+): Account | undefined {
+  const current = accounts.find((a) => a.id === run.accountId)
+  if (!current) return undefined
+  const out = Object.keys(run.exhausted).filter((id) => run.exhausted[id]! > opts.now)
+  return pickAccount(accounts, usage, {
+    providerId: 'claude',
+    exclude: opts.others ? [...out, current.id] : out,
+    accept: (a) => a.id === current.id || historyShared(current, a, opts.defaultHome, opts.platform)
+  })
 }

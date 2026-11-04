@@ -7,8 +7,8 @@ import { api, errorText } from '@/api'
 import { useStore } from '@/store'
 import { useGrid } from '@/terminals/store'
 import { markEnd, tailText } from '@/terminals/registry'
-import { CONTINUE_PROMPT, exhaustedUntil, limitHit, permissionArgs, pickAccount, restartPrompt, soonestReset, taskArg } from '@/lib/autopilot'
-import { atLimit, historyShared, historyToTurnOn, isBlocked, isSignedOut } from '@/lib/grid'
+import { CONTINUE_PROMPT, exhaustedUntil, limitHit, nextAccount as pickNext, permissionArgs, pickAccount, restartPrompt, soonestReset, taskArg } from '@/lib/autopilot'
+import { atLimit, historyToTurnOn, isBlocked, isSignedOut } from '@/lib/grid'
 import { bindingWindow, leftOf } from '@/lib/quota'
 
 export type AutopilotPhase = 'idle' | 'starting' | 'running' | 'handing-off' | 'waiting' | 'stopped'
@@ -35,6 +35,8 @@ export interface AutopilotRun {
   sessionId: string
   startedAt: number
   handoffs: number
+  /** Each account the run has been on, oldest first, with when it got there. Runs saved before this have none. */
+  legs?: { accountId: string; at: number }[]
   /** Account id → epoch ms it is expected back after running out during this run. */
   exhausted: Record<string, number>
   /** While waiting: epoch ms the next account is expected to have room. */
@@ -74,6 +76,8 @@ interface AutopilotState {
 
 const STORAGE_KEY = 'relay.autopilot'
 const LOG_MAX = 50
+/** The route a card shows needs only the last few stops. */
+const LEGS_MAX = 20
 const SECOND = 1000
 const MINUTE = 60 * SECOND
 /** A (re)started CLI replays the conversation's old screens, which may include the last limit message. */
@@ -227,6 +231,7 @@ export const useAutopilot = create<AutopilotState>((set, get) => ({
         sessionId,
         startedAt: Date.now(),
         handoffs: 0,
+        legs: [{ accountId: first.id, at: Date.now() }],
         exhausted: {}
       }
       set({ run })
@@ -504,16 +509,7 @@ async function checkText() {
 /** The account to continue on: most left, not drained during this run, and able to open the chat's history. */
 function nextAccount(run: AutopilotRun): Account | undefined {
   const s = useStore.getState()
-  const current = s.accounts.find((a) => a.id === run.accountId)
-  if (!current) return undefined
-  const now = Date.now()
-  const home = claudeHome()
-  const out = Object.keys(run.exhausted).filter((id) => run.exhausted[id]! > now)
-  return pickAccount(s.accounts, s.usage, {
-    providerId: 'claude',
-    exclude: out,
-    accept: (a) => a.id === current.id || historyShared(current, a, home, api.platform)
-  })
+  return pickNext(run, s.accounts, s.usage, { now: Date.now(), defaultHome: claudeHome(), platform: api.platform })
 }
 
 /** The run's account ran out (`limit`) or its CLI stopped (`exit`): move the chat to the best account. */
@@ -628,7 +624,9 @@ async function relaunch(next: Account, describe: (left: string) => string, kind:
   if (thrown) addLog('error', thrown)
   spawned(tid)
   const text = describe(leftText(next.id)) + (conversationId ? '' : " It couldn't tell which chat to reopen, so it started the task over in a new chat.")
-  set({ phase: 'running', run: { ...get().run!, accountId: next.id, handoffs: run.handoffs + 1, waitingUntil: undefined } })
+  const now = get().run!
+  const legs = [...(now.legs ?? []), { accountId: next.id, at: Date.now() }].slice(-LEGS_MAX)
+  set({ phase: 'running', run: { ...now, accountId: next.id, handoffs: run.handoffs + 1, legs, waitingUntil: undefined } })
   addLog(kind, text)
   useStore.getState().toast({ kind: 'info', title: kind === 'resumed' ? 'Autopilot resumed' : 'Autopilot moved on', body: text })
 }
@@ -638,7 +636,10 @@ function load(): Pick<AutopilotState, 'phase' | 'run' | 'log'> | null {
     const d = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null') as Partial<AutopilotState> | null
     const phases: AutopilotPhase[] = ['idle', 'starting', 'running', 'handing-off', 'waiting', 'stopped']
     if (!d || !phases.includes(d.phase as AutopilotPhase)) return null
-    const run = d.run && typeof d.run.paneUid === 'string' && typeof d.run.accountId === 'string' ? d.run : null
+    const saved = d.run && typeof d.run.paneUid === 'string' && typeof d.run.accountId === 'string' ? d.run : null
+    // A damaged route only loses the route, not the run.
+    const legs = Array.isArray(saved?.legs) ? saved.legs.filter((l) => typeof l?.accountId === 'string' && typeof l.at === 'number') : undefined
+    const run = saved && { ...saved, legs }
     return { phase: d.phase as AutopilotPhase, run, log: Array.isArray(d.log) ? d.log.slice(0, LOG_MAX) : [] }
   } catch {
     return null

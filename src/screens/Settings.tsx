@@ -132,6 +132,12 @@ export function Settings() {
               </div>
             )}
           </Row>
+          <Row
+            label="Voice in Claude Code"
+            help="Turns on Claude Code's hold-to-talk voice mode in every Claude account Relay starts, so a chat that moves to another account keeps it. While this is on, Relay turns it back on at every start; turn this off to choose per account with /voice."
+          >
+            {(ids) => <Switch {...ids} checked={s.claudeVoice} onChange={(v) => save({ claudeVoice: v })} />}
+          </Row>
         </Group>
 
         <Group title="New accounts share by default">
@@ -216,7 +222,7 @@ function Transfer() {
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section>
-      <h2 className="mb-1 font-serif text-[17px] font-semibold">{title}</h2>
+      <h2 className="mb-1 font-sans text-[17px] font-semibold">{title}</h2>
       <div className="divide-y divide-rivet border-y border-rivet">{children}</div>
     </section>
   )
