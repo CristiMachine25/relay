@@ -460,27 +460,29 @@ const fresh = (snap: UsageSnapshot, since: number) => !snap.stale && !snap.error
 /** Looks for the CLI's limit message on screen; the account's usage has the last word when it has numbers. */
 async function checkText() {
   const { phase, run } = get()
-  const id = w.terminalId
-  if (phase !== 'running' || !run || !id || w.busy || w.checking) return
+  // Async paths touch only the watch they started with: a new run gets a new one, which they must leave alone.
+  const mine = w
+  const id = mine.terminalId
+  if (phase !== 'running' || !run || !id || mine.busy || mine.checking) return
   const now = Date.now()
-  if (!w.quietOver || now < w.mutedUntil) return
+  if (!mine.quietOver || now < mine.mutedUntil) return
   // A mark whose row scrolled out of the buffer reads -1: everything left came after it.
-  if (!limitHit(tailText(id, 40, w.mark ? w.mark.line + 1 : 0))) return
-  w.checking = true
+  if (!limitHit(tailText(id, 40, mine.mark ? mine.mark.line + 1 : 0))) return
+  mine.checking = true
   try {
     await useStore.getState().refresh(run.accountId)
   } catch {
     /* no fresh numbers: the text decides */
   } finally {
-    w.checking = false
+    mine.checking = false
   }
-  if (get().phase !== 'running' || get().run?.id !== run.id || w.terminalId !== id) return
+  if (w !== mine || get().phase !== 'running' || get().run?.id !== run.id || mine.terminalId !== id) return
   const snap = useStore.getState().usage[run.accountId]
   const b = bindingWindow(snap)
   if (snap && b && fresh(snap, now) && leftOf(b) >= ROOM_LEFT) {
-    w.mutedUntil = Date.now() + FALSE_ALARM_MUTE
-    if (w.falseAlarmFor !== id) {
-      w.falseAlarmFor = id
+    mine.mutedUntil = Date.now() + FALSE_ALARM_MUTE
+    if (mine.falseAlarmFor !== id) {
+      mine.falseAlarmFor = id
       addLog('false-alarm', `The terminal mentioned a usage limit, but ${label(run.accountId)} still has ${Math.round(leftOf(b))}% left. Carrying on.`)
     }
     return
@@ -506,8 +508,9 @@ function nextAccount(run: AutopilotRun): Account | undefined {
 /** The run's account ran out (`limit`) or its CLI stopped (`exit`): move the chat to the best account. */
 async function handoff(why: 'limit' | 'exit') {
   const { phase, run } = get()
-  if (phase !== 'running' || !run || w.busy) return
-  w.busy = true
+  const mine = w
+  if (phase !== 'running' || !run || mine.busy) return
+  mine.busy = true
   try {
     clearTimeout(timers.debounce)
     const from = run.accountId
@@ -520,30 +523,31 @@ async function handoff(why: 'limit' | 'exit') {
     // The CLI is still running here (unless it exited): the last moment it can say which chat it is in.
     await learnConversation(true)
     await refreshAll()
-    if (get().phase !== 'handing-off' || get().run?.id !== run.id) return
+    if (w !== mine || get().phase !== 'handing-off' || get().run?.id !== run.id) return
     const next = nextAccount(get().run!)
     if (!next) return wait()
     await relaunch(next, (left) => `${reason} Continued on ${next.label}${left}.`, 'handoff')
   } finally {
-    w.busy = false
+    mine.busy = false
   }
 }
 
 /** While waiting: try again with the latest usage (refreshed first when a timer woke us). */
 async function wake(refresh: boolean) {
   const { phase, run } = get()
-  if (phase !== 'waiting' || !run || w.busy || Date.now() < w.retryAt) return
-  w.busy = true
+  const mine = w
+  if (phase !== 'waiting' || !run || mine.busy || Date.now() < mine.retryAt) return
+  mine.busy = true
   try {
     if (refresh) await refreshAll()
-    if (get().phase !== 'waiting' || get().run?.id !== run.id) return
+    if (w !== mine || get().phase !== 'waiting' || get().run?.id !== run.id) return
     const next = nextAccount(get().run!)
     if (!next) return wait()
     set({ phase: 'handing-off' })
     // Even on the same account, restart with the continue prompt: the drained CLI may still hold the chat.
     await relaunch(next, (left) => `${next.label} has room again${left}. Continued the task.`, 'resumed')
   } finally {
-    w.busy = false
+    mine.busy = false
   }
 }
 
@@ -582,6 +586,7 @@ function clock(t: number): string {
  * a retry.
  */
 async function relaunch(next: Account, describe: (left: string) => string, kind: 'handoff' | 'resumed') {
+  const mine = w
   const run = get().run!
   const { conversationId } = run
   let thrown: string | undefined
@@ -596,15 +601,15 @@ async function relaunch(next: Account, describe: (left: string) => string, kind:
   } catch (e) {
     thrown = errorText(e)
   }
-  if (get().phase !== 'handing-off' || get().run?.id !== run.id) return // stopped meanwhile
+  if (w !== mine || get().phase !== 'handing-off' || get().run?.id !== run.id) return // stopped meanwhile
   const after = paneOf(run.paneUid)
   if (!after?.pane.accountId) return finish(PANE_CLOSED, true)
   const tid = after.pane.terminalId
   if (!tid) {
     const why = thrown ?? (useGrid.getState().errors[run.paneUid] || 'the terminal did not start')
     addLog('error', `Couldn't continue on ${next.label}: ${why}`)
-    w.retryAt = Date.now() + RETRY_AFTER_ERROR
-    set({ phase: 'waiting', run: { ...get().run!, waitingUntil: w.retryAt } })
+    mine.retryAt = Date.now() + RETRY_AFTER_ERROR
+    set({ phase: 'waiting', run: { ...get().run!, waitingUntil: mine.retryAt } })
     clearTimeout(timers.wake)
     timers.wake = setTimeout(() => void wake(true), RETRY_AFTER_ERROR)
     return

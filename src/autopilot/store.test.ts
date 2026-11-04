@@ -639,6 +639,38 @@ describe('stopping', () => {
     expect(ap.getState().run!.error).toMatch(/removed/)
   })
 
+  it("does not let a check left over from a stopped run unlock the next run's checks", async () => {
+    /** The next usage refresh hangs until the returned function is called. */
+    const hang = () => {
+      let done = () => {}
+      refresh.mockImplementationOnce(() => new Promise<void>((r) => (done = r)))
+      return () => done()
+    }
+    const { grid, ap } = await running()
+    fake.state.screens.t1 = "You've hit your limit"
+    const first = hang()
+    emit('terminal-output', { id: 't1', data: 'x' })
+    await vi.advanceTimersByTimeAsync(1_100)
+    expect(refresh).toHaveBeenCalledTimes(1)
+    ap.getState().stop()
+    ap.getState().dismiss()
+
+    await ap.getState().start(TASK)
+    await vi.advanceTimersByTimeAsync(21_000)
+    const t2 = runTerminal(grid, ap.getState().run!.paneUid)!
+    fake.state.screens[t2] = "You've hit your limit"
+    hang()
+    emit('terminal-output', { id: t2, data: 'x' })
+    await vi.advanceTimersByTimeAsync(1_100)
+    expect(refresh).toHaveBeenCalledTimes(2)
+    // The old run's check finishes; the new run's is still waiting for its refresh.
+    first()
+    await vi.advanceTimersByTimeAsync(0)
+    emit('terminal-output', { id: t2, data: 'x' })
+    await vi.advanceTimersByTimeAsync(1_100)
+    expect(refresh).toHaveBeenCalledTimes(2)
+  })
+
   it('opens the terminal on request', async () => {
     const { grid, ap } = await running()
     grid.getState().newSession()
