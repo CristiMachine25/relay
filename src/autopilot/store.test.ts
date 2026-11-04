@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Account, TerminalInfo, TerminalSpawnRequest, UsageSnapshot } from '@shared/types'
-import { CONTINUE_PROMPT } from '@/lib/autopilot'
+import { CONTINUE_PROMPT, restartPrompt, taskArg } from '@/lib/autopilot'
 
 // A fake backend: spawns answer at once, kills report the exit like the real backend does.
 const fake = vi.hoisted(() => {
@@ -193,6 +193,7 @@ beforeEach(() => {
   fake.state.spawnError = null
   fake.state.screens = {}
   vi.clearAllMocks()
+  vi.mocked(api.terminals.session).mockImplementation(async () => 'conv-1')
   resetMain([H1, H2, H3])
   setUsage({ h1: 70, h2: 20, h3: 50 })
 })
@@ -381,6 +382,63 @@ describe('moving to the next account', () => {
     // The pane had no terminal left to ask, so the conversation id seen before the first try is used.
     expect(lastSpawn()).toMatchObject({ accountId: 'h1', resume: true, resumeSession: 'conv-1' })
     expect(runTerminal(grid, ap.getState().run!.paneUid)).toBe('t2')
+  })
+})
+
+describe('the conversation it continues', () => {
+  const session = () => vi.mocked(api.terminals.session)
+
+  it('is learned from the running CLI once the replayed screens are over', async () => {
+    const { ap } = await boot()
+    await ap.getState().start(TASK)
+    expect(session()).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(20_000)
+    expect(session()).toHaveBeenCalledWith('t1')
+    expect(ap.getState().run!.conversationId).toBe('conv-1')
+  })
+
+  it('is asked for on every check until the CLI can say, then no more', async () => {
+    session().mockResolvedValue(null)
+    const { ap } = await running()
+    expect(ap.getState().run!.conversationId).toBeUndefined()
+    session().mockResolvedValue('conv-late')
+    await vi.advanceTimersByTimeAsync(15_000)
+    expect(ap.getState().run!.conversationId).toBe('conv-late')
+    const asked = session().mock.calls.length
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(session().mock.calls.length).toBe(asked)
+  })
+
+  it('is asked for again when a handoff starts, while the CLI still runs', async () => {
+    await running()
+    session().mockResolvedValue('conv-2')
+    setUsage({ h2: 100 })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(lastSpawn()).toMatchObject({ accountId: 'h3', resume: true, resumeSession: 'conv-2' })
+  })
+
+  it('is the one seen while the CLI ran, not what its exited terminal is asked', async () => {
+    await running()
+    session().mockResolvedValue('newest-in-folder')
+    fake.state.exit('t1', 1)
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(lastSpawn()).toMatchObject({ accountId: 'h2', resume: true, resumeSession: 'conv-1' })
+    expect(session()).toHaveBeenCalledTimes(1)
+  })
+
+  it('is never guessed: with none known, the task starts over in a new chat', async () => {
+    session().mockResolvedValue(null)
+    const { grid, ap } = await running()
+    setUsage({ h2: 100 })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(lastSpawn().resume).toBeFalsy()
+    expect(lastSpawn().resumeSession).toBeUndefined()
+    expect(lastSpawn()).toMatchObject({ accountId: 'h3', extraArgs: ['--permission-mode', 'bypassPermissions', taskArg(restartPrompt(TASK.task))] })
+    expect(api.terminals.kill).toHaveBeenCalledWith('t1')
+    expect(runTerminal(grid, ap.getState().run!.paneUid)).toBe('t2')
+    expect(ap.getState().phase).toBe('running')
+    expect(ap.getState().log[0]).toMatchObject({ kind: 'handoff' })
+    expect(ap.getState().log[0]!.text).toMatch(/started the task over in a new chat/)
   })
 })
 

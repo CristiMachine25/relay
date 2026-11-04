@@ -7,7 +7,7 @@ import { api, errorText } from '@/api'
 import { useStore } from '@/store'
 import { useGrid } from '@/terminals/store'
 import { tailText } from '@/terminals/registry'
-import { CONTINUE_PROMPT, exhaustedUntil, limitHit, permissionArgs, pickAccount, soonestReset, taskArg } from '@/lib/autopilot'
+import { CONTINUE_PROMPT, exhaustedUntil, limitHit, permissionArgs, pickAccount, restartPrompt, soonestReset, taskArg } from '@/lib/autopilot'
 import { atLimit, historyShared, historyToTurnOn, isBlocked, isSignedOut } from '@/lib/grid'
 import { bindingWindow, leftOf } from '@/lib/quota'
 
@@ -41,7 +41,11 @@ export interface AutopilotRun {
   waitingUntil?: number
   /** Why the run stopped on its own. */
   error?: string
-  /** The CLI's conversation id, last seen before a handoff; used when the pane has no terminal left to ask. */
+  /**
+   * The CLI's conversation, asked of the running CLI once its replayed screens are over and again when a handoff
+   * starts. A handoff resumes exactly this one; an exited terminal is never asked, since the backend could only
+   * guess the folder's newest chat, which may be someone else's.
+   */
   conversationId?: string
 }
 
@@ -99,6 +103,10 @@ const active = (p: AutopilotPhase) => p !== 'idle' && p !== 'stopped'
 interface Watch {
   terminalId?: string
   spawnedAt: number
+  /** The quiet period after the spawn is over: limit text counts and the conversation can be asked for. */
+  quietOver: boolean
+  /** The terminal whose conversation is known. */
+  knownFor?: string
   /** No limit-text checks before this (after a false alarm). */
   mutedUntil: number
   /** The terminal a false alarm was logged for: once per terminal is enough. */
@@ -115,11 +123,17 @@ interface Watch {
   retryAt: number
 }
 
-const freshWatch = (): Watch => ({ spawnedAt: 0, mutedUntil: 0, exits: [], busy: false, checking: false, retryAt: 0 })
+const freshWatch = (): Watch => ({ spawnedAt: 0, quietOver: false, mutedUntil: 0, exits: [], busy: false, checking: false, retryAt: 0 })
 let w = freshWatch()
 /** Subscriptions and timers that live while a run is active. */
 let offs: (() => void)[] = []
-const timers: { debounce?: ReturnType<typeof setTimeout>; poll?: ReturnType<typeof setInterval>; wake?: ReturnType<typeof setTimeout>; exit?: ReturnType<typeof setTimeout> } = {}
+const timers: {
+  debounce?: ReturnType<typeof setTimeout>
+  poll?: ReturnType<typeof setInterval>
+  wake?: ReturnType<typeof setTimeout>
+  exit?: ReturnType<typeof setTimeout>
+  quiet?: ReturnType<typeof setTimeout>
+} = {}
 let initialized = false
 
 export const useAutopilot = create<AutopilotState>((set, get) => ({
@@ -148,8 +162,7 @@ export const useAutopilot = create<AutopilotState>((set, get) => ({
       return
     }
     w = freshWatch()
-    w.terminalId = tid
-    w.spawnedAt = Date.now()
+    if (tid) spawned(tid)
     const waiting = saved.phase === 'waiting'
     // A handoff cut short may have started the next account already: the pane knows which one it is on.
     set({ phase: waiting ? 'waiting' : 'running', run: { ...run, accountId: at.pane.accountId }, log })
@@ -281,9 +294,39 @@ function paneOf(uid: string) {
 function spawned(terminalId: string) {
   w.terminalId = terminalId
   w.spawnedAt = Date.now()
+  w.quietOver = false
+  w.knownFor = undefined
   w.mutedUntil = 0
   w.falseAlarmFor = undefined
   w.exitSeen = undefined
+  armQuiet()
+}
+
+/** Ends the quiet period after a spawn on time (re-armed by watch(), which clears every timer). */
+function armQuiet() {
+  clearTimeout(timers.quiet)
+  timers.quiet = setTimeout(quietEnded, Math.max(0, w.spawnedAt + QUIET_AFTER_SPAWN - Date.now()))
+}
+
+function quietEnded() {
+  w.quietOver = true
+  void learnConversation(false)
+}
+
+/**
+ * Asks the run's CLI which conversation it is in and keeps the answer for the next handoff. `force` asks again even
+ * when known (a handoff is starting). Only a running CLI is asked: for an exited one the backend can only guess.
+ */
+async function learnConversation(force: boolean) {
+  const mine = w
+  const id = mine.terminalId
+  const run = get().run
+  const alive = () => !!id && useGrid.getState().infos[id]?.exited === false
+  if (!run || !id || !alive() || (!force && (mine.knownFor === id || get().phase !== 'running'))) return
+  const conversationId = await api.terminals.session(id).catch(() => null)
+  if (!conversationId || w !== mine || mine.terminalId !== id || get().run?.id !== run.id || !alive()) return
+  mine.knownFor = id
+  if (get().run!.conversationId !== conversationId) patchRun({ conversationId })
 }
 
 function keepAwake(on: boolean) {
@@ -316,7 +359,11 @@ function watch() {
     }),
     useGrid.subscribe(() => onGrid())
   ]
-  timers.poll = setInterval(() => void checkText(), TEXT_POLL)
+  timers.poll = setInterval(() => {
+    if (w.quietOver && w.knownFor !== w.terminalId) void learnConversation(false)
+    void checkText()
+  }, TEXT_POLL)
+  if (w.terminalId && !w.quietOver) armQuiet()
 }
 
 function unwatch() {
@@ -326,6 +373,7 @@ function unwatch() {
   clearInterval(timers.poll)
   clearTimeout(timers.wake)
   clearTimeout(timers.exit)
+  clearTimeout(timers.quiet)
 }
 
 function onAccounts() {
@@ -385,7 +433,7 @@ async function checkText() {
   const id = w.terminalId
   if (phase !== 'running' || !run || !id || w.busy || w.checking) return
   const now = Date.now()
-  if (now - w.spawnedAt < QUIET_AFTER_SPAWN || now < w.mutedUntil) return
+  if (!w.quietOver || now < w.mutedUntil) return
   if (!limitHit(tailText(id, 40))) return
   w.checking = true
   try {
@@ -438,6 +486,8 @@ async function handoff(why: 'limit' | 'exit') {
     // Window labels read "5-hour session" or "Weekly limit".
     const reason = why === 'limit' ? `${label(from)} ran out${b ? ` (${b.label.replace(/\s*limit$/i, '')} limit)` : ''}.` : 'The terminal stopped.'
     set({ phase: 'handing-off', run: { ...run, exhausted } })
+    // The CLI is still running here (unless it exited): the last moment it can say which chat it is in.
+    await learnConversation(true)
     await refreshAll()
     if (get().phase !== 'handing-off' || get().run?.id !== run.id) return
     const next = nextAccount(get().run!)
@@ -495,26 +545,24 @@ function clock(t: number): string {
 }
 
 /**
- * Restarts the run's pane on `next`, resuming the chat with the continue prompt. Exactly one CLI owns the chat
- * afterwards: the grid stops the old one first. A start that fails leaves the run waiting for a retry.
+ * Restarts the run's pane on `next`, resuming the chat it learned with the continue prompt. Exactly one CLI owns the
+ * chat afterwards: the grid stops the old one first. With no chat known it never resumes "the most recent" one
+ * (possibly another pane's): it starts the task over in a new chat. A start that fails leaves the run waiting for
+ * a retry.
  */
 async function relaunch(next: Account, describe: (left: string) => string, kind: 'handoff' | 'resumed') {
   const run = get().run!
-  let conversationId = run.conversationId
+  const { conversationId } = run
   let thrown: string | undefined
   try {
     const at = paneOf(run.paneUid)
     if (!at?.pane.accountId) return finish(PANE_CLOSED, true)
     // The grid only restarts panes of the session on screen.
     if (useGrid.getState().activeId !== at.sessionId) useGrid.getState().switchSession(at.sessionId)
-    const extraArgs = [...permissionArgs(run.skipPermissions), CONTINUE_PROMPT]
-    if (at.pane.terminalId) {
-      conversationId = (await api.terminals.session(at.pane.terminalId).catch(() => null)) ?? conversationId
-      await useGrid.getState().continueOn(at.index, next.id, { extraArgs })
-    } else {
-      // An earlier start failed: nothing left to ask for the chat, so use the id seen before.
-      await useGrid.getState().start(at.index, { accountId: next.id, target: 'cli', cwd: at.pane.cwd ?? run.cwd, resume: true, resumeSession: conversationId, extraArgs })
-    }
+    const perms = permissionArgs(run.skipPermissions)
+    const g = useGrid.getState()
+    if (conversationId) await g.continuePane(run.paneUid, next.id, { resumeSession: conversationId, extraArgs: [...perms, CONTINUE_PROMPT] })
+    else await g.startPane(run.paneUid, { accountId: next.id, target: 'cli', cwd: at.pane.cwd ?? run.cwd, extraArgs: [...perms, taskArg(restartPrompt(run.task))] })
   } catch (e) {
     thrown = errorText(e)
   }
@@ -526,15 +574,15 @@ async function relaunch(next: Account, describe: (left: string) => string, kind:
     const why = thrown ?? (useGrid.getState().errors[run.paneUid] || 'the terminal did not start')
     addLog('error', `Couldn't continue on ${next.label}: ${why}`)
     w.retryAt = Date.now() + RETRY_AFTER_ERROR
-    set({ phase: 'waiting', run: { ...get().run!, conversationId, waitingUntil: w.retryAt } })
+    set({ phase: 'waiting', run: { ...get().run!, waitingUntil: w.retryAt } })
     clearTimeout(timers.wake)
     timers.wake = setTimeout(() => void wake(true), RETRY_AFTER_ERROR)
     return
   }
   if (thrown) addLog('error', thrown)
   spawned(tid)
-  const text = describe(leftText(next.id))
-  set({ phase: 'running', run: { ...get().run!, accountId: next.id, handoffs: run.handoffs + 1, waitingUntil: undefined, conversationId } })
+  const text = describe(leftText(next.id)) + (conversationId ? '' : " It couldn't tell which chat to reopen, so it started the task over in a new chat.")
+  set({ phase: 'running', run: { ...get().run!, accountId: next.id, handoffs: run.handoffs + 1, waitingUntil: undefined } })
   addLog(kind, text)
   useStore.getState().toast({ kind: 'info', title: kind === 'resumed' ? 'Autopilot resumed' : 'Autopilot moved on', body: text })
 }
