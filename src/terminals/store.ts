@@ -65,7 +65,8 @@ interface GridState {
   continueOn(index: number, accountId: string, opts?: { extraArgs?: string[] }): Promise<void>
   close(index: number): Promise<void>
   openInGrid(accountId: string, opts?: { resume?: boolean; cwd?: string }): Promise<void>
-  newSession(): void
+  /** Opens an empty session and makes it the active one; returns its id. */
+  newSession(): string
   switchSession(id: string): void
   renameSession(id: string, name: string): void
   closeSession(id: string): Promise<void>
@@ -329,6 +330,7 @@ export const useGrid = create<GridState>((set, get) => {
       const id = newSessionId()
       const ws = defaultWorkspace()
       set({ sessions: [...sessions, { id, name: nextName(sessions), ws }], activeId: id, ws })
+      return id
     },
 
     switchSession(id) {

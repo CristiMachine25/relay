@@ -150,3 +150,28 @@ describe('extra CLI arguments', () => {
     expect(requests[1]).toMatchObject({ accountId: 'acc-2', cwd: '/work', resume: true, resumeSession: 'conv-9', extraArgs: ['continue'] })
   })
 })
+
+describe('sessions', () => {
+  beforeEach(() => {
+    spawns.length = 0
+    requests.length = 0
+    vi.clearAllMocks()
+  })
+
+  it('returns the id of a new session, which becomes the active one', () => {
+    const id = useGrid.getState().newSession()
+    expect(id).toBe(useGrid.getState().activeId)
+    expect(useGrid.getState().sessions.some((x) => x.id === id)).toBe(true)
+  })
+
+  it('starts a terminal in a new named session', async () => {
+    const id = useGrid.getState().newSession()
+    useGrid.getState().renameSession(id, 'Autopilot')
+    const started = useGrid.getState().start(0, { accountId: 'acc-1', target: 'cli', extraArgs: ['task'] })
+    spawns[0]!(info('t-auto'))
+    await started
+    expect(useGrid.getState().sessions.find((x) => x.id === id)!.name).toBe('Autopilot')
+    expect(useGrid.getState().activeId).toBe(id)
+    expect(useGrid.getState().ws.panes[0]).toMatchObject({ accountId: 'acc-1', terminalId: 't-auto' })
+  })
+})
