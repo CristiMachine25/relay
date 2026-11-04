@@ -76,6 +76,8 @@ describe('moving a pane to another account', () => {
     spawns.length = 0
     requests.length = 0
     vi.clearAllMocks()
+    // An empty pane: starting one that has a terminal stops that terminal first.
+    useGrid.getState().newSession()
   })
 
   it("reopens that pane's own conversation, asked for before the pane stops", async () => {
@@ -109,12 +111,81 @@ describe('moving a pane to another account', () => {
   })
 })
 
+describe('panes by id, whichever session is on screen', () => {
+  beforeEach(() => {
+    spawns.length = 0
+    requests.length = 0
+    vi.clearAllMocks()
+    session.mockReset()
+  })
+
+  /** A new session with a running pane; returns the session and the pane's uid. */
+  async function sessionWithPane(id: string) {
+    const sessionId = useGrid.getState().newSession()
+    const uid = useGrid.getState().ws.panes[0]!.uid
+    const started = useGrid.getState().start(0, { accountId: 'acc-1', target: 'cli', cwd: '/work' })
+    spawns[spawns.length - 1]!(info(id))
+    await started
+    return { sessionId, uid }
+  }
+  const paneIn = (sessionId: string, uid: string) => {
+    const g = useGrid.getState()
+    const ws = sessionId === g.activeId ? g.ws : g.sessions.find((x) => x.id === sessionId)!.ws
+    return ws.panes.find((p) => p.uid === uid)!
+  }
+
+  it("moves its own pane when the user switches sessions meanwhile, and leaves the user's pane alone", async () => {
+    const { sessionId, uid } = await sessionWithPane('t-own')
+    let answer: (id: string) => void = () => {}
+    session.mockImplementation(() => new Promise((r) => (answer = r)))
+    const moved = useGrid.getState().continueOn(0, 'acc-2')
+    // While the conversation is looked up, the user opens another session; its pane 0 is the user's.
+    const mine = useGrid.getState().newSession()
+    const userPane = useGrid.getState().ws.panes[0]!
+    answer('conv-own')
+    await vi.waitFor(() => expect(spawns).toHaveLength(2))
+    spawns[1]!({ id: 't-own-2', accountId: 'acc-2' } as TerminalInfo)
+    await moved
+    expect(useGrid.getState().activeId).toBe(mine)
+    expect(useGrid.getState().ws.panes[0]).toEqual(userPane)
+    expect(paneIn(sessionId, uid)).toMatchObject({ accountId: 'acc-2', terminalId: 't-own-2', resumeSession: 'conv-own' })
+    expect(kill).toHaveBeenCalledWith('t-own')
+  })
+
+  it('continues a pane of a session in the background in the conversation it is given, without asking for one', async () => {
+    const { sessionId, uid } = await sessionWithPane('t-bg')
+    useGrid.getState().newSession()
+    const moved = useGrid.getState().continuePane(uid, 'acc-2', { resumeSession: 'conv-given', extraArgs: ['continue'] })
+    await vi.waitFor(() => expect(spawns).toHaveLength(2))
+    spawns[1]!({ id: 't-bg-2', accountId: 'acc-2' } as TerminalInfo)
+    await moved
+    expect(session).not.toHaveBeenCalled()
+    expect(kill).toHaveBeenCalledWith('t-bg')
+    expect(requests[1]).toMatchObject({ accountId: 'acc-2', cwd: '/work', resume: true, resumeSession: 'conv-given', extraArgs: ['continue'] })
+    expect(paneIn(sessionId, uid)).toMatchObject({ accountId: 'acc-2', terminalId: 't-bg-2' })
+  })
+
+  it("starts a pane of a session in the background afresh, replacing that pane's terminal", async () => {
+    const { sessionId, uid } = await sessionWithPane('t-fresh')
+    useGrid.getState().newSession()
+    const started = useGrid.getState().startPane(uid, { accountId: 'acc-1', target: 'cli', cwd: '/work', extraArgs: ['task'] })
+    await vi.waitFor(() => expect(spawns).toHaveLength(2))
+    expect(kill).toHaveBeenCalledWith('t-fresh')
+    spawns[1]!(info('t-fresh-2'))
+    await started
+    expect(requests[1]!.resume).toBeFalsy()
+    expect(paneIn(sessionId, uid).terminalId).toBe('t-fresh-2')
+  })
+})
+
 describe('extra CLI arguments', () => {
   beforeEach(() => {
     spawns.length = 0
     requests.length = 0
     vi.clearAllMocks()
     session.mockReset()
+    // An empty pane: starting one that has a terminal stops that terminal first.
+    useGrid.getState().newSession()
   })
 
   async function startWithTask(id: string) {
