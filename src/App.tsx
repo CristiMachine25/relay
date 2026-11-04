@@ -14,6 +14,7 @@ import { Skills } from './screens/Skills'
 import { Notifications } from './screens/Notifications'
 import { Settings } from './screens/Settings'
 import { Terminals } from './terminals/Terminals'
+import { useAutopilot } from './autopilot/store'
 
 const SCREENS: Screen[] = ['overview', 'accounts', 'knowledge', 'skills', 'terminals', 'notifications', 'settings']
 
@@ -90,6 +91,11 @@ export function App() {
     const id = setInterval(tick, 30_000)
     return () => clearInterval(id)
   }, [init, tick])
+
+  // Re-attach a run saved before a reload once accounts and usage are loaded.
+  useEffect(() => {
+    if (phase === 'ready') void useAutopilot.getState().init()
+  }, [phase])
 
   if (phase === 'loading')
     return (
