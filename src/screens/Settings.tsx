@@ -216,7 +216,7 @@ function Transfer() {
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section>
-      <h2 className="mb-1 font-serif text-[17px] font-semibold">{title}</h2>
+      <h2 className="mb-1 font-sans text-[17px] font-semibold">{title}</h2>
       <div className="divide-y divide-rivet border-y border-rivet">{children}</div>
     </section>
   )

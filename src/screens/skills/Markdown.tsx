@@ -13,9 +13,9 @@ function renderBlock(b: Block, k: number): ReactNode {
     case 'heading': {
       const cls =
         b.level === 1
-          ? 'mb-3 mt-8 font-serif text-lg font-semibold first:mt-0'
+          ? 'mb-3 mt-8 font-sans text-lg font-semibold first:mt-0'
           : b.level === 2
-            ? 'mb-2 mt-7 font-serif text-[17px] font-semibold leading-6 first:mt-0'
+            ? 'mb-2 mt-7 font-sans text-[17px] font-semibold leading-6 first:mt-0'
             : 'mb-1.5 mt-5 text-[14px] font-semibold first:mt-0'
       const H = (['h3', 'h3', 'h4', 'h5', 'h6', 'h6'] as const)[b.level - 1]!
       return (

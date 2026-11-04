@@ -177,7 +177,7 @@ function ProviderCard({ k, onChanged }: { k: ProviderKnowledge; onChanged: () =>
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <ProviderMark id={k.providerId} size={22} />
           <div className="min-w-0">
-            <h2 id={`kn-${k.providerId}`} className="font-serif text-[17px] font-semibold leading-6">
+            <h2 id={`kn-${k.providerId}`} className="font-sans text-[17px] font-semibold leading-6">
               {meta.product}
             </h2>
             <code className="code block truncate text-muted" data-tip={k.folder}>

@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
-import { AlertTriangle, AppWindow, Ban, ChevronDown, Clock, Hourglass, LogIn, Play, Plus, RefreshCw, RotateCcw, Search, WifiOff } from 'lucide-react'
-import type { Account, DailyActivity, ProviderId, Recommendation, UsageHistoryPoint, UsageSnapshot } from '@shared/types'
+import { AlertTriangle, Ban, ChevronDown, Clock, LogIn, Plus, RefreshCw, Search, WifiOff } from 'lucide-react'
+import type { Account, DailyActivity, ProviderId, UsageHistoryPoint, UsageSnapshot } from '@shared/types'
 import { api } from '@/api'
 import { modKey } from '@/lib/platform'
 import { useStore } from '@/store'
-import { PROVIDER_META, PROVIDER_ORDER, TASKS, primaryTarget, primaryVerb } from '@/lib/providers'
+import { PROVIDER_META, PROVIDER_ORDER } from '@/lib/providers'
 import { isBlocked, isSignedOut, statusLabel } from '@/lib/grid'
 import { liveSnoozes, useSnoozes } from '@/lib/snooze'
-import { bindingWindow, computeAlerts, leftOf, levelFor, longWindow, unusedAtResets, wastedValue, type Alert } from '@/lib/quota'
+import { bindingWindow, computeAlerts, leftOf, longWindow, unusedAtResets, wastedValue, type Alert } from '@/lib/quota'
 import { creditsText, formatAgo, formatCountdown, formatMoney, formatPct, plural, resetText, windowName } from '@/lib/format'
-import { Meter, WindowGauge, LEVEL_TEXT } from '@/components/Meter'
+import { WindowGauge } from '@/components/Meter'
 import { AccountDot, ProviderMark, Segmented, SectionTitle } from '@/components/ui'
 import { PrimaryLaunch } from '@/components/PrimaryLaunch'
 import { UsageOverTime } from '@/charts/UsageOverTime'
@@ -18,6 +18,8 @@ import { MostUsed, type ActivityMetric } from '@/charts/MostUsed'
 import { Page } from '@/components/Page'
 import { AutopilotCard } from '@/autopilot/AutopilotCard'
 import { FirstRun } from './overview/FirstRun'
+import { Advisor } from './overview/Advisor'
+import { ContinueWork } from './overview/ContinueWork'
 
 export function Overview() {
   const accounts = useStore((s) => s.accounts)
@@ -58,7 +60,7 @@ export function Overview() {
 
   if (accounts.length === 0) {
     return (
-      <Page title="Overview">
+      <Page title="Start work">
         <FirstRun onAdd={() => setAddOpen(true)} />
       </Page>
     )
@@ -69,7 +71,7 @@ export function Overview() {
 
   return (
     <Page
-      title="Overview"
+      title="Start work"
       actions={
         // The palette has no button of its own; this is where its shortcut is learned.
         <button className="btn btn-ghost btn-sm" onClick={() => setPalette(true)} data-tip="Launch any account or jump to a screen">
@@ -77,11 +79,18 @@ export function Overview() {
         </button>
       }
     >
-      <UseNow />
+      <div>
+        <h2 className="text-3xl font-semibold tracking-tight">What are you working on?</h2>
+        <p className="mt-2 text-muted">Choose a task. Find an account with room. Keep your work moving.</p>
+      </div>
+      <ContinueWork />
       <AutopilotCard />
+      <Advisor />
       {alerts.length > 0 && <Alerts alerts={alerts} />}
       <Board />
-      <section aria-labelledby="history-title">
+      <details className="group rounded-lg border border-rivet bg-deck p-5">
+        <summary className="cursor-pointer font-semibold">Usage history <span className="ml-2 text-xs font-normal text-muted">Explore patterns and unused quota</span></summary>
+        <section className="mt-5" aria-labelledby="history-title">
         <SectionTitle
           aside={
             <Segmented
@@ -123,160 +132,9 @@ export function Overview() {
             <Unused accounts={accounts} usage={usage} history={history} />
           </div>
         </div>
-      </section>
+        </section>
+      </details>
     </Page>
-  )
-}
-
-/** The loud part: the account to use right now, with its launch button. */
-function UseNow() {
-  const task = useStore((s) => s.task)
-  const setTask = useStore((s) => s.setTask)
-  const recs = useStore((s) => s.recs)
-  const accounts = useStore((s) => s.accounts)
-  const usage = useStore((s) => s.usage)
-  const now = useStore((s) => s.now)
-  const launching = useStore((s) => s.launching)
-  const providers = useStore((s) => s.providers)
-  const { launch, go } = useStore.getState()
-
-  // Score 0 means it can't be used now (signed out, blocked or at a limit), so it never appears as a pick here.
-  const usable = recs.filter((r) => r.score > 0 && accounts.some((a) => a.id === r.accountId))
-  const top = usable[0]
-  const acc = top && accounts.find((a) => a.id === top.accountId)
-  const snap = acc && usage[acc.id]
-  const bind = bindingWindow(snap)
-  const left = bind ? leftOf(bind) : undefined
-  const others = usable.slice(1, 4)
-  const prov = acc && providers.find((p) => p.id === acc.providerId)
-  const target = primaryTarget(prov)
-
-  return (
-    <section aria-labelledby="usenow-title" className="rounded-lg border border-rivet bg-deck">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rivet px-6 py-3">
-        <h2 id="usenow-title" className="font-serif text-[17px] font-semibold">
-          Best account right now
-        </h2>
-        <Segmented
-          label="Kind of task"
-          value={task}
-          onChange={setTask}
-          options={TASKS.map((t) => ({ id: t.id, label: t.label, title: t.hint }))}
-        />
-      </div>
-
-      {!acc ? (
-        <NothingUsable accounts={accounts} usage={usage} now={now} />
-      ) : (
-        <div className="grid grid-cols-1 min-[1100px]:grid-cols-[minmax(0,1fr)_336px]">
-          <div className="min-w-0 px-6 pb-6 pt-5">
-            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="flex min-w-0 items-center gap-2.5">
-                <AccountDot account={acc} size={12} />
-                <button className="truncate font-serif text-[26px] font-semibold leading-8 hover:underline" onClick={() => go('accounts', acc.id)}>
-                  {acc.label}
-                </button>
-              </span>
-              <span className="flex items-center gap-1.5 text-muted">
-                <ProviderMark id={acc.providerId} size={16} />
-                {PROVIDER_META[acc.providerId].product}
-                {acc.plan ? `, ${acc.plan}` : ''}
-              </span>
-            </div>
-
-            {bind && left !== undefined && (
-              <div className="mt-5 flex items-end gap-6">
-                <div className="shrink-0">
-                  <div className={clsx('font-serif text-hero font-semibold tabular-nums', LEVEL_TEXT[levelFor(left)])}>
-                    {formatPct(left)}
-                  </div>
-                  <div className="mt-2 text-xs text-muted">left of {windowName(bind.label)}</div>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <Meter left={left} cells={20} size="lg" label={`${acc.label}, ${bind.label}`} />
-                  <div className="mt-2 text-xs tabular-nums text-ink">{resetText(bind.resetsAt, now) ?? 'No reset scheduled'}</div>
-                </div>
-              </div>
-            )}
-            {snap && snap.windows.length > 1 && (
-              <div className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-rivet pt-4 min-[1240px]:grid-cols-3">
-                {snap.windows
-                  .filter((w) => w.id !== bind?.id)
-                  .map((w) => (
-                    <WindowGauge key={w.id} w={w} now={now} compact />
-                  ))}
-              </div>
-            )}
-            <p className="mt-5 max-w-[72ch] text-muted">{top.reason}</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button
-                className="btn btn-primary btn-lg"
-                onClick={() => launch(acc.id, target)}
-                disabled={launching === acc.id + target}
-              >
-                {target === 'desktop' ? <AppWindow size={16} /> : <Play size={16} fill="currentColor" />} {primaryVerb(acc.providerId, prov)}
-              </button>
-              {target === 'cli' && (
-                <button className="btn btn-lg" onClick={() => launch(acc.id, 'cli', { resume: true })}>
-                  <RotateCcw size={15} /> Resume last session
-                </button>
-              )}
-            </div>
-          </div>
-          <div className="border-t border-rivet px-6 pb-3 pt-5 min-[1100px]:border-l min-[1100px]:border-t-0">
-            <h3 className="text-xs font-medium text-muted">If not that one</h3>
-            {others.length === 0 && <p className="mt-3 text-muted">No other account has room right now.</p>}
-            <ul className="mt-1 divide-y divide-rivet">
-              {others.map((r) => (
-                <AltRow key={r.accountId} rec={r} account={accounts.find((a) => a.id === r.accountId)!} snap={usage[r.accountId]} />
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
-    </section>
-  )
-}
-
-function AltRow({ rec, account, snap }: { rec: Recommendation; account: Account; snap?: UsageSnapshot }) {
-  const prov = useStore((s) => s.providers.find((p) => p.id === account.providerId))
-  const bind = bindingWindow(snap)
-  const left = bind ? leftOf(bind) : 0
-  return (
-    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 py-3">
-      <div className="min-w-0">
-        <div className="flex items-center gap-2">
-          <AccountDot account={account} />
-          <span className="min-w-0 flex-1 truncate font-medium">{account.label}</span>
-          <span className="shrink-0 text-xs font-semibold tabular-nums">{formatPct(left)} left</span>
-        </div>
-        <Meter left={left} cells={20} size="xs" label={`${account.label} quota left`} className="mt-2" />
-      </div>
-      <PrimaryLaunch account={account} prov={prov} className="btn btn-sm" short />
-      <p className="col-span-2 mt-1.5 line-clamp-2 text-xs text-muted" data-tip={rec.reason}>
-        {rec.reason}
-      </p>
-    </li>
-  )
-}
-
-function NothingUsable({ accounts, usage, now }: { accounts: Account[]; usage: Record<string, UsageSnapshot>; now: number }) {
-  // Find the soonest reset among accounts that are at a limit.
-  let soonest: { a: Account; at: string } | undefined
-  for (const a of accounts) {
-    const b = bindingWindow(usage[a.id])
-    if (b?.resetsAt && (!soonest || Date.parse(b.resetsAt) < Date.parse(soonest.at))) soonest = { a, at: b.resetsAt }
-  }
-  return (
-    <div className="flex items-center gap-3 px-5 py-6">
-      <Hourglass className="text-low" size={20} />
-      <div>
-        <p className="font-semibold">Every account is at a limit or signed out</p>
-        <p className="text-muted">
-          {soonest ? `${soonest.a.label} is back first, in ${formatCountdown(soonest.at, now)}.` : 'Sign in to an account to see its limits.'}
-        </p>
-      </div>
-    </div>
   )
 }
 
@@ -513,7 +371,7 @@ function Unused({ accounts, usage, history }: { accounts: Account[]; usage: Reco
   return (
     <div className="mt-6 border-t border-rivet pt-4">
       <p className="flex flex-wrap items-baseline gap-x-2">
-        <span className="font-serif text-lg font-semibold tabular-nums">About {formatMoney(Math.round(total))}</span>
+        <span className="font-sans text-lg font-semibold tabular-nums">About {formatMoney(Math.round(total))}</span>
         <span className="text-muted">of paid quota reset unused in the last 30 days.</span>
       </p>
       <p className="mt-2 max-w-[72ch] text-xs text-muted">

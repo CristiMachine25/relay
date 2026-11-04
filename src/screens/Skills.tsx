@@ -239,7 +239,7 @@ function Intro({ installed, tools }: { installed: InstalledSkill[]; tools: typeo
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="max-w-[60ch] px-8 pb-12 pt-10">
-        <h2 className="font-serif text-lg font-semibold">Read a skill, then install it</h2>
+        <h2 className="font-sans text-lg font-semibold">Read a skill, then install it</h2>
         <p className="mt-3 text-[14px] leading-[22px] text-muted">
           Skills come from the public skills.sh directory. Each one is a SKILL.md your agent follows, sometimes with scripts beside it. Installing puts it in a tool's shared folder, so every
           account that links skills from that folder gets it at once.

@@ -37,12 +37,28 @@ function parseIso(s: string | null | undefined): number | null {
   return Number.isFinite(t) ? t : null
 }
 
+function quotaEvidence(snap: UsageSnapshot | undefined, now: number): number {
+  if (!snap || !tightest(snap) || relevantWindows(snap).some(w => resetPassed(w, now))) return 0
+  return snap.stale ? 1 : 2
+}
+
+function relevantWindows(snap: UsageSnapshot): UsageWindow[] {
+  const general = snap.windows.filter(w => !isModelWindow(w))
+  return general.length ? general : snap.windows
+}
+
+function resetPassed(w: UsageWindow, now: number): boolean {
+  const at = parseIso(w.resetsAt)
+  return at !== null && at <= now
+}
+
 /** 0 = unknown/free, 1 = Plus, 2 = Pro/Team/Business, 3 = Max/Pro+/Ultra/Enterprise and ChatGPT Pro 100/200/500. */
 export function tier(account: Pick<Account, 'plan' | 'tags'>): number {
-  const text = [account.plan ?? '', ...account.tags].join(' ').toLowerCase()
-  if (['max', 'pro+', 'pro plus', 'ultra', 'enterprise', 'pro 100', 'pro 200', 'pro 500', 'premium'].some((k) => text.includes(k))) return 3
-  if (['pro', 'team', 'business'].some((k) => text.includes(k))) return 2
-  if (text.includes('plus')) return 1
+  const words = (account.plan ?? '').toLowerCase().split(/[^a-z0-9+]+/)
+  if (['max', 'pro+', 'ultra', 'enterprise', 'premium'].some((k) => words.includes(k)) ||
+    words.some((word, i) => word === 'pro' && ['plus', '100', '200', '500'].includes(words[i + 1] ?? ''))) return 3
+  if (['pro', 'team', 'business'].some((k) => words.includes(k))) return 2
+  if (words.includes('plus')) return 1
   return 0
 }
 
@@ -66,7 +82,7 @@ function useItOrLoseIt(snap: UsageSnapshot, now: number): [UsageWindow, number] 
   let best: [UsageWindow, number] | undefined
   for (const w of snap.windows) {
     // Short windows reset constantly, so only weekly and monthly ones count (as computeAlerts).
-    if ((w.windowMinutes ?? 0) < USE_IT_MIN_WINDOW_MINUTES) continue
+    if (isModelWindow(w) || (w.windowMinutes ?? 0) < USE_IT_MIN_WINDOW_MINUTES) continue
     const t = parseIso(w.resetsAt)
     if (t === null) continue
     const left = leftOf(w)
@@ -87,6 +103,11 @@ export function scoreAccount(account: Account, task: TaskType, snap: UsageSnapsh
 
   const tight = snap && tightest(snap)
   if (!snap || !tight) return rec(account, 40 + fit + tagBonus + pinBonus, 'No usage data yet.')
+  if (relevantWindows(snap).some(w => resetPassed(w, now))) {
+    const exhausted = relevantWindows(snap).find(w => !resetPassed(w, now) && leftOf(w) < 1)
+    if (exhausted) return rec(account, 0, `${exhausted.label} limit reached.`)
+    return rec(account, 1, 'A quota reset has passed. Refresh usage to confirm what is available.')
+  }
   const left = leftOf(tight)
   const r = parseIso(tight.resetsAt)
   const resets = r !== null && r > now ? r : null
@@ -109,7 +130,7 @@ export function scoreAccount(account: Account, task: TaskType, snap: UsageSnapsh
   if (lose) {
     reason += lose[0].id === tight.id ? ' Use it before it resets.' : ` ${lose[1].toFixed(0)}% of ${lose[0].label} resets soon, use it before then.`
   }
-  if ((task === 'long-refactor' || task === 'coding') && t >= 3) reason += ' Top-tier plan suits long sessions.'
+  if ((task === 'long-refactor' || task === 'coding') && t >= 3) reason += ' Higher plan allowance is weighted for this task; session length varies.'
   else if (task === 'quick-question' && left < 50) reason += ' Good for a quick task, saves your bigger accounts.'
   if (tagBonus > 0) reason += ' Tagged for this kind of task.'
   if (stalePenalty > 0) reason += ' (Last known values.)'
@@ -118,9 +139,9 @@ export function scoreAccount(account: Account, task: TaskType, snap: UsageSnapsh
 }
 
 /**
- * recommend::recommend: best first, ties by label. 0 = can't be used now (signed out, blocked or at a limit).
+ * Prefer current quota evidence, then task fit; ties use labels. 0 = known unavailable.
  * Accounts of a provider in `cliMissing` can still be used in its desktop app, so they score 1 (not 0)
- * and sort after every other usable account, best quota first.
+ * and sort after every other usable account, evidence then task score first.
  */
 export function recommend(
   task: TaskType,
@@ -142,11 +163,12 @@ export function recommend(
         r.score = 1
         r.reason = `${left} The ${PROVIDER_META[a.providerId].short} CLI isn't installed on this computer.`
       }
-      return { r, missing, raw, label: a.label }
+      return { r, missing, raw, evidence: raw > 0 ? quotaEvidence(usage[a.id], now) : 0, label: a.label }
     })
     .sort(
       (x, y) =>
-        y.r.score - x.r.score || Number(x.missing) - Number(y.missing) || y.raw - x.raw || (x.label < y.label ? -1 : x.label > y.label ? 1 : 0)
+        Number(y.r.score > 0) - Number(x.r.score > 0) || Number(x.missing) - Number(y.missing) ||
+        y.evidence - x.evidence || y.r.score - x.r.score || y.raw - x.raw || (x.label < y.label ? -1 : x.label > y.label ? 1 : 0)
     )
     .map((x) => x.r)
 }

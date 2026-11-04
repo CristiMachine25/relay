@@ -49,7 +49,7 @@ export function Accounts() {
     <div className="flex h-full min-h-0">
       <aside aria-label="Accounts" className="flex w-[272px] shrink-0 flex-col border-r border-rivet bg-well max-[999px]:w-[230px]">
         <div data-tauri-drag-region="deep" className="flex h-14 shrink-0 items-center justify-between border-b border-rivet pl-4 pr-3">
-          <h1 className="font-serif text-lg font-semibold">Accounts</h1>
+          <h1 className="font-sans text-lg font-semibold">Accounts</h1>
           <button className="btn btn-sm" onClick={() => setAddOpen(true)}>
             <Plus size={14} /> Add
           </button>

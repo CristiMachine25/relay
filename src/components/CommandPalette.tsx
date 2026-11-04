@@ -170,7 +170,7 @@ export function CommandPalette() {
       })
     }
     const nav: [string, string, () => void][] = [
-      ['Go to Overview', 'overview dashboard home', () => go('overview')],
+      ['Go to Start work', 'start work overview dashboard home', () => go('overview')],
       ['Go to Accounts', 'accounts list', () => go('accounts')],
       ['Go to Knowledge', 'knowledge skills agents commands instructions plugins permissions shared', () => go('knowledge')],
       ['Go to Skills', 'skills explorer directory install find browse skills.sh', () => go('skills')],

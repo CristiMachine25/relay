@@ -72,7 +72,7 @@ export function Terminals() {
       <SessionsPanel />
       <div className="flex min-w-0 flex-1 flex-col">
         <header data-tauri-drag-region="deep" className="flex h-14 shrink-0 items-center gap-4 border-b border-rivet px-5">
-          <h1 className="font-serif text-lg font-semibold">Terminals</h1>
+          <h1 className="font-sans text-lg font-semibold">Terminals</h1>
           <p className="hidden text-xs text-muted min-[1100px]:block">
             Each pane runs on its own account. {mod}+Shift+arrows move between panes, {mod}+Shift+Enter maximizes.
           </p>
