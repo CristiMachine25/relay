@@ -457,6 +457,50 @@ describe('when no account has room', () => {
   })
 })
 
+describe('when the terminal exits', () => {
+  it('logs it and picks the conversation back up on the best account', async () => {
+    const { grid, ap } = await running()
+    fake.state.exit('t1', 1)
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(kinds(ap.getState().log).slice(0, 2)).toEqual(['handoff', 'exit'])
+    // h2 still has the most left, so it carries on there.
+    expect(lastSpawn()).toMatchObject({ accountId: 'h2', resume: true, resumeSession: 'conv-1' })
+    expect(ap.getState().phase).toBe('running')
+    expect(runTerminal(grid, ap.getState().run!.paneUid)).toBe('t2')
+  })
+
+  it('stops after 3 exits within 10 minutes', async () => {
+    const { ap } = await running()
+    for (const id of ['t1', 't2']) {
+      fake.state.exit(id, 1)
+      await vi.advanceTimersByTimeAsync(60_000)
+    }
+    expect(ap.getState().phase).toBe('running')
+    fake.state.exit('t3', 1)
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(ap.getState().phase).toBe('stopped')
+    expect(ap.getState().run!.error).toMatch(/3 times/)
+    expect(fake.state.requests).toHaveLength(3)
+    expect(api.system.keepAwake).toHaveBeenLastCalledWith(false)
+  })
+
+  it('does not count the exits its own handoffs cause', async () => {
+    const { ap } = await running()
+    setUsage({ h2: 100 })
+    await vi.advanceTimersByTimeAsync(30_000)
+    setUsage({ h3: 100 })
+    await vi.advanceTimersByTimeAsync(30_000)
+    expect(ap.getState().run!.accountId).toBe('h1')
+    fake.state.exit('t3', 1)
+    await vi.advanceTimersByTimeAsync(30_000)
+    fake.state.exit('t4', 1)
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(ap.getState().phase).toBe('running')
+    expect(kinds(ap.getState().log).filter((k) => k === 'exit')).toHaveLength(2)
+  })
+
+})
+
 describe('stopping', () => {
   it('stops reacting, keeps the terminal, and lets the computer sleep', async () => {
     const { ap } = await running()

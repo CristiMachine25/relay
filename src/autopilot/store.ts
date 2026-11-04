@@ -79,6 +79,10 @@ const ROOM_LEFT = 5
 const FALSE_ALARM_MUTE = 2 * MINUTE
 /** Usage this old didn't come from the refresh that checked a limit message: the refresh failed. */
 const FRESH_USAGE = MINUTE
+/** Lets a pane close or a manual restart finish before an exit counts as the CLI stopping by itself. */
+const EXIT_SETTLE = SECOND
+const CRASH_EXITS = 3
+const CRASH_SPAN = 10 * MINUTE
 /** After a reset the provider's numbers can lag a little. */
 const WAKE_AFTER_RESET = MINUTE
 const WAKE_UNKNOWN = 10 * MINUTE
@@ -97,6 +101,10 @@ interface Watch {
   mutedUntil: number
   /** The terminal a false alarm was logged for: once per terminal is enough. */
   falseAlarmFor?: string
+  /** The terminal whose exit was already seen. */
+  exitSeen?: string
+  /** Recent exits that weren't ours, for the crash-loop guard. */
+  exits: number[]
   /** A handoff or wake-up is in flight; other signals wait. */
   busy: boolean
   /** A limit-text check is refreshing usage. */
@@ -105,11 +113,11 @@ interface Watch {
   retryAt: number
 }
 
-const freshWatch = (): Watch => ({ spawnedAt: 0, mutedUntil: 0, busy: false, checking: false, retryAt: 0 })
+const freshWatch = (): Watch => ({ spawnedAt: 0, mutedUntil: 0, exits: [], busy: false, checking: false, retryAt: 0 })
 let w = freshWatch()
 /** Subscriptions and timers that live while a run is active. */
 let offs: (() => void)[] = []
-const timers: { debounce?: ReturnType<typeof setTimeout>; poll?: ReturnType<typeof setInterval>; wake?: ReturnType<typeof setTimeout> } = {}
+const timers: { debounce?: ReturnType<typeof setTimeout>; poll?: ReturnType<typeof setInterval>; wake?: ReturnType<typeof setTimeout>; exit?: ReturnType<typeof setTimeout> } = {}
 
 export const useAutopilot = create<AutopilotState>((set, get) => ({
   phase: 'idle',
@@ -245,6 +253,7 @@ function spawned(terminalId: string) {
   w.spawnedAt = Date.now()
   w.mutedUntil = 0
   w.falseAlarmFor = undefined
+  w.exitSeen = undefined
 }
 
 function keepAwake(on: boolean) {
@@ -286,6 +295,7 @@ function unwatch() {
   clearTimeout(timers.debounce)
   clearInterval(timers.poll)
   clearTimeout(timers.wake)
+  clearTimeout(timers.exit)
 }
 
 function onAccounts() {
@@ -296,7 +306,7 @@ function onAccounts() {
 function onUsage() {
   const { phase, run } = get()
   if (!run) return
-  if (phase === 'running' && atLimit(useStore.getState().usage[run.accountId])) void handoff()
+  if (phase === 'running' && atLimit(useStore.getState().usage[run.accountId])) void handoff('limit')
   else if (phase === 'waiting') void wake(false)
 }
 
@@ -312,7 +322,28 @@ function onGrid() {
     // The user restarted the pane or moved it to another account by hand: follow the new terminal.
     spawned(tid)
     if (at.pane.accountId !== run.accountId) patchRun({ accountId: at.pane.accountId })
+    return
   }
+  if (useGrid.getState().infos[tid]?.exited && w.exitSeen !== tid) {
+    w.exitSeen = tid
+    clearTimeout(timers.exit)
+    timers.exit = setTimeout(() => onExit(tid), EXIT_SETTLE)
+  }
+}
+
+/** The run's CLI stopped by itself (crash, /exit, an error): continue the chat, unless it keeps happening. */
+function onExit(tid: string) {
+  const { phase, run } = get()
+  if (!run || phase !== 'running' || w.busy || w.terminalId !== tid) return
+  const at = paneOf(run.paneUid)
+  if (!at?.pane.accountId) return finish(PANE_CLOSED, true)
+  if (at.pane.terminalId !== tid) return
+  const now = Date.now()
+  w.exits = [...w.exits.filter((t) => now - t < CRASH_SPAN), now]
+  const code = useGrid.getState().infos[tid]?.exitCode
+  addLog('exit', `The terminal on ${label(run.accountId)} exited${code !== undefined && code !== null ? ` (code ${code})` : ''}.`)
+  if (w.exits.length >= CRASH_EXITS) return finish(`The terminal exited ${CRASH_EXITS} times in 10 minutes`, true)
+  void handoff('exit')
 }
 
 /** Usage that came from a refresh just now and that the provider vouches for. */
@@ -345,7 +376,7 @@ async function checkText() {
     }
     return
   }
-  void handoff()
+  void handoff('limit')
 }
 
 /** The account to continue on: most left, not drained during this run, and able to open the chat's history. */
@@ -363,8 +394,8 @@ function nextAccount(run: AutopilotRun): Account | undefined {
   })
 }
 
-/** The run's account ran out: move the chat to the account with the most left. */
-async function handoff() {
+/** The run's account ran out (`limit`) or its CLI stopped (`exit`): move the chat to the best account. */
+async function handoff(why: 'limit' | 'exit') {
   const { phase, run } = get()
   if (phase !== 'running' || !run || w.busy) return
   w.busy = true
@@ -373,9 +404,9 @@ async function handoff() {
     const from = run.accountId
     const snap = useStore.getState().usage[from]
     const b = bindingWindow(snap)
-    const exhausted = { ...run.exhausted, [from]: exhaustedUntil(snap, Date.now()) }
+    const exhausted = why === 'limit' ? { ...run.exhausted, [from]: exhaustedUntil(snap, Date.now()) } : run.exhausted
     // Window labels read "5-hour session" or "Weekly limit".
-    const reason = `${label(from)} ran out${b ? ` (${b.label.replace(/\s*limit$/i, '')} limit)` : ''}.`
+    const reason = why === 'limit' ? `${label(from)} ran out${b ? ` (${b.label.replace(/\s*limit$/i, '')} limit)` : ''}.` : 'The terminal stopped.'
     set({ phase: 'handing-off', run: { ...run, exhausted } })
     await refreshAll()
     if (get().phase !== 'handing-off' || get().run?.id !== run.id) return
