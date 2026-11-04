@@ -113,6 +113,7 @@ pub fn run() {
             commands::skills_install,
             commands::skills_remove,
             commands::system_open_url,
+            commands::system_keep_awake,
         ])
         .build(tauri::generate_context!());
     match app {

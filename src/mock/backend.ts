@@ -481,6 +481,10 @@ export function createMockApi(platform: Platform): RelayApi {
       },
       async appDataDir() {
         return appData
+      },
+      async keepAwake(on) {
+        console.info('[mock] keep awake', on)
+        return true
       }
     },
     transfer: {

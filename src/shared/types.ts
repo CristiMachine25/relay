@@ -463,6 +463,8 @@ export interface RelayApi {
     pickSetupFile(): Promise<string | null>
     /** The app data folder (Tauri `appDataDir`); profiles go in its "profiles" folder unless settings.profilesDir is set. */
     appDataDir(): Promise<string>
+    /** Keep the computer from sleeping (`true`) or let it sleep again. False when the OS offers no way to. */
+    keepAwake(on: boolean): Promise<boolean>
   }
   transfer: {
     export(path: string, opts: ExportOptions): Promise<ExportSummary>
@@ -505,6 +507,7 @@ export const COMMANDS = {
   skillsRemove: 'skills_remove', // { id, providerId }
   systemOpenPath: 'system_open_path', // { path }
   systemOpenUrl: 'system_open_url', // { url }
+  systemKeepAwake: 'system_keep_awake', // { on }
   terminalSpawn: 'terminal_spawn', // { req }
   terminalWrite: 'terminal_write', // { id, data }
   terminalResize: 'terminal_resize', // { id, cols, rows }

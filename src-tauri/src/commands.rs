@@ -6,7 +6,7 @@ use crate::model::*;
 use crate::providers::{self, Adapter, CommandSpec, Resume};
 use crate::store::AppState;
 use crate::util::non_empty;
-use crate::{knowledge, launcher, notify, pty, recommend, settings, skills, usage, util};
+use crate::{awake, knowledge, launcher, notify, pty, recommend, settings, skills, usage, util};
 use anyhow::anyhow;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -692,6 +692,14 @@ pub async fn system_open_path(app: AppHandle, state: St<'_>, path: String) -> Re
         return Err(format!("{path} isn't a folder Relay manages"));
     }
     app.opener().open_path(path, None::<&str>).map_err(|e| e.to_string())
+}
+
+/// Keep the computer awake while an Autopilot run is going (`on`), or let it sleep again. False
+/// when this platform has no way to. Not async: on the main thread, which lives as long as the
+/// app, because on Linux the holder ends with the thread that started it.
+#[tauri::command]
+pub fn system_keep_awake(awake: State<'_, awake::KeepAwake>, on: bool) -> bool {
+    awake.set(on)
 }
 
 #[cfg(test)]
