@@ -148,7 +148,7 @@ function resetMain(accounts: Account[]) {
   })
 }
 
-/** Fresh grid + autopilot modules, as after an app start. */
+/** Fresh grid + autopilot modules, as after an app start; localStorage carries over. */
 async function boot() {
   vi.resetModules()
   const { useGrid } = await import('@/terminals/store')
@@ -165,6 +165,15 @@ function runTerminal(grid: Awaited<ReturnType<typeof boot>>['grid'], uid: string
   const at = g.locate(uid)!
   const ws = at.sessionId === g.activeId ? g.ws : g.sessions.find((x) => x.id === at.sessionId)!.ws
   return ws.panes[at.index]!.terminalId
+}
+
+/** The old window goes away: its listeners and timers with it (the backend and its terminals stay). */
+function quitApp() {
+  main.listeners.clear()
+  for (const k of Object.keys(fake.handlers)) delete fake.handlers[k]
+  const now = Date.now()
+  vi.clearAllTimers() // also rewinds the fake clock
+  vi.setSystemTime(now)
 }
 
 const H1 = account('h1', 'Claude H1')
@@ -539,5 +548,62 @@ describe('stopping', () => {
     ap.getState().openTerminal()
     expect(grid.getState().activeId).toBe(ap.getState().run!.sessionId)
     expect(go).toHaveBeenCalledWith('terminals')
+  })
+})
+
+describe('across restarts', () => {
+  it('saves the run and picks it up again while its terminal is still running', async () => {
+    const first = await running()
+    const saved = JSON.parse(storage.get('relay.autopilot')!)
+    expect(saved).toMatchObject({ phase: 'running', run: { accountId: 'h2' } })
+    expect(saved.log).toHaveLength(1)
+    const run = first.ap.getState().run!
+    quitApp()
+
+    const { ap } = await boot()
+    expect(ap.getState().phase).toBe('idle')
+    await ap.getState().init()
+    await ap.getState().init()
+    expect(ap.getState().phase).toBe('running')
+    expect(ap.getState().run).toEqual(run)
+    expect(api.system.keepAwake).toHaveBeenLastCalledWith(true)
+
+    // Old screen text is replayed after a restart: it is ignored at first, then the run reacts again.
+    fake.state.screens.t1 = "You've hit your limit"
+    main.server.h2 = { used: 100 }
+    await vi.advanceTimersByTimeAsync(15_000)
+    expect(ap.getState().run!.accountId).toBe('h2')
+    await vi.advanceTimersByTimeAsync(15_000)
+    expect(ap.getState().run!.accountId).toBe('h3')
+  })
+
+  it("stops a saved run whose terminal is gone", async () => {
+    await running()
+    quitApp()
+    fake.state.live = []
+
+    const { ap } = await boot()
+    await ap.getState().init()
+    expect(ap.getState().phase).toBe('stopped')
+    expect(ap.getState().log[0]).toMatchObject({ kind: 'stopped', text: "Relay restarted and the run's terminal was gone" })
+    expect(JSON.parse(storage.get('relay.autopilot')!).phase).toBe('stopped')
+  })
+
+  it('keeps waiting after a restart and wakes at the reset', async () => {
+    resetMain([H2])
+    const soon = new Date(NOW + HOUR).toISOString()
+    setUsage({ h2: 20 })
+    await running()
+    setUsage({ h2: { used: 100, resetsAt: soon } })
+    await vi.advanceTimersByTimeAsync(0)
+    quitApp()
+
+    const { ap } = await boot()
+    await ap.getState().init()
+    expect(ap.getState().phase).toBe('waiting')
+    main.server.h2 = { used: 0 }
+    await vi.advanceTimersByTimeAsync(Date.parse(soon) - Date.now() + 61_000)
+    expect(ap.getState().phase).toBe('running')
+    expect(ap.getState().log[0]).toMatchObject({ kind: 'resumed' })
   })
 })

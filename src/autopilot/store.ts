@@ -67,6 +67,7 @@ interface AutopilotState {
   openTerminal(): void
 }
 
+const STORAGE_KEY = 'relay.autopilot'
 const LOG_MAX = 50
 const SECOND = 1000
 const MINUTE = 60 * SECOND
@@ -90,6 +91,7 @@ const RETRY_AFTER_ERROR = MINUTE
 
 const PANE_CLOSED = "The run's pane was closed"
 const ACCOUNT_REMOVED = "The run's account was removed"
+const GONE_AFTER_RESTART = "Relay restarted and the run's terminal was gone"
 
 const active = (p: AutopilotPhase) => p !== 'idle' && p !== 'stopped'
 
@@ -118,13 +120,41 @@ let w = freshWatch()
 /** Subscriptions and timers that live while a run is active. */
 let offs: (() => void)[] = []
 const timers: { debounce?: ReturnType<typeof setTimeout>; poll?: ReturnType<typeof setInterval>; wake?: ReturnType<typeof setTimeout>; exit?: ReturnType<typeof setTimeout> } = {}
+let initialized = false
 
 export const useAutopilot = create<AutopilotState>((set, get) => ({
   phase: 'idle',
   run: null,
   log: [],
 
-  async init() {},
+  async init() {
+    if (initialized) return
+    initialized = true
+    const saved = load()
+    // A run started before the saved one could be read wins (the card only shows once the app is ready).
+    if (!saved?.run || get().phase !== 'idle') return
+    const { run, log } = saved
+    if (!active(saved.phase)) {
+      set({ phase: saved.phase, run, log })
+      return
+    }
+    await useGrid.getState().restore()
+    const at = paneOf(run.paneUid)
+    const tid = at?.pane.terminalId
+    const live = !!tid && useGrid.getState().infos[tid]?.exited === false
+    // A waiting run only needs its pane: waking up starts a terminal anyway.
+    if (!at?.pane.accountId || (!live && saved.phase !== 'waiting')) {
+      set({ phase: 'stopped', run: { ...run, error: GONE_AFTER_RESTART }, log: entry(log, 'stopped', GONE_AFTER_RESTART) })
+      return
+    }
+    w = freshWatch()
+    w.terminalId = tid
+    w.spawnedAt = Date.now()
+    const waiting = saved.phase === 'waiting'
+    // A handoff cut short may have started the next account already: the pane knows which one it is on.
+    set({ phase: waiting ? 'waiting' : 'running', run: { ...run, accountId: at.pane.accountId }, log })
+    if (waiting) scheduleWake(run.waitingUntil)
+  },
 
   async start(input) {
     const fail = (title: string, body?: string) => useStore.getState().toast({ kind: 'error', title, body })
@@ -509,7 +539,28 @@ async function relaunch(next: Account, describe: (left: string) => string, kind:
   useStore.getState().toast({ kind: 'info', title: kind === 'resumed' ? 'Autopilot resumed' : 'Autopilot moved on', body: text })
 }
 
+function load(): Pick<AutopilotState, 'phase' | 'run' | 'log'> | null {
+  try {
+    const d = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null') as Partial<AutopilotState> | null
+    const phases: AutopilotPhase[] = ['idle', 'starting', 'running', 'handing-off', 'waiting', 'stopped']
+    if (!d || !phases.includes(d.phase as AutopilotPhase)) return null
+    const run = d.run && typeof d.run.paneUid === 'string' && typeof d.run.accountId === 'string' ? d.run : null
+    return { phase: d.phase as AutopilotPhase, run, log: Array.isArray(d.log) ? d.log.slice(0, LOG_MAX) : [] }
+  } catch {
+    return null
+  }
+}
+
+function save({ phase, run, log }: AutopilotState) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ phase, run, log }))
+  } catch {
+    /* private mode or full storage: the run works, it just won't survive a restart */
+  }
+}
+
 useAutopilot.subscribe((s, prev) => {
+  if (s.phase !== prev.phase || s.run !== prev.run || s.log !== prev.log) save(s)
   if (active(s.phase) !== active(prev.phase)) {
     if (active(s.phase)) watch()
     else unwatch()
