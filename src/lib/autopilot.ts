@@ -48,11 +48,12 @@ export function restartPrompt(task: string): string {
 }
 
 /**
- * A task as one CLI argument: trimmed, on one line (Windows .cmd shims can't carry newlines), and with a
- * leading space when it starts with "-" so the CLI doesn't read it as a flag.
+ * A task as one CLI argument: trimmed, on one line (Windows .cmd shims can't carry newlines), with double quotes
+ * turned into single ones (a .cmd shim's argument quoting has no escape for them, so they would be dropped or end
+ * the argument early), and with a leading space when it starts with "-" so the CLI doesn't read it as a flag.
  */
 export function taskArg(text: string): string {
-  const t = text.trim().replace(/[^\S\r\n]*[\r\n]\s*/g, ' ')
+  const t = text.trim().replace(/[^\S\r\n]*[\r\n]\s*/g, ' ').replace(/"/g, "'")
   return t.startsWith('-') ? ` ${t}` : t
 }
 

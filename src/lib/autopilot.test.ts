@@ -175,6 +175,10 @@ describe('arguments', () => {
     expect(taskArg('one\ttwo')).toBe('one\ttwo')
   })
 
+  it("turns double quotes into single ones, which Windows .cmd shims would drop", () => {
+    expect(taskArg('Rename "foo" to "bar"')).toBe("Rename 'foo' to 'bar'")
+  })
+
   it('keeps a task that starts with a dash from reading as a flag', () => {
     expect(taskArg('--help me refactor')).toBe(' --help me refactor')
     expect(taskArg('  - list the todos')).toBe(' - list the todos')
