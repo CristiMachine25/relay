@@ -370,6 +370,28 @@ export function restyleAll(mode: 'dark' | 'light') {
   }
 }
 
+/**
+ * The last `lines` rows of a terminal's screen and scrollback as plain text ('' for an unknown terminal), for
+ * reading what the CLI shows. Blank rows below the output are skipped, and a row that wrapped is joined back
+ * onto the one above so a message reads as one line.
+ */
+export function tailText(id: string, lines = 40): string {
+  const buf = entries.get(id)?.term.buffer.active
+  if (!buf) return ''
+  let end = buf.length
+  while (end > 0 && !buf.getLine(end - 1)?.translateToString(true)) end--
+  const out: string[] = []
+  for (let i = Math.max(0, end - lines); i < end; i++) {
+    const line = buf.getLine(i)
+    if (!line) continue
+    // A row that continues on the next one keeps its trailing spaces: the wrap may have fallen between words.
+    const text = line.translateToString(!(i + 1 < end && buf.getLine(i + 1)?.isWrapped))
+    if (line.isWrapped && out.length) out[out.length - 1] += text
+    else out.push(text)
+  }
+  return out.join('\n')
+}
+
 export function focusTerm(id: string | undefined) {
   if (id) entries.get(id)?.term.focus()
 }

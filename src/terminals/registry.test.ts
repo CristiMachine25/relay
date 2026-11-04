@@ -14,6 +14,13 @@ vi.mock('@xterm/xterm', () => ({
     cols = 80
     rows = 24
     canvases: unknown[] = []
+    /** Rows of the active buffer, scrollback first; `wrapped` continues the row above. */
+    screen: { text: string; wrapped?: boolean }[] = []
+    get buffer() {
+      const rows = this.screen
+      const line = (r: { text: string; wrapped?: boolean }) => ({ isWrapped: !!r.wrapped, translateToString: (trim?: boolean) => (trim ? r.text.trimEnd() : r.text) })
+      return { active: { length: rows.length, getLine: (i: number) => (rows[i] ? line(rows[i]) : undefined) } }
+    }
     element = { querySelectorAll: () => this.canvases }
     // Like xterm: an addon is registered, then activated; activate may throw.
     loadAddon(addon: { activate?: (t: unknown) => void }) {
@@ -94,7 +101,7 @@ vi.stubGlobal('devicePixelRatio', 2)
 vi.stubGlobal('matchMedia', () => ({ addEventListener: (_type: string, cb: () => void) => (dpr.change = cb) }))
 vi.stubGlobal('requestAnimationFrame', (cb: () => void) => cb())
 
-const { MAX_WEBGL, acquireWebgl, disposeTerm, getTerm, prepare } = await import('./registry')
+const { MAX_WEBGL, acquireWebgl, disposeTerm, getTerm, prepare, tailText } = await import('./registry')
 const { api } = await import('@/api')
 const output = (id: string, data: string) => handlers['terminal-output']!({ id, data } as never)
 const written = (id: string) => (getTerm(id, 'dark').term as unknown as { written: string[] }).written
@@ -126,6 +133,27 @@ describe('terminal output buffering', () => {
     disposeTerm('closed')
     output('closed', 'trailing chunk')
     expect(written('closed')).toEqual([])
+  })
+})
+
+describe('tailText', () => {
+  const screen = (id: string, rows: { text: string; wrapped?: boolean }[]) => ((getTerm(id, 'dark').term as unknown as { screen: typeof rows }).screen = rows)
+
+  it('is empty for a terminal that does not exist', () => {
+    expect(tailText('nobody')).toBe('')
+  })
+
+  it('reads the last lines of the buffer, without the blank rows below the output', () => {
+    screen('tail', [...Array.from({ length: 50 }, (_, i) => ({ text: `line ${i}   ` })), { text: '' }, { text: '   ' }])
+    expect(tailText('tail', 3)).toBe('line 47\nline 48\nline 49')
+    expect(tailText('tail').split('\n')).toHaveLength(40)
+    disposeTerm('tail')
+  })
+
+  it('joins a row that wrapped onto the next one back into one line', () => {
+    screen('wrap', [{ text: 'prompt' }, { text: "⎿ You've hit your " }, { text: 'limit · resets in 2h', wrapped: true }])
+    expect(tailText('wrap')).toBe("prompt\n⎿ You've hit your limit · resets in 2h")
+    disposeTerm('wrap')
   })
 })
 
