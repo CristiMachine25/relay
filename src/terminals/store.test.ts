@@ -174,4 +174,16 @@ describe('sessions', () => {
     expect(useGrid.getState().activeId).toBe(id)
     expect(useGrid.getState().ws.panes[0]).toMatchObject({ accountId: 'acc-1', terminalId: 't-auto' })
   })
+
+  it('finds a pane in the active session or in one in the background', () => {
+    const first = useGrid.getState().newSession()
+    useGrid.getState().setLayout(2)
+    const uid = useGrid.getState().ws.panes[1]!.uid
+    expect(useGrid.getState().locate(uid)).toEqual({ sessionId: first, index: 1 })
+    const second = useGrid.getState().newSession()
+    const other = useGrid.getState().ws.panes[0]!.uid
+    expect(useGrid.getState().locate(other)).toEqual({ sessionId: second, index: 0 })
+    expect(useGrid.getState().locate(uid)).toEqual({ sessionId: first, index: 1 })
+    expect(useGrid.getState().locate('no-such-pane')).toBeNull()
+  })
 })

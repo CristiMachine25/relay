@@ -70,6 +70,8 @@ interface GridState {
   switchSession(id: string): void
   renameSession(id: string, name: string): void
   closeSession(id: string): Promise<void>
+  /** The session holding a pane and the pane's index in it, or null when no session has it. */
+  locate(paneUid: string): { sessionId: string; index: number } | null
 }
 
 const newSessionId = () => `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
@@ -357,6 +359,15 @@ export const useGrid = create<GridState>((set, get) => {
       if (!rest.length) rest = [{ id: newSessionId(), name: 'Session 1', ws: defaultWorkspace() }]
       const activeId = id === get().activeId ? rest[Math.max(0, sessions.indexOf(gone) - 1)]?.id ?? rest[0]!.id : get().activeId
       set({ sessions: rest, activeId, ws: rest.find((x) => x.id === activeId)!.ws })
+    },
+
+    locate(paneUid) {
+      // The active session's own entry may be stale; its live panes are in `ws`.
+      for (const x of stash()) {
+        const index = x.ws.panes.findIndex((p) => p.uid === paneUid)
+        if (index >= 0) return { sessionId: x.id, index }
+      }
+      return null
     }
   }
 })
