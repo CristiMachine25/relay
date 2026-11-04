@@ -625,6 +625,24 @@ describe('stopping', () => {
     expect(ap.getState()).toMatchObject({ phase: 'idle', run: null, log: [] })
   })
 
+  it("closes the run's grid session when it is dismissed, unless a terminal in it still runs", async () => {
+    const { grid, ap } = await running()
+    const { sessionId } = ap.getState().run!
+    ap.getState().stop()
+    ap.getState().dismiss()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(grid.getState().sessions.some((x) => x.id === sessionId)).toBe(true)
+
+    await ap.getState().start(TASK)
+    const second = ap.getState().run!
+    ap.getState().stop()
+    fake.state.exit(runTerminal(grid, second.paneUid)!, 0)
+    ap.getState().dismiss()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(grid.getState().sessions.some((x) => x.id === second.sessionId)).toBe(false)
+    expect(grid.getState().sessions.some((x) => x.id === sessionId)).toBe(true)
+  })
+
   it('stops when the pane is closed', async () => {
     const { grid, ap } = await running()
     await grid.getState().close(0)

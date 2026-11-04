@@ -66,7 +66,7 @@ interface AutopilotState {
   start(input: AutopilotStartInput): Promise<boolean>
   /** Stop watching; the terminal keeps running. */
   stop(): void
-  /** Forget a stopped run and its log, back to idle. */
+  /** Forget a stopped run and its log, back to idle; its grid session goes too unless a terminal in it still runs. */
   dismiss(): void
   /** Show the run's pane in the terminal grid. */
   openTerminal(): void
@@ -252,7 +252,10 @@ export const useAutopilot = create<AutopilotState>((set, get) => ({
   },
 
   dismiss() {
-    if (get().phase === 'stopped') set({ phase: 'idle', run: null, log: [] })
+    const { phase, run } = get()
+    if (phase !== 'stopped') return
+    set({ phase: 'idle', run: null, log: [] })
+    if (run) closeIdleSession(run.sessionId)
   },
 
   openTerminal() {
@@ -316,6 +319,14 @@ function paneOf(uid: string) {
   const ws = at.sessionId === g.activeId ? g.ws : g.sessions.find((x) => x.id === at.sessionId)?.ws
   const pane = ws?.panes[at.index]
   return pane ? { ...at, pane } : null
+}
+
+/** Closes a run's grid session so they don't pile up, unless the user may still want a terminal in it. */
+function closeIdleSession(sessionId: string) {
+  const g = useGrid.getState()
+  const ws = sessionId === g.activeId ? g.ws : g.sessions.find((x) => x.id === sessionId)?.ws
+  if (!ws || ws.panes.some((p) => p.terminalId && g.infos[p.terminalId]?.exited === false)) return
+  void g.closeSession(sessionId)
 }
 
 /** Starts watching a new terminal of the run. */
