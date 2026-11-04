@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Account, UsageSnapshot, UsageWindow } from '@shared/types'
 import { DEFAULT_SHARING } from '@shared/types'
-import { CONTINUE_PROMPT, exhaustedUntil, limitHit, permissionArgs, pickAccount, soonestReset, stripAnsi, taskArg } from './autopilot'
+import { CONTINUE_PROMPT, exhaustedUntil, limitHit, permissionArgs, pickAccount, restartPrompt, soonestReset, stripAnsi, taskArg } from './autopilot'
 
 const acc = (id: string, extra: Partial<Account> = {}): Account => ({
   id,
@@ -161,6 +161,13 @@ describe('arguments', () => {
     expect(CONTINUE_PROMPT).toBe(
       'Your previous session on another account stopped at a usage limit. Continue the task from exactly where you left off. Do not redo finished steps.'
     )
+  })
+
+  it('restarts a task in a new chat with what to watch out for, as one argument', () => {
+    expect(restartPrompt('Fix the\nflaky test')).toBe(
+      'Continue this task. An earlier session working on it stopped before it was done, so some of the work may already be done in this folder: check the current state first, then finish it. Task: Fix the\nflaky test'
+    )
+    expect(taskArg(restartPrompt('Fix the\nflaky test'))).toMatch(/^Continue this task\. .*Task: Fix the flaky test$/)
   })
 
   it('puts a task on one line', () => {

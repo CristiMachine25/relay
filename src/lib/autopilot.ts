@@ -40,6 +40,14 @@ export const CONTINUE_PROMPT =
   'Your previous session on another account stopped at a usage limit. Continue the task from exactly where you left off. Do not redo finished steps.'
 
 /**
+ * Starts the task over in a new chat when the old one can't be reopened (its id is unknown): resuming "the most
+ * recent" chat instead could pick up someone else's. The earlier session may have done part of the work.
+ */
+export function restartPrompt(task: string): string {
+  return `Continue this task. An earlier session working on it stopped before it was done, so some of the work may already be done in this folder: check the current state first, then finish it. Task: ${task}`
+}
+
+/**
  * A task as one CLI argument: trimmed, on one line (Windows .cmd shims can't carry newlines), and with a
  * leading space when it starts with "-" so the CLI doesn't read it as a flag.
  */
