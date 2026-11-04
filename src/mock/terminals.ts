@@ -17,6 +17,8 @@ interface Fake {
   line: string
   scrollback: string
   account: Account
+  /** The conversation it is in: the one it resumed, or a new one. */
+  conversation: string
 }
 
 const ESC = '\x1b['
@@ -60,7 +62,7 @@ export function createMockTerminals(deps: Deps): RelayApi['terminals'] {
     deps.emit('terminal-exit', { id: t.info.id, code })
   }
 
-  function banner(t: Fake, resume: boolean, login: boolean, task?: string) {
+  function banner(t: Fake, resume: boolean, login: boolean, task?: string, resumed?: string) {
     const a = t.account
     const prov = deps.provider(a.providerId)
     const name = prov?.name ?? a.providerId
@@ -78,7 +80,7 @@ export function createMockTerminals(deps: Deps): RelayApi['terminals'] {
     for (const [styled, raw] of rows) s += `${c('│')} ${pad(styled, raw.slice(0, w - 2))}${c('│')}\r\n`
     s += `${c('╰' + line + '╯')}\r\n\r\n`
     if (login) s += `Opening the browser to sign in as ${bold(a.label)}…\r\n${dim('(browser preview: nothing is really opened)')}\r\n\r\n`
-    else if (resume) s += `${dim('Resuming the most recent conversation in this folder…')}\r\n\r\n`
+    else if (resume) s += `${dim(resumed ? `Resuming conversation ${resumed}…` : 'Resuming the most recent conversation in this folder…')}\r\n\r\n`
     s += dim('Browser preview: this terminal only echoes what you type.') + '\r\n'
     s += dim('Try ') + '/limit' + dim(' to simulate a usage limit, or ') + '/exit' + dim('.') + '\r\n\r\n'
     if (task) s += `${color(BRAND[a.providerId], '>')} ${dim(task)}\r\n${dim('⎿ Working on it…')}\r\n\r\n`
@@ -119,12 +121,14 @@ export function createMockTerminals(deps: Deps): RelayApi['terminals'] {
       if (prov && !prov.cliInstalled) throw new Error(`${prov.name} isn't installed. Install it with "${prov.installHint}" and try again.`)
       const id = `term-${++seq}-${Date.now().toString(36)}`
       const cli = prov?.cliCommand ?? a.providerId
-      const base = req.target === 'login' ? [cli, '/login'] : req.resume ? [cli, '--continue'] : [cli]
+      const resumed = req.resume ? req.resumeSession : undefined
+      const base = req.target === 'login' ? [cli, '/login'] : resumed ? [cli, '--resume', resumed] : req.resume ? [cli, '--continue'] : [cli]
       const extra = req.extraArgs ?? []
       const t: Fake = {
         account: a,
         line: '',
         scrollback: '',
+        conversation: resumed ?? `mock-conversation-${seq}`,
         info: {
           id,
           accountId: a.id,
@@ -138,7 +142,7 @@ export function createMockTerminals(deps: Deps): RelayApi['terminals'] {
         }
       }
       terms.set(id, t)
-      setTimeout(() => banner(t, !!req.resume, req.target === 'login', promptArg(extra)), 60)
+      setTimeout(() => banner(t, !!req.resume, req.target === 'login', promptArg(extra), resumed), 60)
       return structuredClone(t.info)
     },
     async write(id, data) {
@@ -183,8 +187,8 @@ export function createMockTerminals(deps: Deps): RelayApi['terminals'] {
     async scrollback(id) {
       return terms.get(id)?.scrollback ?? ''
     },
-    async session() {
-      return null
+    async session(id) {
+      return terms.get(id)?.conversation ?? null
     }
   }
 }
