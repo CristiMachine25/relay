@@ -62,7 +62,8 @@ interface AutopilotState {
   log: AutopilotLogEntry[]
   /** Restore a saved run and start watching. Safe to call more than once. */
   init(): Promise<void>
-  start(input: AutopilotStartInput): Promise<void>
+  /** True when the run started; otherwise a toast (or the stopped run) says why. */
+  start(input: AutopilotStartInput): Promise<boolean>
   /** Stop watching; the terminal keeps running. */
   stop(): void
   /** Forget a stopped run and its log, back to idle. */
@@ -182,7 +183,10 @@ export const useAutopilot = create<AutopilotState>((set, get) => ({
   },
 
   async start(input) {
-    const fail = (title: string, body?: string) => useStore.getState().toast({ kind: 'error', title, body })
+    const fail = (title: string, body?: string) => {
+      useStore.getState().toast({ kind: 'error', title, body })
+      return false
+    }
     if (active(get().phase)) return fail('Autopilot is already running', 'Stop the current run first.')
     const task = input.task.trim()
     if (!task) return fail('Give Autopilot a task first')
@@ -198,9 +202,12 @@ export const useAutopilot = create<AutopilotState>((set, get) => ({
       for (const x of historyToTurnOn(signedIn, home, api.platform))
         await useStore.getState().updateAccount(x.id, { sharing: { ...x.sharing, history: true } }, { quiet: true })
       await useGrid.getState().restore()
-      if (!starting()) return
+      if (!starting()) return false
       const first = best()
-      if (!first) return finish('No Claude account has room right now', true)
+      if (!first) {
+        finish('No Claude account has room right now', true)
+        return false
+      }
 
       // A session of its own, so the run never takes over a pane the user is working in. The grid stays where it
       // is on screen; the terminal sizes itself when the user opens it.
@@ -224,14 +231,19 @@ export const useAutopilot = create<AutopilotState>((set, get) => ({
       }
       set({ run })
       await useGrid.getState().start(0, { accountId: first.id, target: 'cli', cwd, extraArgs: [...permissionArgs(input.skipPermissions), taskArg(task)] })
-      if (!starting() || get().run?.id !== run.id) return
+      if (!starting() || get().run?.id !== run.id) return false
       const tid = paneOf(paneUid)?.pane.terminalId
-      if (!tid) return finish(`Couldn't start the terminal: ${useGrid.getState().errors[paneUid] || 'it did not start'}`, true)
+      if (!tid) {
+        finish(`Couldn't start the terminal: ${useGrid.getState().errors[paneUid] || 'it did not start'}`, true)
+        return false
+      }
       spawned(tid)
       set({ phase: 'running' })
       addLog('start', `Started on ${first.label}${leftText(first.id)}.`)
+      return true
     } catch (e) {
       if (starting()) finish(`Couldn't start: ${errorText(e)}`, true)
+      return false
     }
   },
 
@@ -270,11 +282,15 @@ function patchRun(patch: Partial<AutopilotRun>) {
   if (run) set({ run: { ...run, ...patch } })
 }
 
-/** Ends the run: by the user (`error` false) or on its own, with the reason kept on the run. */
+/**
+ * Ends the run: by the user (`error` false) or on its own, with the reason kept on the run. Before a run exists
+ * there is nothing to show the reason on, so it goes back to idle and only the toast says why.
+ */
 function finish(reason: string, error: boolean) {
   const run = get().run
-  set({ phase: 'stopped', run: run && error ? { ...run, error: reason } : run, log: entry(get().log, 'stopped', reason) })
-  if (error) useStore.getState().toast({ kind: 'error', title: 'Autopilot stopped', body: reason })
+  if (run) set({ phase: 'stopped', run: error ? { ...run, error: reason } : run, log: entry(get().log, 'stopped', reason) })
+  else set({ phase: 'idle', log: [] })
+  if (error) useStore.getState().toast({ kind: 'error', title: run ? 'Autopilot stopped' : "Autopilot couldn't start", body: reason })
 }
 
 const claudeHome = () => useStore.getState().providers.find((p) => p.id === 'claude')?.defaultHome

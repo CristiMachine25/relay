@@ -8,7 +8,7 @@ vi.mock('@/api', () => ({ api: { platform: 'darwin', on: () => () => {} }, error
 vi.mock('@/autopilot/store', async () => {
   const { create } = await import('zustand')
   return {
-    useAutopilot: create(() => ({ phase: 'idle', run: null, log: [], init: async () => {}, start: async () => {}, stop() {}, dismiss() {}, openTerminal() {} }))
+    useAutopilot: create(() => ({ phase: 'idle', run: null, log: [], init: async () => {}, start: async () => true, stop() {}, dismiss() {}, openTerminal() {} }))
   }
 })
 const { useStore } = await import('@/store')
@@ -127,6 +127,12 @@ describe('AutopilotCard', () => {
     expect(html).toContain('Limit reached')
     expect(html).toContain('no handoffs yet')
     expect(html).toContain('Nothing yet.')
+  })
+
+  it('shows the form again for a run that stopped before it existed', () => {
+    const html = render({ accounts: [work], usage: { w: snap('w', 40) } }, { phase: 'stopped', run: null, log: [] })
+    expect(html).toContain('Start on Work · 60% left</button>')
+    expect(html).not.toContain('Stopped</span>')
   })
 
   it('shows why a run stopped and offers a new task', () => {

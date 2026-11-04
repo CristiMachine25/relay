@@ -263,26 +263,47 @@ describe('starting a run', () => {
 
   it('refuses an empty task, a second run, and a run with no usable account', async () => {
     const { ap } = await boot()
-    await ap.getState().start({ task: '   ', skipPermissions: true })
+    expect(await ap.getState().start({ task: '   ', skipPermissions: true })).toBe(false)
     expect(ap.getState().phase).toBe('idle')
     expect(toast).toHaveBeenLastCalledWith(expect.objectContaining({ kind: 'error' }))
 
     setUsage({ h1: 100, h2: 100, h3: 100 })
-    await ap.getState().start(TASK)
+    expect(await ap.getState().start(TASK)).toBe(false)
     expect(ap.getState().phase).toBe('idle')
     expect(fake.state.requests).toHaveLength(0)
 
     setUsage({ h1: 10 })
-    await ap.getState().start(TASK)
-    await ap.getState().start(TASK)
+    expect(await ap.getState().start(TASK)).toBe(true)
+    expect(await ap.getState().start(TASK)).toBe(false)
     expect(fake.state.requests).toHaveLength(1)
     expect(toast).toHaveBeenLastCalledWith(expect.objectContaining({ kind: 'error' }))
+  })
+
+  it('goes back to the form, saying why, when it fails before a run exists', async () => {
+    resetMain([H1, account('n', 'No history', { sharing: { ...H1.sharing, history: false } })])
+    setUsage({ h1: 10 })
+    updateAccount.mockRejectedValueOnce(new Error('disk full'))
+    const { ap } = await boot()
+    expect(await ap.getState().start(TASK)).toBe(false)
+    expect(ap.getState()).toMatchObject({ phase: 'idle', run: null, log: [] })
+    expect(toast).toHaveBeenLastCalledWith(expect.objectContaining({ kind: 'error', body: expect.stringContaining('disk full') }))
+    expect(api.system.keepAwake).toHaveBeenLastCalledWith(false)
+  })
+
+  it('goes back to the form when stopped before its run exists', async () => {
+    const { ap } = await boot()
+    const started = ap.getState().start(TASK)
+    expect(ap.getState().phase).toBe('starting')
+    ap.getState().stop()
+    expect(await started).toBe(false)
+    expect(ap.getState()).toMatchObject({ phase: 'idle', run: null })
+    expect(fake.state.requests).toHaveLength(0)
   })
 
   it('stops with the reason when the first terminal could not start', async () => {
     fake.state.spawnError = 'claude not found'
     const { ap } = await boot()
-    await ap.getState().start(TASK)
+    expect(await ap.getState().start(TASK)).toBe(false)
     expect(ap.getState().phase).toBe('stopped')
     expect(ap.getState().run!.error).toContain('claude not found')
     expect(api.system.keepAwake).toHaveBeenLastCalledWith(false)

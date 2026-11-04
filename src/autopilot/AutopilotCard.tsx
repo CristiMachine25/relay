@@ -38,8 +38,10 @@ export function AutopilotCard() {
   const phase = useAutopilot((s) => s.phase)
   const run = useAutopilot((s) => s.run)
   const claude = accounts.filter((a) => a.providerId === 'claude')
+  // A stop before the run existed leaves nothing to show: offer the form again.
+  const idle = phase === 'idle' || (phase === 'stopped' && !run)
   // A run already under way stays reachable (to stop it) even if its accounts were removed since.
-  if (!claude.length && phase === 'idle') return null
+  if (!claude.length && idle) return null
 
   return (
     <section aria-labelledby="autopilot-title" className="rounded-lg border border-rivet bg-deck">
@@ -51,7 +53,7 @@ export function AutopilotCard() {
           Give it a task and walk away. When an account runs out, the chat moves to the one with the most left.
         </p>
       </div>
-      {phase === 'idle' ? <Draft claude={claude} /> : <Live phase={phase} run={run} />}
+      {phase === 'idle' || idle ? <Draft claude={claude} /> : <Live phase={phase} run={run} />}
     </section>
   )
 }
@@ -93,9 +95,11 @@ function Draft({ claude }: { claude: Account[] }) {
     if (!best || empty || busy) return
     setBusy(true)
     try {
-      await useAutopilot.getState().start({ task: task.trim(), cwd: folder, skipPermissions: skip })
-      setTask('')
-      saveDraft('')
+      // A start that failed keeps the task, so it can be tried again.
+      if (await useAutopilot.getState().start({ task: task.trim(), cwd: folder, skipPermissions: skip })) {
+        setTask('')
+        saveDraft('')
+      }
     } catch (e) {
       useStore.getState().toast({ kind: 'error', title: "Autopilot couldn't start", body: errorText(e) })
     } finally {
