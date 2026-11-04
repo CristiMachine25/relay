@@ -75,6 +75,7 @@ src-tauri/src/
   launcher.rs             Open the user's terminal per OS with the account env
   pty.rs                  Embedded terminals for the grid (ConPTY / openpty via portable-pty)
   awake.rs                Keep the computer awake during an Autopilot run (caffeinate / systemd-inhibit / SetThreadExecutionState)
+  voice.rs                Turn Claude Code voice mode on in each Claude home; start macOS dictation (NSApp startDictation:)
   usage.rs                Poll loop, history, activity cache
   notify.rs               Rules: nearly exhausted, limit hit, reset, use-it-or-lose-it
   recommend.rs            Score accounts for "what should I use now"
