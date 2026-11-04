@@ -158,6 +158,8 @@ export const useAutopilot = create<AutopilotState>((set, get) => ({
       return
     }
     await useGrid.getState().restore()
+    // A run the user started meanwhile wins over the saved one.
+    if (get().phase !== 'idle' || get().run) return
     const at = paneOf(run.paneUid)
     const tid = at?.pane.terminalId
     const live = !!tid && useGrid.getState().infos[tid]?.exited === false

@@ -654,6 +654,20 @@ describe('across restarts', () => {
     expect(ap.getState().run!.accountId).toBe('h3')
   })
 
+  it('leaves alone a run started while the saved one was being restored', async () => {
+    const saved = (await running()).ap.getState().run!
+    quitApp()
+
+    const { ap } = await boot()
+    const restoring = ap.getState().init()
+    const started = ap.getState().start({ task: 'A new task', skipPermissions: false })
+    await Promise.all([restoring, started])
+    expect(ap.getState().phase).toBe('running')
+    expect(ap.getState().run!.id).not.toBe(saved.id)
+    expect(ap.getState().run!.task).toBe('A new task')
+    expect(kinds(ap.getState().log)).toEqual(['start'])
+  })
+
   it("stops a saved run whose terminal is gone", async () => {
     await running()
     quitApp()
