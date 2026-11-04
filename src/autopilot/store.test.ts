@@ -668,6 +668,21 @@ describe('across restarts', () => {
     expect(kinds(ap.getState().log)).toEqual(['start'])
   })
 
+  it('lets the computer sleep after a reload with no run under way, in case the old page kept it awake', async () => {
+    const { ap } = await boot()
+    await ap.getState().init()
+    expect(api.system.keepAwake).toHaveBeenLastCalledWith(false)
+
+    const first = await running()
+    first.ap.getState().stop()
+    quitApp()
+    vi.mocked(api.system.keepAwake).mockClear()
+    const again = await boot()
+    await again.ap.getState().init()
+    expect(again.ap.getState().phase).toBe('stopped')
+    expect(api.system.keepAwake).toHaveBeenLastCalledWith(false)
+  })
+
   it("stops a saved run whose terminal is gone", async () => {
     await running()
     quitApp()

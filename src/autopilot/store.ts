@@ -149,31 +149,36 @@ export const useAutopilot = create<AutopilotState>((set, get) => ({
   async init() {
     if (initialized) return
     initialized = true
-    const saved = load()
-    // A run started before the saved one could be read wins (the card only shows once the app is ready).
-    if (!saved?.run || get().phase !== 'idle') return
-    const { run, log } = saved
-    if (!active(saved.phase)) {
-      set({ phase: saved.phase, run, log })
-      return
+    try {
+      const saved = load()
+      // A run started before the saved one could be read wins (the card only shows once the app is ready).
+      if (!saved?.run || get().phase !== 'idle') return
+      const { run, log } = saved
+      if (!active(saved.phase)) {
+        set({ phase: saved.phase, run, log })
+        return
+      }
+      await useGrid.getState().restore()
+      // A run the user started meanwhile wins over the saved one.
+      if (get().phase !== 'idle' || get().run) return
+      const at = paneOf(run.paneUid)
+      const tid = at?.pane.terminalId
+      const live = !!tid && useGrid.getState().infos[tid]?.exited === false
+      // A waiting run only needs its pane: waking up starts a terminal anyway.
+      if (!at?.pane.accountId || (!live && saved.phase !== 'waiting')) {
+        set({ phase: 'stopped', run: { ...run, error: GONE_AFTER_RESTART }, log: entry(log, 'stopped', GONE_AFTER_RESTART) })
+        return
+      }
+      w = freshWatch()
+      if (tid) spawned(tid)
+      const waiting = saved.phase === 'waiting'
+      // A handoff cut short may have started the next account already: the pane knows which one it is on.
+      set({ phase: waiting ? 'waiting' : 'running', run: { ...run, accountId: at.pane.accountId }, log })
+      if (waiting) scheduleWake(run.waitingUntil)
+    } finally {
+      // A webview reload leaves the backend keeping the computer awake for the old page: match this one.
+      keepAwake(active(get().phase))
     }
-    await useGrid.getState().restore()
-    // A run the user started meanwhile wins over the saved one.
-    if (get().phase !== 'idle' || get().run) return
-    const at = paneOf(run.paneUid)
-    const tid = at?.pane.terminalId
-    const live = !!tid && useGrid.getState().infos[tid]?.exited === false
-    // A waiting run only needs its pane: waking up starts a terminal anyway.
-    if (!at?.pane.accountId || (!live && saved.phase !== 'waiting')) {
-      set({ phase: 'stopped', run: { ...run, error: GONE_AFTER_RESTART }, log: entry(log, 'stopped', GONE_AFTER_RESTART) })
-      return
-    }
-    w = freshWatch()
-    if (tid) spawned(tid)
-    const waiting = saved.phase === 'waiting'
-    // A handoff cut short may have started the next account already: the pane knows which one it is on.
-    set({ phase: waiting ? 'waiting' : 'running', run: { ...run, accountId: at.pane.accountId }, log })
-    if (waiting) scheduleWake(run.waitingUntil)
   },
 
   async start(input) {
