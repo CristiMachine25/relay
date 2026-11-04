@@ -16,6 +16,7 @@ import { PrimaryLaunch } from '@/components/PrimaryLaunch'
 import { UsageOverTime } from '@/charts/UsageOverTime'
 import { MostUsed, type ActivityMetric } from '@/charts/MostUsed'
 import { Page } from '@/components/Page'
+import { AutopilotCard } from '@/autopilot/AutopilotCard'
 import { FirstRun } from './overview/FirstRun'
 
 export function Overview() {
@@ -77,6 +78,7 @@ export function Overview() {
       }
     >
       <UseNow />
+      <AutopilotCard />
       {alerts.length > 0 && <Alerts alerts={alerts} />}
       <Board />
       <section aria-labelledby="history-title">

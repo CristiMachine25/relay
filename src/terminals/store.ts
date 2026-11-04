@@ -40,6 +40,14 @@ export interface StartOptions {
   resume?: boolean
   /** With `resume`: the conversation to reopen. */
   resumeSession?: string
+  /** Appended to the CLI's arguments for this spawn only (e.g. a prompt to run); a restart doesn't resend them. */
+  extraArgs?: string[]
+}
+
+export interface ContinueOptions {
+  extraArgs?: string[]
+  /** The conversation to reopen; without it the pane's terminal is asked which one it is in. */
+  resumeSession?: string
 }
 
 interface GridState {
@@ -59,14 +67,21 @@ interface GridState {
   move(dir: Dir): void
   toggleMax(index?: number): void
   start(index: number, opts: StartOptions): Promise<void>
+  /** Starts a pane in whichever session holds it, replacing the pane's terminal if it has one. */
+  startPane(uid: string, opts: StartOptions): Promise<void>
   restart(index: number, resume: boolean): Promise<void>
-  continueOn(index: number, accountId: string): Promise<void>
+  continueOn(index: number, accountId: string, opts?: ContinueOptions): Promise<void>
+  /** Moves a pane's conversation to another account, in whichever session holds the pane. */
+  continuePane(uid: string, accountId: string, opts?: ContinueOptions): Promise<void>
   close(index: number): Promise<void>
   openInGrid(accountId: string, opts?: { resume?: boolean; cwd?: string }): Promise<void>
-  newSession(): void
+  /** Opens an empty session and makes it the active one; returns its id. */
+  newSession(): string
   switchSession(id: string): void
   renameSession(id: string, name: string): void
   closeSession(id: string): Promise<void>
+  /** The session holding a pane and the pane's index in it, or null when no session has it. */
+  locate(paneUid: string): { sessionId: string; index: number } | null
 }
 
 const newSessionId = () => `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
@@ -135,16 +150,27 @@ async function killQuietly(id: string | undefined) {
 }
 
 export const useGrid = create<GridState>((set, get) => {
+  /** A pane in the active session's workspace or, failing that, in an inactive session's. */
+  const findPane = (uid: string): PaneConfig | undefined => {
+    const { ws, sessions, activeId } = get()
+    const elsewhere = sessions.filter((x) => x.id !== activeId).flatMap((x) => x.ws.panes)
+    return ws.panes.find((p) => p.uid === uid) ?? elsewhere.find((p) => p.uid === uid)
+  }
+
+  /** Patches a pane wherever it is: in `ws` when its session is active, else in its session's entry. */
   const patchPane = (uid: string, patch: Partial<PaneConfig> | null) => {
-    set((s) => {
-      const panes = s.ws.panes.map((p) => {
+    const edit = (panes: PaneConfig[]) =>
+      panes.map((p) => {
         if (p.uid !== uid) return p
         if (patch === null) return emptyPane(p.uid)
         const next = { ...p, ...patch }
         for (const k of Object.keys(patch) as (keyof PaneConfig)[]) if (patch[k] === undefined) delete next[k]
         return next
       })
-      return { ws: { ...s.ws, panes } }
+    const has = (ws: Workspace) => ws.panes.some((p) => p.uid === uid)
+    set((s) => {
+      if (has(s.ws)) return { ws: { ...s.ws, panes: edit(s.ws.panes) } }
+      return { sessions: s.sessions.map((x) => (x.id !== s.activeId && has(x.ws) ? { ...x, ws: { ...x.ws, panes: edit(x.ws.panes) } } : x)) }
     })
   }
 
@@ -237,9 +263,13 @@ export const useGrid = create<GridState>((set, get) => {
     },
 
     async start(index, opts) {
-      const pane = get().ws.panes[index]
-      if (!pane || get().starting[pane.uid]) return
-      const uid = pane.uid
+      const uid = get().ws.panes[index]?.uid
+      if (uid) await get().startPane(uid, opts)
+    },
+
+    async startPane(uid, opts) {
+      const pane = findPane(uid)
+      if (!pane || get().starting[uid]) return
       set((s) => ({ starting: { ...s.starting, [uid]: true }, errors: { ...s.errors, [uid]: '' } }))
       patchPane(uid, {
         accountId: opts.accountId,
@@ -250,24 +280,18 @@ export const useGrid = create<GridState>((set, get) => {
         terminalId: undefined
       })
       try {
+        // The pane's old CLI goes first, so it no longer has the conversation open when the new one resumes it.
+        if (pane.terminalId) await killQuietly(pane.terminalId)
         const { cols, rows } = estimateSize(paneBody(uid))
         const cwd = opts.cwd ?? useStore.getState().settings?.defaultCwd ?? undefined
-        const info = await api.terminals.spawn({ accountId: opts.accountId, target: opts.target, resume: opts.resume, resumeSession: opts.resumeSession, cwd, cols, rows })
-        // While the CLI started, the pane may have been closed or its session switched away.
-        const owns = (ws: Workspace) => ws.panes.some((p) => p.uid === uid && p.accountId === opts.accountId)
-        const here = owns(get().ws)
-        const away = here ? undefined : get().sessions.find((x) => x.id !== get().activeId && owns(x.ws))
-        if (!here && !away) {
+        const info = await api.terminals.spawn({ accountId: opts.accountId, target: opts.target, resume: opts.resume, resumeSession: opts.resumeSession, extraArgs: opts.extraArgs, cwd, cols, rows })
+        // While the CLI started, the pane may have been closed or moved on; its session may be in the background.
+        if (findPane(uid)?.accountId !== opts.accountId) {
           void killQuietly(info.id)
           return
         }
-        getTerm(info.id, theme())
+        getTerm(info.id, theme(), undefined, { cols, rows })
         set((s) => ({ infos: { ...s.infos, [info.id]: info } }))
-        if (away) {
-          const panes = away.ws.panes.map((p) => (p.uid === uid ? { ...p, terminalId: info.id } : p))
-          set((s) => ({ sessions: s.sessions.map((x) => (x.id === away.id ? { ...x, ws: { ...x.ws, panes } } : x)) }))
-          return
-        }
         patchPane(uid, { terminalId: info.id })
         if (get().ws.panes[get().ws.focused]?.uid === uid) requestAnimationFrame(() => focusTerm(info.id))
       } catch (e) {
@@ -281,17 +305,20 @@ export const useGrid = create<GridState>((set, get) => {
       const pane = get().ws.panes[index]
       if (!pane?.accountId) return
       const resumeSession = resume ? await paneSession(pane.terminalId) : undefined
-      await killQuietly(pane.terminalId)
-      await get().start(index, { accountId: pane.accountId, target: 'cli', cwd: pane.cwd, resume, resumeSession })
+      await get().startPane(pane.uid, { accountId: pane.accountId, target: 'cli', cwd: pane.cwd, resume, resumeSession })
     },
 
-    async continueOn(index, accountId) {
-      const pane = get().ws.panes[index]
+    async continueOn(index, accountId, opts) {
+      const uid = get().ws.panes[index]?.uid
+      if (uid) await get().continuePane(uid, accountId, opts)
+    },
+
+    async continuePane(uid, accountId, opts = {}) {
+      const pane = findPane(uid)
       if (!pane) return
       // This pane's own conversation: "the most recent" could be another pane's.
-      const resumeSession = await paneSession(pane.terminalId)
-      await killQuietly(pane.terminalId)
-      await get().start(index, { accountId, target: 'cli', cwd: pane.cwd, resume: true, resumeSession })
+      const resumeSession = opts.resumeSession ?? (await paneSession(pane.terminalId))
+      await get().startPane(uid, { accountId, target: 'cli', cwd: pane.cwd, resume: true, resumeSession, extraArgs: opts.extraArgs })
     },
 
     async close(index) {
@@ -318,7 +345,6 @@ export const useGrid = create<GridState>((set, get) => {
       set((s) => ({ ws: { ...s.ws, focused: index, maximized: null } }))
       // Let the grid render so the new pane has a size to fit the terminal to.
       await new Promise((r) => requestAnimationFrame(() => r(null)))
-      if (ws.panes[index]?.terminalId) await killQuietly(ws.panes[index]?.terminalId)
       await get().start(index, { accountId, target: 'cli', cwd: opts.cwd, resume: opts.resume })
     },
 
@@ -327,6 +353,7 @@ export const useGrid = create<GridState>((set, get) => {
       const id = newSessionId()
       const ws = defaultWorkspace()
       set({ sessions: [...sessions, { id, name: nextName(sessions), ws }], activeId: id, ws })
+      return id
     },
 
     switchSession(id) {
@@ -353,6 +380,15 @@ export const useGrid = create<GridState>((set, get) => {
       if (!rest.length) rest = [{ id: newSessionId(), name: 'Session 1', ws: defaultWorkspace() }]
       const activeId = id === get().activeId ? rest[Math.max(0, sessions.indexOf(gone) - 1)]?.id ?? rest[0]!.id : get().activeId
       set({ sessions: rest, activeId, ws: rest.find((x) => x.id === activeId)!.ws })
+    },
+
+    locate(paneUid) {
+      // The active session's own entry may be stale; its live panes are in `ws`.
+      for (const x of stash()) {
+        const index = x.ws.panes.findIndex((p) => p.uid === paneUid)
+        if (index >= 0) return { sessionId: x.id, index }
+      }
+      return null
     }
   }
 })

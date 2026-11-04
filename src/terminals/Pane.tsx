@@ -10,6 +10,7 @@ import { formatCountdown, formatPct, windowName } from '@/lib/format'
 import { PROVIDER_META } from '@/lib/providers'
 import { Meter } from '@/components/Meter'
 import { AccountDot, ProviderMark, onRadioArrows } from '@/components/ui'
+import { useAutopilot } from '@/autopilot/store'
 import { acquireWebgl, fitTerm, getTerm } from './registry'
 import { useGrid } from './store'
 
@@ -122,7 +123,7 @@ function ContinueMenu({ index, account, onDone }: { index: number; account: Acco
   )
 }
 
-function LimitBanner({ index, account }: { index: number; account: Account }) {
+function LimitBanner({ index, account, auto, waiting }: { index: number; account: Account; auto: boolean; waiting: boolean }) {
   const accounts = useStore((s) => s.accounts)
   const usage = useStore((s) => s.usage)
   const recs = useStore((s) => s.recs)
@@ -134,9 +135,15 @@ function LimitBanner({ index, account }: { index: number; account: Account }) {
       <span className="h-2 w-2 shrink-0 rounded-full bg-empty" aria-hidden />
       <span className="min-w-0 flex-1 truncate">
         {account.label} hit its {b ? windowName(b.label).toLowerCase() : 'usage'} limit.
-        {next ? ` Continue on ${next.label} (${leftText(next, usage)}).` : ' No other account has quota left right now.'}
+        {auto ? (
+          <span className="text-muted">{waiting ? ' Autopilot is waiting for an account to have room…' : ' Autopilot is moving this chat to another account…'}</span>
+        ) : next ? (
+          ` Continue on ${next.label} (${leftText(next, usage)}).`
+        ) : (
+          ' No other account has quota left right now.'
+        )}
       </span>
-      {next && (
+      {next && !auto && (
         <button className="btn btn-primary btn-sm shrink-0" onClick={() => void continueOn(index, next.id)}>
           Continue on {next.label}
         </button>
@@ -145,7 +152,7 @@ function LimitBanner({ index, account }: { index: number; account: Account }) {
   )
 }
 
-function Header({ index, pane, account }: { index: number; pane: PaneConfig; account: Account }) {
+function Header({ index, pane, account, auto }: { index: number; pane: PaneConfig; account: Account; auto: boolean }) {
   const usage = useStore((s) => s.usage)
   const now = useStore((s) => s.now)
   const info = useGrid((s) => (pane.terminalId ? s.infos[pane.terminalId] : undefined))
@@ -177,6 +184,11 @@ function Header({ index, pane, account }: { index: number; pane: PaneConfig; acc
         <ProviderMark id={account.providerId} size={12} />
         {PROVIDER_META[account.providerId].short}
       </span>
+      {auto && (
+        <span className="shrink-0 rounded border border-rivet px-1.5 text-[11px] leading-[16px] text-muted" data-tip="Autopilot runs this chat and moves it to another account when this one runs out">
+          Autopilot
+        </span>
+      )}
       {left !== undefined && b && (
         <span className="pane-meter ml-1 flex w-28 shrink-0 items-center gap-1.5" data-tip={`${b.label}: ${formatPct(left)} left`}>
           <Meter left={left} cells={10} size="xs" label={`${account.label} ${b.label} left`} />
@@ -370,6 +382,9 @@ export function Pane({ index, pane }: { index: number; pane: PaneConfig }) {
   const focus = useGrid((s) => s.focus)
   const live = !!pane.terminalId && !!account
   const limited = live && !!info && !info.exited && pane.target === 'cli' && atLimit(usage)
+  // The pane an autopilot run owns while it is under way: it moves the chat by itself.
+  const autoPhase = useAutopilot((s) => (s.run?.paneUid === pane.uid ? s.phase : 'idle'))
+  const auto = autoPhase !== 'idle' && autoPhase !== 'stopped'
 
   return (
     <section
@@ -381,8 +396,8 @@ export function Pane({ index, pane }: { index: number; pane: PaneConfig }) {
         focused ? 'border-hop/70 ring-1 ring-hop/40' : 'border-rivet'
       )}
     >
-      {live && <Header index={index} pane={pane} account={account} />}
-      {limited && <LimitBanner index={index} account={account} />}
+      {live && <Header index={index} pane={pane} account={account} auto={auto} />}
+      {limited && <LimitBanner index={index} account={account} auto={auto} waiting={autoPhase === 'waiting'} />}
       <div className="pane-body min-h-0 flex-1" data-pane-body={pane.uid}>
         {live ? <TermView id={pane.terminalId!} /> : <Picker key={pane.uid + (pane.accountId ?? '')} index={index} pane={pane} />}
       </div>

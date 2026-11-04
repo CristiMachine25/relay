@@ -6,7 +6,7 @@ use crate::model::*;
 use crate::providers::{self, Adapter, CommandSpec, Resume};
 use crate::store::AppState;
 use crate::util::non_empty;
-use crate::{knowledge, launcher, notify, pty, recommend, settings, skills, usage, util};
+use crate::{awake, knowledge, launcher, notify, pty, recommend, settings, skills, usage, util};
 use anyhow::anyhow;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -422,8 +422,9 @@ pub async fn terminal_list(terms: Terms<'_>) -> Res<Vec<TerminalInfo>> {
     Ok(terms.list())
 }
 
-/// The conversation the CLI in a terminal is in (or, once it exited, its account's newest one in
-/// that folder), so a restart or a move to another account reopens that one. None when unknown.
+/// The conversation the CLI in a terminal is in (or, once it exited, the one it was started in, else
+/// its account's newest one in that folder), so a restart or a move to another account reopens that
+/// one. None when unknown.
 #[tauri::command]
 pub async fn terminal_session(state: St<'_>, terms: Terms<'_>, id: String) -> Res<Option<String>> {
     let Some(info) = terms.list().into_iter().find(|t| t.id == id) else { return Ok(None) };
@@ -435,12 +436,12 @@ pub async fn terminal_session(state: St<'_>, terms: Terms<'_>, id: String) -> Re
 }
 
 /// The conversation a pane's CLI is in. Running: what its own session file says, else the one the
-/// pane was started in (for CLIs that leave no such file). Exited: its account's newest one in
-/// that folder.
+/// pane was started in (for CLIs that leave no such file). Exited: the one it was started in, else
+/// its account's newest one in that folder (with shared history that may be another pane's).
 fn pane_conversation(adapter: &Adapter, account: &Account, info: &TerminalInfo, launched: Option<String>) -> Option<String> {
     match info.pid.filter(|_| !info.exited) {
         Some(pid) => adapter.open_sessions(account).into_iter().find(|(p, _)| *p == pid).map(|(_, id)| id).or(launched),
-        None => adapter.resume_candidates(account, Path::new(&info.cwd), None).into_iter().next(),
+        None => launched.or_else(|| adapter.resume_candidates(account, Path::new(&info.cwd), None).into_iter().next()),
     }
 }
 
@@ -694,6 +695,14 @@ pub async fn system_open_path(app: AppHandle, state: St<'_>, path: String) -> Re
     app.opener().open_path(path, None::<&str>).map_err(|e| e.to_string())
 }
 
+/// Keep the computer awake while an Autopilot run is going (`on`), or let it sleep again. False
+/// when this platform has no way to. Not async: on the main thread, which lives as long as the
+/// app, because on Linux the holder ends with the thread that started it.
+#[tauri::command]
+pub fn system_keep_awake(awake: State<'_, awake::KeepAwake>, on: bool) -> bool {
+    awake.set(on)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -818,9 +827,11 @@ mod tests {
         // Codex can't say which thread its process is in: the one the pane was started in is it.
         assert_eq!(pane_conversation(&adapter, &account, &info, Some(old.into())).as_deref(), Some(old));
         assert_eq!(pane_conversation(&adapter, &account, &info, None), None);
-        // Once it exited, the account's newest one in that folder, as before.
+        // Once it exited, still the one it was started in: the newest in the folder may be another pane's.
         info.exited = true;
-        assert_eq!(pane_conversation(&adapter, &account, &info, Some(old.into())).as_deref(), Some(new));
+        assert_eq!(pane_conversation(&adapter, &account, &info, Some(old.into())).as_deref(), Some(old));
+        // Started in no named one: the account's newest one in that folder, as before.
+        assert_eq!(pane_conversation(&adapter, &account, &info, None).as_deref(), Some(new));
     }
 
     #[test]

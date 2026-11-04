@@ -74,6 +74,7 @@ src-tauri/src/
   transfer.rs             Export/import of a setup (.relay), sign-ins encrypted with a passphrase
   launcher.rs             Open the user's terminal per OS with the account env
   pty.rs                  Embedded terminals for the grid (ConPTY / openpty via portable-pty)
+  awake.rs                Keep the computer awake during an Autopilot run (caffeinate / systemd-inhibit / SetThreadExecutionState)
   usage.rs                Poll loop, history, activity cache
   notify.rs               Rules: nearly exhausted, limit hit, reset, use-it-or-lose-it
   recommend.rs            Score accounts for "what should I use now"

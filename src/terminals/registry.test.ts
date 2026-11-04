@@ -13,7 +13,18 @@ vi.mock('@xterm/xterm', () => ({
     input: (d: string) => void = () => {}
     cols = 80
     rows = 24
+    constructor(opts?: { cols?: number; rows?: number }) {
+      if (opts?.cols) this.cols = opts.cols
+      if (opts?.rows) this.rows = opts.rows
+    }
     canvases: unknown[] = []
+    /** Rows of the active buffer, scrollback first; `wrapped` continues the row above. */
+    screen: { text: string; wrapped?: boolean }[] = []
+    get buffer() {
+      const rows = this.screen
+      const line = (r: { text: string; wrapped?: boolean }) => ({ isWrapped: !!r.wrapped, translateToString: (trim?: boolean) => (trim ? r.text.trimEnd() : r.text) })
+      return { active: { length: rows.length, getLine: (i: number) => (rows[i] ? line(rows[i]) : undefined) } }
+    }
     element = { querySelectorAll: () => this.canvases }
     // Like xterm: an addon is registered, then activated; activate may throw.
     loadAddon(addon: { activate?: (t: unknown) => void }) {
@@ -25,6 +36,17 @@ vi.mock('@xterm/xterm', () => ({
     }
     open() {}
     dispose() {}
+    /** Like xterm's markers: on the cursor's row (the last one here), following it as rows are trimmed off the top. */
+    markers: { line: number }[] = []
+    registerMarker(offset = 0) {
+      const m = { line: this.screen.length - 1 + offset }
+      this.markers.push(m)
+      return m
+    }
+    trim(n: number) {
+      this.screen.splice(0, n)
+      for (const m of this.markers) m.line = m.line - n < 0 ? -1 : m.line - n
+    }
     write(d: string, cb?: () => void) {
       this.written.push(d)
       if (cb) this.parsed.push(cb)
@@ -94,7 +116,7 @@ vi.stubGlobal('devicePixelRatio', 2)
 vi.stubGlobal('matchMedia', () => ({ addEventListener: (_type: string, cb: () => void) => (dpr.change = cb) }))
 vi.stubGlobal('requestAnimationFrame', (cb: () => void) => cb())
 
-const { MAX_WEBGL, acquireWebgl, disposeTerm, getTerm, prepare } = await import('./registry')
+const { MAX_WEBGL, acquireWebgl, disposeTerm, getTerm, markEnd, prepare, tailText } = await import('./registry')
 const { api } = await import('@/api')
 const output = (id: string, data: string) => handlers['terminal-output']!({ id, data } as never)
 const written = (id: string) => (getTerm(id, 'dark').term as unknown as { written: string[] }).written
@@ -126,6 +148,55 @@ describe('terminal output buffering', () => {
     disposeTerm('closed')
     output('closed', 'trailing chunk')
     expect(written('closed')).toEqual([])
+  })
+})
+
+describe('terminal size', () => {
+  it('starts at the size its process was spawned with, so an off-screen terminal reads the screen the CLI drew', () => {
+    const e = getTerm('sized', 'dark', undefined, { cols: 100, rows: 30 })
+    expect([e.term.cols, e.term.rows, e.cols, e.rows]).toEqual([100, 30, 100, 30])
+    disposeTerm('sized')
+  })
+})
+
+describe('tailText', () => {
+  const screen = (id: string, rows: { text: string; wrapped?: boolean }[]) => ((getTerm(id, 'dark').term as unknown as { screen: typeof rows }).screen = rows)
+
+  it('is empty for a terminal that does not exist', () => {
+    expect(tailText('nobody')).toBe('')
+  })
+
+  it('reads the last lines of the buffer, without the blank rows below the output', () => {
+    screen('tail', [...Array.from({ length: 50 }, (_, i) => ({ text: `line ${i}   ` })), { text: '' }, { text: '   ' }])
+    expect(tailText('tail', 3)).toBe('line 47\nline 48\nline 49')
+    expect(tailText('tail').split('\n')).toHaveLength(40)
+    disposeTerm('tail')
+  })
+
+  it('reads only the rows after a mark, even once older rows were trimmed off the top', () => {
+    const rows = screen('mark', [{ text: "⎿ You've hit your limit · resets 2pm" }, { text: '> continue' }])
+    const mark = markEnd('mark')!
+    expect(tailText('mark', 40, mark.line + 1)).toBe('')
+    rows.push({ text: 'Working on it' }, { text: 'Done with ' }, { text: 'step 1', wrapped: true })
+    expect(tailText('mark', 40, mark.line + 1)).toBe('Working on it\nDone with step 1')
+    ;(getTerm('mark', 'dark').term as unknown as { trim(n: number): void }).trim(1)
+    expect(tailText('mark', 40, mark.line + 1)).toBe('Working on it\nDone with step 1')
+    expect(tailText('mark', 2, mark.line + 1)).toBe('Done with step 1')
+    // Once the marked row itself is gone (line -1), every row left came after it.
+    ;(getTerm('mark', 'dark').term as unknown as { trim(n: number): void }).trim(1)
+    expect(mark.line).toBe(-1)
+    expect(tailText('mark', 40, mark.line + 1)).toBe('Working on it\nDone with step 1')
+    disposeTerm('mark')
+  })
+
+  it('has no mark for a terminal that does not exist', () => {
+    expect(markEnd('nobody')).toBeUndefined()
+  })
+
+  it('joins a row that wrapped onto the next one back into one line', () => {
+    screen('wrap', [{ text: 'prompt' }, { text: "⎿ You've hit your " }, { text: 'limit · resets in 2h', wrapped: true }])
+    expect(tailText('wrap')).toBe("prompt\n⎿ You've hit your limit · resets in 2h")
+    disposeTerm('wrap')
   })
 })
 

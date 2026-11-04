@@ -222,8 +222,12 @@ function inputWriter(id: string): (data: string) => void {
   }
 }
 
-/** The xterm for a backend terminal, created on first use. `scrollback` seeds a re-attached terminal. */
-export function getTerm(id: string, mode: 'dark' | 'light', scrollback?: string): TermEntry {
+/**
+ * The xterm for a backend terminal, created on first use. `scrollback` seeds a re-attached terminal. `size` is
+ * the grid the process was spawned with: until a pane fits it, the xterm must match it, or the CLI's redraws
+ * (cursor moves, line wraps) land in the wrong cells of the buffer that is read off screen.
+ */
+export function getTerm(id: string, mode: 'dark' | 'light', scrollback?: string, size?: { cols: number; rows: number }): TermEntry {
   ensureListeners()
   const existing = entries.get(id)
   if (existing) return existing
@@ -239,7 +243,8 @@ export function getTerm(id: string, mode: 'dark' | 'light', scrollback?: string)
     scrollback: 5000,
     allowProposedApi: true,
     macOptionIsMeta: true,
-    theme: terminalTheme(mode)
+    theme: terminalTheme(mode),
+    ...size
   })
   const fit = new FitAddon()
   term.loadAddon(fit)
@@ -368,6 +373,37 @@ export function restyleAll(mode: 'dark' | 'light') {
       fitTerm(id)
     }
   }
+}
+
+/**
+ * A mark on the row the terminal's cursor is on now, so `tailText(id, n, mark.line + 1)` reads only what came
+ * after it. Unlike a row count it follows its row as old rows are trimmed off the top of the scrollback; once
+ * its row is gone too, `line` is -1 and every row left is newer. Undefined for an unknown terminal.
+ */
+export function markEnd(id: string): { readonly line: number } | undefined {
+  return entries.get(id)?.term.registerMarker(0)
+}
+
+/**
+ * The last `lines` rows of a terminal's screen and scrollback as plain text ('' for an unknown terminal), for
+ * reading what the CLI shows, from row `fromLine` on. Blank rows below the output are skipped, and a row that
+ * wrapped is joined back onto the one above so a message reads as one line.
+ */
+export function tailText(id: string, lines = 40, fromLine = 0): string {
+  const buf = entries.get(id)?.term.buffer.active
+  if (!buf) return ''
+  let end = buf.length
+  while (end > fromLine && !buf.getLine(end - 1)?.translateToString(true)) end--
+  const out: string[] = []
+  for (let i = Math.max(0, fromLine, end - lines); i < end; i++) {
+    const line = buf.getLine(i)
+    if (!line) continue
+    // A row that continues on the next one keeps its trailing spaces: the wrap may have fallen between words.
+    const text = line.translateToString(!(i + 1 < end && buf.getLine(i + 1)?.isWrapped))
+    if (line.isWrapped && out.length) out[out.length - 1] += text
+    else out.push(text)
+  }
+  return out.join('\n')
 }
 
 export function focusTerm(id: string | undefined) {
