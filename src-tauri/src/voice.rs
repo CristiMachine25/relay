@@ -38,7 +38,13 @@ pub fn enable_claude_voice(home: &Path) -> anyhow::Result<bool> {
     if settings == before {
         return Ok(false);
     }
+    // The rewrite is a new file: give it the old one's permissions instead of the owner-only default.
+    // Keys come back sorted (serde_json without preserve_order); this happens once per account, not every launch.
+    let perms = std::fs::metadata(&path).ok().map(|m| m.permissions());
     crate::util::write_json_atomic(&path, &settings)?;
+    if let Some(perms) = perms {
+        std::fs::set_permissions(&path, perms)?;
+    }
     Ok(true)
 }
 
@@ -101,6 +107,29 @@ mod tests {
         assert_eq!(read(&path), json!({ "model": "opus", "voiceEnabled": true, "voice": { "enabled": true, "mode": "tap" } }));
         // Already on: nothing to write.
         assert!(!enable_claude_voice(home.path()).unwrap());
+    }
+
+    #[test]
+    fn the_rewrite_keeps_the_file_permissions() {
+        let home = tempfile::tempdir().unwrap();
+        let path = home.path().join("settings.json");
+        std::fs::write(&path, "{}").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
+            assert!(enable_claude_voice(home.path()).unwrap());
+            assert_eq!(std::fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o644);
+        }
+    }
+
+    #[test]
+    fn a_malformed_voice_value_is_replaced() {
+        let home = tempfile::tempdir().unwrap();
+        let path = home.path().join("settings.json");
+        std::fs::write(&path, r#"{ "voice": true }"#).unwrap();
+        assert!(enable_claude_voice(home.path()).unwrap());
+        assert_eq!(read(&path)["voice"], json!({ "enabled": true, "mode": "hold" }));
     }
 
     #[test]
