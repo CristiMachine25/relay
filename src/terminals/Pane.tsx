@@ -123,7 +123,7 @@ function ContinueMenu({ index, account, onDone }: { index: number; account: Acco
   )
 }
 
-function LimitBanner({ index, account, auto }: { index: number; account: Account; auto: boolean }) {
+function LimitBanner({ index, account, auto, waiting }: { index: number; account: Account; auto: boolean; waiting: boolean }) {
   const accounts = useStore((s) => s.accounts)
   const usage = useStore((s) => s.usage)
   const recs = useStore((s) => s.recs)
@@ -136,7 +136,7 @@ function LimitBanner({ index, account, auto }: { index: number; account: Account
       <span className="min-w-0 flex-1 truncate">
         {account.label} hit its {b ? windowName(b.label).toLowerCase() : 'usage'} limit.
         {auto ? (
-          <span className="text-muted"> Autopilot is moving this chat to another account…</span>
+          <span className="text-muted">{waiting ? ' Autopilot is waiting for an account to have room…' : ' Autopilot is moving this chat to another account…'}</span>
         ) : next ? (
           ` Continue on ${next.label} (${leftText(next, usage)}).`
         ) : (
@@ -383,7 +383,8 @@ export function Pane({ index, pane }: { index: number; pane: PaneConfig }) {
   const live = !!pane.terminalId && !!account
   const limited = live && !!info && !info.exited && pane.target === 'cli' && atLimit(usage)
   // The pane an autopilot run owns while it is under way: it moves the chat by itself.
-  const auto = useAutopilot((s) => s.run?.paneUid === pane.uid && s.phase !== 'idle' && s.phase !== 'stopped')
+  const autoPhase = useAutopilot((s) => (s.run?.paneUid === pane.uid ? s.phase : 'idle'))
+  const auto = autoPhase !== 'idle' && autoPhase !== 'stopped'
 
   return (
     <section
@@ -396,7 +397,7 @@ export function Pane({ index, pane }: { index: number; pane: PaneConfig }) {
       )}
     >
       {live && <Header index={index} pane={pane} account={account} auto={auto} />}
-      {limited && <LimitBanner index={index} account={account} auto={auto} />}
+      {limited && <LimitBanner index={index} account={account} auto={auto} waiting={autoPhase === 'waiting'} />}
       <div className="pane-body min-h-0 flex-1" data-pane-body={pane.uid}>
         {live ? <TermView id={pane.terminalId!} /> : <Picker key={pane.uid + (pane.accountId ?? '')} index={index} pane={pane} />}
       </div>

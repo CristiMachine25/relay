@@ -64,6 +64,13 @@ describe('a pane an autopilot run owns', () => {
     expect(html).not.toContain('Continue on Home</button>')
   })
 
+  it('says the autopilot is waiting while no account has room', () => {
+    const html = render('waiting')
+    expect(html).toContain('Autopilot is waiting for an account to have room…')
+    expect(html).not.toContain('moving this chat')
+    expect(html).not.toContain('Continue on Home</button>')
+  })
+
   it('keeps the manual button once the run stopped, or on other panes', () => {
     for (const html of [render('stopped'), render('running', 'p2')]) {
       expect(html).not.toContain('>Autopilot</span>')
