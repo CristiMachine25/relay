@@ -1,5 +1,6 @@
 //! App setup: plugins, state, commands, background poller and the system tray.
 pub mod accounts;
+pub mod awake;
 pub mod commands;
 pub mod events;
 pub mod knowledge;
@@ -53,6 +54,7 @@ pub fn run() {
             let state = Arc::new(AppState::load(dir)?);
             app.manage(state.clone());
             app.manage(pty::Terminals::default());
+            app.manage(awake::KeepAwake::default());
             build_tray(app.handle())?;
             sync_autostart(app.handle(), &state);
             if std::env::args().any(|a| a == MINIMIZED_ARG) {
@@ -118,6 +120,9 @@ pub fn run() {
             RunEvent::Exit => {
                 if let Some(terms) = app.try_state::<pty::Terminals>() {
                     terms.kill_all();
+                }
+                if let Some(awake) = app.try_state::<awake::KeepAwake>() {
+                    awake.set(false);
                 }
             }
             // Dock icon clicked while the window is hidden in the tray.
