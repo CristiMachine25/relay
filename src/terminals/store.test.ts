@@ -108,3 +108,45 @@ describe('moving a pane to another account', () => {
     expect(requests[1]!.resumeSession).toBeUndefined()
   })
 })
+
+describe('extra CLI arguments', () => {
+  beforeEach(() => {
+    spawns.length = 0
+    requests.length = 0
+    vi.clearAllMocks()
+    session.mockReset()
+  })
+
+  async function startWithTask(id: string) {
+    const started = useGrid.getState().start(0, { accountId: 'acc-1', target: 'cli', cwd: '/work', extraArgs: ['--permission-mode', 'bypassPermissions', 'fix it'] })
+    spawns[0]!(info(id))
+    await started
+  }
+
+  it('sends them with the spawn, but keeps them out of the pane', async () => {
+    await startWithTask('t-args')
+    expect(requests[0]).toMatchObject({ accountId: 'acc-1', cwd: '/work', extraArgs: ['--permission-mode', 'bypassPermissions', 'fix it'] })
+    expect(useGrid.getState().ws.panes[0]).not.toHaveProperty('extraArgs')
+  })
+
+  it('does not send them again when the pane restarts', async () => {
+    await startWithTask('t-again')
+    const restarted = useGrid.getState().restart(0, true)
+    await vi.waitFor(() => expect(spawns).toHaveLength(2))
+    spawns[1]!(info('t-again-2'))
+    await restarted
+    expect(requests[1]).toMatchObject({ accountId: 'acc-1', resume: true })
+    expect(requests[1]!.extraArgs).toBeUndefined()
+  })
+
+  it("passes them on when the pane moves to another account, still in the pane's conversation", async () => {
+    await startWithTask('t-move')
+    session.mockImplementation(async (id) => (id === 't-move' ? 'conv-9' : null))
+    const moved = useGrid.getState().continueOn(0, 'acc-2', { extraArgs: ['continue'] })
+    await vi.waitFor(() => expect(spawns).toHaveLength(2))
+    spawns[1]!({ id: 't-moved', accountId: 'acc-2' } as TerminalInfo)
+    await moved
+    expect(kill).toHaveBeenCalledWith('t-move')
+    expect(requests[1]).toMatchObject({ accountId: 'acc-2', cwd: '/work', resume: true, resumeSession: 'conv-9', extraArgs: ['continue'] })
+  })
+})

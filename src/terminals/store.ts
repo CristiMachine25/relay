@@ -40,6 +40,8 @@ export interface StartOptions {
   resume?: boolean
   /** With `resume`: the conversation to reopen. */
   resumeSession?: string
+  /** Appended to the CLI's arguments for this spawn only (e.g. a prompt to run); a restart doesn't resend them. */
+  extraArgs?: string[]
 }
 
 interface GridState {
@@ -60,7 +62,7 @@ interface GridState {
   toggleMax(index?: number): void
   start(index: number, opts: StartOptions): Promise<void>
   restart(index: number, resume: boolean): Promise<void>
-  continueOn(index: number, accountId: string): Promise<void>
+  continueOn(index: number, accountId: string, opts?: { extraArgs?: string[] }): Promise<void>
   close(index: number): Promise<void>
   openInGrid(accountId: string, opts?: { resume?: boolean; cwd?: string }): Promise<void>
   newSession(): void
@@ -252,7 +254,7 @@ export const useGrid = create<GridState>((set, get) => {
       try {
         const { cols, rows } = estimateSize(paneBody(uid))
         const cwd = opts.cwd ?? useStore.getState().settings?.defaultCwd ?? undefined
-        const info = await api.terminals.spawn({ accountId: opts.accountId, target: opts.target, resume: opts.resume, resumeSession: opts.resumeSession, cwd, cols, rows })
+        const info = await api.terminals.spawn({ accountId: opts.accountId, target: opts.target, resume: opts.resume, resumeSession: opts.resumeSession, extraArgs: opts.extraArgs, cwd, cols, rows })
         // While the CLI started, the pane may have been closed or its session switched away.
         const owns = (ws: Workspace) => ws.panes.some((p) => p.uid === uid && p.accountId === opts.accountId)
         const here = owns(get().ws)
@@ -285,13 +287,13 @@ export const useGrid = create<GridState>((set, get) => {
       await get().start(index, { accountId: pane.accountId, target: 'cli', cwd: pane.cwd, resume, resumeSession })
     },
 
-    async continueOn(index, accountId) {
+    async continueOn(index, accountId, opts = {}) {
       const pane = get().ws.panes[index]
       if (!pane) return
       // This pane's own conversation: "the most recent" could be another pane's.
       const resumeSession = await paneSession(pane.terminalId)
       await killQuietly(pane.terminalId)
-      await get().start(index, { accountId, target: 'cli', cwd: pane.cwd, resume: true, resumeSession })
+      await get().start(index, { accountId, target: 'cli', cwd: pane.cwd, resume: true, resumeSession, extraArgs: opts.extraArgs })
     },
 
     async close(index) {
