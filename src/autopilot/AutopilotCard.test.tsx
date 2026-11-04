@@ -84,4 +84,62 @@ describe('AutopilotCard', () => {
     expect(html).toContain('Home is back first, in 45m.')
     expect(html).toMatch(/<button type="submit" class="btn btn-primary" disabled=""/)
   })
+
+  const run = (extra: Partial<NonNullable<PilotState['run']>> = {}): NonNullable<PilotState['run']> => ({
+    id: 'r1',
+    task: 'Refactor the billing module and make the tests pass',
+    cwd: '/Users/sam/code/shop',
+    skipPermissions: true,
+    providerId: 'claude',
+    accountId: 'w',
+    paneUid: 'p1',
+    sessionId: 's1',
+    startedAt: NOW - (2 * 60 + 14) * 60_000,
+    handoffs: 3,
+    exhausted: {},
+    ...extra
+  })
+  const log = Array.from({ length: 7 }, (_, i) => ({ t: NOW - i * 60_000, kind: i === 0 ? ('handoff' as const) : ('start' as const), text: `Entry ${i}` }))
+
+  it('shows a running task with its account, handoffs and a way to stop it', () => {
+    const html = render({ accounts: [work, home], usage: { w: snap('w', 40) } }, { phase: 'running', run: run(), log })
+    expect(html).toContain('<span aria-live="polite">Running</span>')
+    expect(html).toContain('Refactor the billing module')
+    expect(html).toContain('Work</span>')
+    expect(html).toContain('60% left')
+    expect(html).toContain('role="meter"')
+    expect(html).toContain('Running 2h 14m · 3 handoffs')
+    expect(html).toContain('Open terminal</button>')
+    expect(html).toContain('Stop</button>')
+    // Newest first, five of seven until asked for all.
+    expect(html.indexOf('Entry 0')).toBeLessThan(html.indexOf('Entry 1'))
+    expect(html).not.toContain('Entry 5')
+    expect(html).toContain('Show all 7')
+  })
+
+  it('says when a waiting run is back', () => {
+    const html = render(
+      { accounts: [work], usage: { w: snap('w', 100) } },
+      { phase: 'waiting', run: run({ handoffs: 0, waitingUntil: NOW + 45 * 60_000 }), log: [] }
+    )
+    expect(html).toContain('Waiting for a reset</span>')
+    expect(html).toContain('· back in 45m')
+    expect(html).toContain('Limit reached')
+    expect(html).toContain('no handoffs yet')
+    expect(html).toContain('Nothing yet.')
+  })
+
+  it('shows why a run stopped and offers a new task', () => {
+    const stoppedLog = [{ t: NOW - 60 * 60_000, kind: 'error' as const, text: 'The terminal kept exiting' }]
+    const html = render(
+      { accounts: [work], usage: { w: snap('w', 40) } },
+      { phase: 'stopped', run: run({ error: 'The terminal exited 3 times in 10 minutes.' }), log: stoppedLog }
+    )
+    expect(html).toContain('Stopped</span>')
+    expect(html).toContain('The terminal exited 3 times in 10 minutes.')
+    expect(html).toContain('Ran 1h 14m · 3 handoffs')
+    expect(html).toContain('Start a new task</button>')
+    expect(html).toContain('Done</button>')
+    expect(html).not.toContain('Stop</button>')
+  })
 })
