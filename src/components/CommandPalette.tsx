@@ -209,7 +209,7 @@ export function CommandPalette() {
 
   let lastGroup = ''
   return (
-    <div className="fixed inset-0 z-40 flex items-start justify-center bg-black/50 px-4 pt-[12vh]" onMouseDown={() => setPalette(false)}>
+    <div className="backdrop-in fixed inset-0 z-40 flex items-start justify-center bg-black/50 px-4 pt-[12vh]" onMouseDown={() => setPalette(false)}>
       <div
         role="dialog"
         aria-modal="true"
@@ -219,7 +219,7 @@ export function CommandPalette() {
           // Clicking a row or the chrome keeps focus in the search field, so the keys keep working.
           if (e.target !== input.current) e.preventDefault()
         }}
-        className="toast-in w-full max-w-[600px] overflow-hidden rounded-lg border border-rivet bg-deck shadow-2xl shadow-black/50"
+        className="dialog-in w-full max-w-[600px] overflow-hidden rounded-lg border border-rivet bg-deck shadow-2xl shadow-black/50"
       >
         <div className="flex items-center gap-2.5 border-b border-rivet px-4">
           <Search size={16} className="text-muted" />

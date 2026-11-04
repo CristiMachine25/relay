@@ -79,7 +79,7 @@ export function Switch({
     >
       <span
         className={clsx(
-          'inline-block h-3.5 w-3.5 rounded-full transition-transform',
+          'inline-block h-3.5 w-3.5 rounded-full transition-[transform,background-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]',
           checked ? 'translate-x-[18px] bg-hop-ink' : 'translate-x-[2px] bg-faint'
         )}
       />
@@ -227,14 +227,14 @@ export function Dialog({
   }, [open])
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-40 flex items-start justify-center bg-black/50 px-4 pb-6 pt-[max(24px,8vh)]" onMouseDown={onDismiss ?? onClose}>
+    <div className="backdrop-in fixed inset-0 z-40 flex items-start justify-center bg-black/50 px-4 pb-6 pt-[max(24px,8vh)]" onMouseDown={onDismiss ?? onClose}>
       <div
         ref={panel}
         role="dialog"
         aria-modal="true"
         aria-label={title}
         onMouseDown={(e) => e.stopPropagation()}
-        className="toast-in relative flex max-h-full w-full flex-col rounded-lg border border-rivet bg-deck shadow-2xl shadow-black/40"
+        className="dialog-in relative flex max-h-full w-full flex-col rounded-lg border border-rivet bg-deck shadow-2xl shadow-black/40"
         style={{ maxWidth: width }}
       >
         <div className="flex items-center justify-between border-b border-rivet px-5 py-3">

@@ -79,7 +79,7 @@ function ContinueMenu({ index, account, onDone }: { index: number; account: Acco
   }, [onDone])
 
   return (
-    <div ref={ref} role="menu" className="toast-in absolute right-1 top-10 z-30 w-[min(20rem,calc(100%-0.5rem))] rounded-lg border border-rivet bg-deck p-1.5 shadow-2xl shadow-black/40">
+    <div ref={ref} role="menu" className="dialog-in origin-top-right absolute right-1 top-10 z-30 w-[min(20rem,calc(100%-0.5rem))] rounded-lg border border-rivet bg-deck p-1.5 shadow-2xl shadow-black/40">
       <p className="px-2 pb-1.5 pt-1 text-xs text-muted">
         Ends this session and resumes it on another {PROVIDER_META[account.providerId].short} account. The chat carries over only
         when chat history sharing is on for both accounts.

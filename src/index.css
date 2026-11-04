@@ -124,7 +124,17 @@
   }
   .btn {
     @apply inline-flex items-center justify-center gap-2 h-9 px-3 rounded text-sm font-medium whitespace-nowrap
-      border border-rivet bg-deck text-ink transition-colors select-none;
+      border border-rivet bg-deck text-ink select-none;
+    transition:
+      color 150ms var(--ease-out),
+      background-color 150ms var(--ease-out),
+      border-color 150ms var(--ease-out),
+      filter 150ms var(--ease-out),
+      transform 120ms var(--ease-out);
+  }
+  /* A slight press, so a click feels like it landed. */
+  .btn:active:not(:disabled) {
+    transform: scale(0.97);
   }
   .btn:hover:not(:disabled) {
     @apply bg-raised border-faint/60;
@@ -186,18 +196,81 @@
   }
 }
 
+/* Motion: one easing for everything that arrives, short enough to never wait on. */
+:root {
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 @keyframes toast-in {
   from {
-    transform: translateY(6px);
+    transform: translateY(8px) scale(0.98);
     opacity: 0;
-  }
-  to {
-    transform: none;
-    opacity: 1;
   }
 }
 .toast-in {
-  animation: toast-in 160ms ease-out;
+  animation: toast-in 240ms var(--ease-out);
+}
+
+/* A screen fades in as you switch to it. Opacity and a small shift only, so terminals measure their real size. */
+@keyframes screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+.screen-in {
+  animation: screen-in 260ms var(--ease-out);
+}
+
+/* Dialogs and the command palette: the backdrop fades while the panel grows out of it. */
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+.backdrop-in {
+  animation: backdrop-in 180ms ease-out;
+}
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+}
+.dialog-in {
+  animation: dialog-in 220ms var(--ease-out);
+}
+
+/* A small icon swapping in, such as the check after a refresh. */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+.pop-in {
+  animation: pop-in 260ms var(--ease-out);
+}
+
+/* The sidebar slides between its widths; labels fade back in as it opens (an element shown again restarts its animation). */
+.sidebar {
+  transition: width 240ms var(--ease-out);
+}
+@keyframes label-in {
+  from {
+    opacity: 0;
+  }
+}
+.sidebar-label {
+  animation: label-in 200ms 80ms ease-out both;
+}
+
+/* Opening a disclosure eases its content in instead of snapping. */
+details[open] > :not(summary) {
+  animation: screen-in 240ms var(--ease-out);
+}
+summary {
+  transition: color 150ms var(--ease-out);
 }
 
 /* Tooltips show at once; the fade only softens the pop. */
