@@ -485,6 +485,10 @@ export function createMockApi(platform: Platform): RelayApi {
       async keepAwake(on) {
         console.info('[mock] keep awake', on)
         return true
+      },
+      async startDictation() {
+        // A browser has no system dictation to start.
+        return false
       }
     },
     transfer: {
