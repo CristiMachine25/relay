@@ -353,14 +353,24 @@ describe('moving to the next account', () => {
     expect(ap.getState().run!.accountId).toBe('h1')
   })
 
-  it('moves the grid to the autopilot session before continuing', async () => {
+  it('continues its own pane in the background, leaving the user in the session they switched to meanwhile', async () => {
     const { grid, ap } = await running()
-    const other = grid.getState().newSession()
-    expect(grid.getState().activeId).toBe(other)
+    const uid = ap.getState().run!.paneUid
+    let release = () => {}
+    refresh.mockImplementationOnce(() => new Promise<void>((r) => (release = () => r(main.setState({ usage: serverUsage() })))))
     setUsage({ h2: 100 })
     await vi.advanceTimersByTimeAsync(0)
-    expect(grid.getState().activeId).toBe(ap.getState().run!.sessionId)
-    expect(runTerminal(grid, ap.getState().run!.paneUid)).toBe('t2')
+    expect(ap.getState().phase).toBe('handing-off')
+    // The user opens a session of their own while the usage refreshes; its pane 0 is the user's.
+    const mine = grid.getState().newSession()
+    const userPane = grid.getState().ws.panes[0]
+    release()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(ap.getState().phase).toBe('running')
+    expect(grid.getState().activeId).toBe(mine)
+    expect(grid.getState().ws.panes[0]).toEqual(userPane)
+    expect(runTerminal(grid, uid)).toBe('t2')
+    expect(ap.getState().run!.accountId).toBe('h3')
   })
 
   it('waits and retries no sooner than a minute later when the next terminal fails to start', async () => {

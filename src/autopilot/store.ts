@@ -557,8 +557,7 @@ async function relaunch(next: Account, describe: (left: string) => string, kind:
   try {
     const at = paneOf(run.paneUid)
     if (!at?.pane.accountId) return finish(PANE_CLOSED, true)
-    // The grid only restarts panes of the session on screen.
-    if (useGrid.getState().activeId !== at.sessionId) useGrid.getState().switchSession(at.sessionId)
+    // By the pane's id, in whichever session holds it: the user may be working in another one.
     const perms = permissionArgs(run.skipPermissions)
     const g = useGrid.getState()
     if (conversationId) await g.continuePane(run.paneUid, next.id, { resumeSession: conversationId, extraArgs: [...perms, CONTINUE_PROMPT] })
