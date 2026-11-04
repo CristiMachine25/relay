@@ -70,6 +70,16 @@ describe('AutopilotCard', () => {
     expect(html).not.toContain('turns on chat history sharing')
   })
 
+  it('lists the accounts in the order a run would use them, and the ones it cannot use', () => {
+    const out = account('o', 'Out')
+    const html = render({ accounts: [work, home, out], usage: { w: snap('w', 70), h: snap('h', 20), o: snap('o', 100, 45) } })
+    expect(html).toContain('Handoff order')
+    expect(html.indexOf('>Home<')).toBeLessThan(html.indexOf('>Work<'))
+    expect(html).toContain('aria-label="Not available now"')
+    expect(html).toContain('Back in 45m')
+    expect(html).toContain('aria-label="Dictate the task"')
+  })
+
   it('says which accounts get history sharing turned on', () => {
     const solo = account('s', 'Solo', { sharing: { ...DEFAULT_SHARING, history: false } })
     const main = account('m', 'Main', { homeDir: '/Users/sam/.claude', isDefaultHome: true, sharing: { ...DEFAULT_SHARING, history: false } })
@@ -115,6 +125,17 @@ describe('AutopilotCard', () => {
     expect(html.indexOf('Entry 0')).toBeLessThan(html.indexOf('Entry 1'))
     expect(html).not.toContain('Entry 5')
     expect(html).toContain('Show all 7')
+  })
+
+  it('shows the route a run took and who is next', () => {
+    const legs = [{ accountId: 'h', at: NOW - 90 * 60_000 }, { accountId: 'h', at: NOW - 80 * 60_000 }, { accountId: 'w', at: NOW - 30 * 60_000 }]
+    const html = render({ accounts: [work, home], usage: { w: snap('w', 40), h: snap('h', 50) } }, { phase: 'running', run: run({ legs }), log })
+    expect(html).toContain('Route so far')
+    // A resume on the same account is one stop, and the current one is marked.
+    expect(html.match(/<li class="flex h-7/g)).toHaveLength(2)
+    expect(html).toMatch(/aria-current="step"[^>]*>.*Work<\/li>/)
+    expect(html).toContain('Next if it runs out:')
+    expect(html).toContain('· 50% left')
   })
 
   it('says when a waiting run is back', () => {
