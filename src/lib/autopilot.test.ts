@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Account, UsageSnapshot, UsageWindow } from '@shared/types'
 import { DEFAULT_SHARING } from '@shared/types'
-import { CONTINUE_PROMPT, exhaustedUntil, limitHit, permissionArgs, pickAccount, restartPrompt, soonestReset, stripAnsi, taskArg } from './autopilot'
+import { CONTINUE_PROMPT, exhaustedUntil, limitHit, nextAccount, permissionArgs, pickAccount, restartPrompt, soonestReset, stripAnsi, taskArg } from './autopilot'
 
 const acc = (id: string, extra: Partial<Account> = {}): Account => ({
   id,
@@ -70,6 +70,27 @@ describe('limitHit', () => {
 describe('stripAnsi', () => {
   it('removes CSI, OSC and charset sequences', () => {
     expect(stripAnsi('\x1b[1;31mred\x1b[0m \x1b]0;title\x07\x1b]8;;https://x.y\x1b\\link\x1b]8;;\x1b\\ \x1b(Bok\x1b[?25h')).toBe('red link ok')
+  })
+})
+
+describe('nextAccount', () => {
+  const opts = { now: 1_000, defaultHome: '/home/sam/.claude', platform: 'darwin' as const }
+  const shared = (id: string) => ({ ...acc(id), sharing: { ...DEFAULT_SHARING, history: true } })
+
+  it('picks the most left among accounts that can open the chat and are not drained', () => {
+    const accounts = [shared('a'), shared('b'), shared('c'), { ...acc('d'), sharing: { ...DEFAULT_SHARING, history: false } }]
+    const usage = { a: claude('a', 90), b: claude('b', 10), c: claude('c', 20), d: claude('d', 0) }
+    const run = { accountId: 'a', exhausted: { b: 5_000, c: 500 } }
+    // b is still out, d can't open the chat; c's reset has passed.
+    expect(nextAccount(run, accounts, usage, opts)?.id).toBe('c')
+    expect(nextAccount({ ...run, exhausted: {} }, accounts, usage, opts)?.id).toBe('b')
+  })
+
+  it('keeps the current account unless asked for the others', () => {
+    const accounts = [shared('a'), shared('b')]
+    const usage = { a: claude('a', 10), b: claude('b', 50) }
+    expect(nextAccount({ accountId: 'a', exhausted: {} }, accounts, usage, opts)?.id).toBe('a')
+    expect(nextAccount({ accountId: 'a', exhausted: {} }, accounts, usage, { ...opts, others: true })?.id).toBe('b')
   })
 })
 

@@ -726,6 +726,19 @@ describe('across restarts', () => {
     expect(ap.getState().run!.accountId).toBe('h3')
   })
 
+  it('drops damaged route entries from a saved run but keeps the run', async () => {
+    await running()
+    const saved = JSON.parse(storage.get('relay.autopilot')!)
+    saved.run.legs = [null, { accountId: 'h2', at: 1 }, { accountId: 7 }]
+    storage.set('relay.autopilot', JSON.stringify(saved))
+    quitApp()
+
+    const { ap } = await boot()
+    await ap.getState().init()
+    expect(ap.getState().phase).toBe('running')
+    expect(ap.getState().run!.legs).toEqual([{ accountId: 'h2', at: 1 }])
+  })
+
   it('leaves alone a run started while the saved one was being restored', async () => {
     const saved = (await running()).ap.getState().run!
     quitApp()
