@@ -55,8 +55,11 @@ vi.mock('@/terminals/registry', () => ({
   onTerminalExit: (fn: (id: string, code: number | null) => void) => {
     fake.state.exit = fn
   },
-  tailText: (id: string) => fake.state.screens[id] ?? ''
+  // A screen is its text; a mark sits on its last row and reading after it skips the rows up to there.
+  markEnd: (id: string) => ({ line: rows(id).length - 1 }),
+  tailText: (id: string, lines = 40, fromLine = 0) => rows(id).slice(fromLine).slice(-lines).join('\n')
 }))
+const rows = (id: string) => (fake.state.screens[id] ? fake.state.screens[id].split('\n') : [])
 
 // The main store, reduced to what autopilot reads. `server` is what a usage refresh brings back.
 const main = vi.hoisted(() => {
@@ -321,16 +324,21 @@ describe('moving to the next account', () => {
     expect(ap.getState().run!.accountId).toBe('h3')
   })
 
-  it('ignores limit text in the first 20 seconds after a spawn (a resumed chat replays old screens)', async () => {
+  it('ignores limit text shown in the first 20 seconds after a spawn (a resumed chat replays old screens), then and later', async () => {
     const { ap } = await boot()
     await ap.getState().start(TASK)
     main.server.h2 = { used: 100 }
-    fake.state.screens.t1 = "You've hit your limit"
+    fake.state.screens.t1 = "Earlier: You've hit your limit · resets 2pm\n> continue"
     emit('terminal-output', { id: 't1', data: 'x' })
     await vi.advanceTimersByTimeAsync(15_500)
     expect(refresh).not.toHaveBeenCalled()
+    // Still on screen once the quiet period is over, the replayed message is still not a new one.
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(refresh).not.toHaveBeenCalled()
     expect(ap.getState().run!.accountId).toBe('h2')
-    await vi.advanceTimersByTimeAsync(15_000)
+    fake.state.screens.t1 += "\nWorking…\nYou've hit your limit · resets 5pm"
+    emit('terminal-output', { id: 't1', data: 'x' })
+    await vi.advanceTimersByTimeAsync(1_100)
     expect(ap.getState().run!.accountId).toBe('h3')
   })
 
@@ -636,11 +644,12 @@ describe('across restarts', () => {
     expect(ap.getState().run).toEqual(run)
     expect(api.system.keepAwake).toHaveBeenLastCalledWith(true)
 
-    // Old screen text is replayed after a restart: it is ignored at first, then the run reacts again.
+    // Old screen text is replayed after a restart: it is ignored, and new limit text after it is not.
     fake.state.screens.t1 = "You've hit your limit"
     main.server.h2 = { used: 100 }
-    await vi.advanceTimersByTimeAsync(15_000)
+    await vi.advanceTimersByTimeAsync(30_000)
     expect(ap.getState().run!.accountId).toBe('h2')
+    fake.state.screens.t1 += "\nYou've hit your limit"
     await vi.advanceTimersByTimeAsync(15_000)
     expect(ap.getState().run!.accountId).toBe('h3')
   })

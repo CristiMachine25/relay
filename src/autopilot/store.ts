@@ -6,7 +6,7 @@ import type { Account, UsageSnapshot } from '@shared/types'
 import { api, errorText } from '@/api'
 import { useStore } from '@/store'
 import { useGrid } from '@/terminals/store'
-import { tailText } from '@/terminals/registry'
+import { markEnd, tailText } from '@/terminals/registry'
 import { CONTINUE_PROMPT, exhaustedUntil, limitHit, permissionArgs, pickAccount, restartPrompt, soonestReset, taskArg } from '@/lib/autopilot'
 import { atLimit, historyShared, historyToTurnOn, isBlocked, isSignedOut } from '@/lib/grid'
 import { bindingWindow, leftOf } from '@/lib/quota'
@@ -105,6 +105,11 @@ interface Watch {
   spawnedAt: number
   /** The quiet period after the spawn is over: limit text counts and the conversation can be asked for. */
   quietOver: boolean
+  /**
+   * Where the screen stood when the quiet period ended. Only rows after it are read for limit text: a resumed chat
+   * replays its old screens, which may hold the previous account's limit message long after the quiet period.
+   */
+  mark?: { readonly line: number }
   /** The terminal whose conversation is known. */
   knownFor?: string
   /** No limit-text checks before this (after a false alarm). */
@@ -295,6 +300,7 @@ function spawned(terminalId: string) {
   w.terminalId = terminalId
   w.spawnedAt = Date.now()
   w.quietOver = false
+  w.mark = undefined
   w.knownFor = undefined
   w.mutedUntil = 0
   w.falseAlarmFor = undefined
@@ -310,6 +316,7 @@ function armQuiet() {
 
 function quietEnded() {
   w.quietOver = true
+  if (w.terminalId) w.mark = markEnd(w.terminalId)
   void learnConversation(false)
 }
 
@@ -434,7 +441,8 @@ async function checkText() {
   if (phase !== 'running' || !run || !id || w.busy || w.checking) return
   const now = Date.now()
   if (!w.quietOver || now < w.mutedUntil) return
-  if (!limitHit(tailText(id, 40))) return
+  // A mark whose row scrolled out of the buffer reads -1: everything left came after it.
+  if (!limitHit(tailText(id, 40, w.mark ? w.mark.line + 1 : 0))) return
   w.checking = true
   try {
     await useStore.getState().refresh(run.accountId)
