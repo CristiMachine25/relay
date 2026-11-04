@@ -35,6 +35,8 @@ export interface AutopilotRun {
   sessionId: string
   startedAt: number
   handoffs: number
+  /** Each account the run has been on, oldest first, with when it got there. Runs saved before this have none. */
+  legs?: { accountId: string; at: number }[]
   /** Account id → epoch ms it is expected back after running out during this run. */
   exhausted: Record<string, number>
   /** While waiting: epoch ms the next account is expected to have room. */
@@ -227,6 +229,7 @@ export const useAutopilot = create<AutopilotState>((set, get) => ({
         sessionId,
         startedAt: Date.now(),
         handoffs: 0,
+        legs: [{ accountId: first.id, at: Date.now() }],
         exhausted: {}
       }
       set({ run })
@@ -628,7 +631,9 @@ async function relaunch(next: Account, describe: (left: string) => string, kind:
   if (thrown) addLog('error', thrown)
   spawned(tid)
   const text = describe(leftText(next.id)) + (conversationId ? '' : " It couldn't tell which chat to reopen, so it started the task over in a new chat.")
-  set({ phase: 'running', run: { ...get().run!, accountId: next.id, handoffs: run.handoffs + 1, waitingUntil: undefined } })
+  const now = get().run!
+  const legs = [...(now.legs ?? []), { accountId: next.id, at: Date.now() }]
+  set({ phase: 'running', run: { ...now, accountId: next.id, handoffs: run.handoffs + 1, legs, waitingUntil: undefined } })
   addLog(kind, text)
   useStore.getState().toast({ kind: 'info', title: kind === 'resumed' ? 'Autopilot resumed' : 'Autopilot moved on', body: text })
 }

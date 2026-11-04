@@ -323,6 +323,7 @@ describe('moving to the next account', () => {
     expect(ap.getState().phase).toBe('running')
     expect(run.accountId).toBe('h3')
     expect(run.handoffs).toBe(1)
+    expect(run.legs!.map((l) => l.accountId)).toEqual(['h2', 'h3'])
     expect(run.exhausted.h2).toBe(Date.parse(main.server.h2.resetsAt!))
     expect(api.terminals.kill).toHaveBeenCalledWith('t1')
     expect(lastSpawn()).toMatchObject({
