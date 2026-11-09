@@ -158,6 +158,9 @@ pub(crate) async fn import_accounts(app: &AppHandle, state: &Arc<AppState>, foun
             launch_count: 0,
             monthly_cost: None,
             pinned: None,
+            subscription: None,
+            renews_on: None,
+            auto_renew: None,
         };
         accounts.push(account.clone());
         created.push(account);
@@ -232,6 +235,9 @@ pub(crate) async fn create_account(app: &AppHandle, state: &Arc<AppState>, input
             launch_count: 0,
             monthly_cost: input.monthly_cost.filter(|c| c.is_finite() && *c >= 0.0),
             pinned: None,
+            subscription: None,
+            renews_on: None,
+            auto_renew: None,
         };
         accounts.push(account.clone());
         account

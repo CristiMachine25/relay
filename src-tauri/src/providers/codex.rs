@@ -171,6 +171,7 @@ fn make_window(id: &str, used: f64, minutes: Option<u32>, reset: Option<DateTime
         used_percent: if rolled { 0.0 } else { used.max(0.0) },
         resets_at: if rolled { None } else { reset.map(|r| r.to_rfc3339()) },
         window_minutes: minutes,
+        share_of_weekly: None,
     }
 }
 

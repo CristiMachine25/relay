@@ -243,6 +243,9 @@ pub(crate) mod tests {
             launch_count: 0,
             monthly_cost: None,
             pinned: None,
+            subscription: None,
+            renews_on: None,
+            auto_renew: None,
         }
     }
 
@@ -253,6 +256,7 @@ pub(crate) mod tests {
             used_percent: used,
             resets_at: resets_in_h.map(|h| (now + chrono::Duration::hours(h)).to_rfc3339()),
             window_minutes: Some(minutes),
+            share_of_weekly: None,
         }
     }
 

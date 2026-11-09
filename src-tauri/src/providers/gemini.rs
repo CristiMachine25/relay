@@ -206,6 +206,7 @@ fn parse_quota(v: &Value) -> Vec<UsageWindow> {
             used_percent: ((1.0 - b.remaining.clamp(0.0, 1.0)) * 100.0 * 10.0).round() / 10.0,
             resets_at: b.reset,
             window_minutes: None,
+            share_of_weekly: None,
             id,
         })
         .collect();
@@ -1102,6 +1103,9 @@ mod tests {
             launch_count: 0,
             monthly_cost: None,
             pinned: None,
+            subscription: None,
+            renews_on: None,
+            auto_renew: None,
         }
     }
 

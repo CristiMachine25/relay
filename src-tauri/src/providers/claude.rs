@@ -340,6 +340,7 @@ fn parse_usage(v: &Value) -> (Vec<UsageWindow>, Option<Credits>) {
                 used_percent: used.max(0.0),
                 resets_at: str_field(w, "resets_at").map(normalize_iso),
                 window_minutes: Some(*minutes),
+                share_of_weekly: None,
             })
         })
         .collect();

@@ -42,9 +42,9 @@ export function litCells(left: number, cells = 20): number {
   return Math.min(cells, Math.max(1, Math.round((l / 100) * cells)))
 }
 
-/** Windows that only cap one model (e.g. "Weekly Opus"): running out still leaves the account usable. */
+/** Windows that only cap one model (e.g. "Weekly Fable"): running out still leaves the account usable. */
 export function isModelWindow(w: Pick<UsageWindow, 'id'>): boolean {
-  return /opus|sonnet|haiku/i.test(w.id)
+  return /opus|sonnet|haiku|fable|mythos/i.test(w.id)
 }
 
 /**
