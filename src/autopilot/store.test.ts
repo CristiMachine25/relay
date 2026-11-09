@@ -765,6 +765,84 @@ describe('staying on Fable', () => {
     expect(await ap.getState().start(TASK)).toBe(true)
   })
 
+  /** A Fable run on h2 (most left), past its quiet period. */
+  async function onFable() {
+    const env = await boot()
+    await env.ap.getState().start(FABLE_TASK)
+    await vi.advanceTimersByTimeAsync(21_000)
+    return env
+  }
+  const fableReset = new Date(NOW + 50 * HOUR).toISOString()
+
+  it('takes the CLI running out of Fable as a drain, checks it, and moves on', async () => {
+    setUsage({ h1: { used: 70, fable: 10 }, h2: { used: 20, fable: 40 }, h3: { used: 50, fable: 20 } })
+    const { ap } = await onFable()
+    main.server.h2 = { used: 20, fable: 100, fableResetsAt: fableReset }
+    fake.state.screens.t1 = 'Working…\nFable limit reached · continuing on Sonnet 5'
+    emit('terminal-output', { id: 't1', data: 'x' })
+    await vi.advanceTimersByTimeAsync(1_100)
+    expect(refresh).toHaveBeenCalledWith('h2')
+    const run = ap.getState().run!
+    expect(run.accountId).toBe('h3')
+    // Back when its Fable allowance resets, not its 5-hour session.
+    expect(run.exhausted.h2).toBe(Date.parse(fableReset))
+    expect(ap.getState().log[0]).toMatchObject({ kind: 'handoff', text: 'Claude H2 ran out of Fable. Continued on Claude H3 (50% left).' })
+    expect(lastSpawn()).toMatchObject({ accountId: 'h3', extraArgs: [...fableArgs, CONTINUE_PROMPT] })
+  })
+
+  it('carries on when the account still has plenty of Fable left', async () => {
+    setUsage({ h2: { used: 20, fable: 40 } })
+    const { ap } = await onFable()
+    fake.state.screens.t1 = "You've reached your Fable limit."
+    emit('terminal-output', { id: 't1', data: 'x' })
+    await vi.advanceTimersByTimeAsync(1_100)
+    expect(ap.getState().run!.accountId).toBe('h2')
+    expect(ap.getState().log[0]).toMatchObject({
+      kind: 'false-alarm',
+      text: 'The terminal mentioned the Fable limit, but Claude H2 still has Fable 60% left. Carrying on.'
+    })
+  })
+
+  it('is not dismissed because the general limits still have room', async () => {
+    setUsage({ h2: { used: 20, fable: 98 } })
+    const { ap } = await onFable()
+    fake.state.screens.t1 = "You've reached your Fable limit."
+    emit('terminal-output', { id: 't1', data: 'x' })
+    await vi.advanceTimersByTimeAsync(1_100)
+    expect(ap.getState().run!.accountId).toBe('h3')
+  })
+
+  it('trusts the Fable text on an account that reports no Fable window', async () => {
+    const { ap } = await onFable()
+    fake.state.screens.t1 = "You've reached your Fable limit."
+    emit('terminal-output', { id: 't1', data: 'x' })
+    await vi.advanceTimersByTimeAsync(1_100)
+    expect(ap.getState().run!.accountId).toBe('h3')
+  })
+
+  it('moves on when a usage update shows the account out of Fable, with no text on screen', async () => {
+    setUsage({ h2: { used: 20, fable: 40 } })
+    const { ap } = await onFable()
+    setUsage({ h2: { used: 20, fable: 100, fableResetsAt: fableReset } })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(ap.getState().run!.accountId).toBe('h3')
+    expect(ap.getState().run!.exhausted.h2).toBe(Date.parse(fableReset))
+    expect(ap.getState().log[0]!.text).toMatch(/^Claude H2 ran out of Fable\./)
+  })
+
+  it('ignores Fable running out on a run on the default model', async () => {
+    setUsage({ h2: { used: 20, fable: 40 } })
+    const { ap } = await running()
+    fake.state.screens.t1 = 'Fable limit reached · continuing on Sonnet 5'
+    emit('terminal-output', { id: 't1', data: 'x' })
+    await vi.advanceTimersByTimeAsync(1_100)
+    expect(refresh).not.toHaveBeenCalled()
+    setUsage({ h2: { used: 20, fable: 100 } })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(ap.getState().run!.accountId).toBe('h2')
+    expect(fake.state.requests).toHaveLength(1)
+  })
+
   it("keeps the account's default model otherwise", async () => {
     const { ap } = await running()
     expect(ap.getState().run!.model).toBe('default')

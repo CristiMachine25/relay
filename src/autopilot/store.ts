@@ -10,6 +10,7 @@ import { markEnd, tailText } from '@/terminals/registry'
 import {
   CONTINUE_PROMPT,
   exhaustedUntil,
+  fableLimitHit,
   limitHit,
   limitingWindow,
   modelArgs,
@@ -121,6 +122,9 @@ const ACCOUNT_REMOVED = "The run's account was removed"
 const GONE_AFTER_RESTART = "Relay restarted and the run's terminal was gone"
 
 const active = (p: AutopilotPhase) => p !== 'idle' && p !== 'stopped'
+
+/** What an account ran out of: its usage in general, or the Fable allowance a Fable run needs. */
+type Drain = 'limit' | 'fable'
 
 /** What the engine tracks about the run's current terminal; reset for every run, never saved. */
 interface Watch {
@@ -335,11 +339,17 @@ const NO_ROOM: Record<RunModel, [string, string]> = {
 
 const label = (id: string) => useStore.getState().accounts.find((a) => a.id === id)?.label ?? 'The account'
 
-/** " (82% left)" for an account with usage numbers, '' without; " (Fable 71% left)" when Fable is what limits a Fable run. */
-function leftText(id: string, model: RunModel): string {
+/** "82% left" for an account with usage numbers, '' without; "Fable 71% left" when Fable is what limits a Fable run. */
+function leftWords(id: string, model: RunModel): string {
   const mw = modelWindow(model)
   const b = limitingWindow(useStore.getState().usage[id], mw)
-  return b ? ` (${b.id === mw ? 'Fable ' : ''}${Math.round(leftOf(b))}% left)` : ''
+  return b ? `${b.id === mw ? 'Fable ' : ''}${Math.round(leftOf(b))}% left` : ''
+}
+
+/** " (82% left)", as `leftWords` says it, or ''. */
+function leftText(id: string, model: RunModel): string {
+  const words = leftWords(id, model)
+  return words ? ` (${words})` : ''
 }
 
 /** The run's flags, before the task or prompt argument. */
@@ -459,7 +469,9 @@ function onAccounts() {
 function onUsage() {
   const { phase, run } = get()
   if (!run) return
-  if (phase === 'running' && atLimit(useStore.getState().usage[run.accountId])) void handoff('limit')
+  const snap = useStore.getState().usage[run.accountId]
+  if (phase === 'running' && atLimit(snap)) void handoff('limit')
+  else if (phase === 'running' && atLimit(snap, modelWindow(run.model))) void handoff('fable')
   else if (phase === 'waiting') void wake(false)
 }
 
@@ -502,6 +514,12 @@ function onExit(tid: string) {
 /** Usage that came from a refresh just now and that the provider vouches for. */
 const fresh = (snap: UsageSnapshot, since: number) => !snap.stale && !snap.error && Date.parse(snap.fetchedAt) >= since - FRESH_USAGE
 
+/** Which limit the screen says the run's account ran out of: its usage, or (on a Fable run) its Fable allowance. */
+function drainOnScreen(text: string, model: RunModel): Drain | undefined {
+  if (limitHit(text)) return 'limit'
+  if (model === 'fable' && fableLimitHit(text)) return 'fable'
+}
+
 /** Looks for the CLI's limit message on screen; the account's usage has the last word when it has numbers. */
 async function checkText() {
   const { phase, run } = get()
@@ -512,7 +530,8 @@ async function checkText() {
   const now = Date.now()
   if (!mine.quietOver || now < mine.mutedUntil) return
   // A mark whose row scrolled out of the buffer reads -1: everything left came after it.
-  if (!limitHit(tailText(id, 40, mine.mark ? mine.mark.line + 1 : 0))) return
+  const hit = drainOnScreen(tailText(id, 40, mine.mark ? mine.mark.line + 1 : 0), run.model)
+  if (!hit) return
   mine.checking = true
   try {
     await useStore.getState().refresh(run.accountId)
@@ -523,16 +542,20 @@ async function checkText() {
   }
   if (w !== mine || get().phase !== 'running' || get().run?.id !== run.id || mine.terminalId !== id) return
   const snap = useStore.getState().usage[run.accountId]
-  const b = bindingWindow(snap)
-  if (snap && b && fresh(snap, now) && leftOf(b) >= ROOM_LEFT) {
+  const mw = modelWindow(run.model)
+  const b = limitingWindow(snap, mw)
+  // Only a Fable window can say the Fable text is wrong.
+  const checkable = hit === 'limit' || !!snap?.windows.some((x) => x.id === mw)
+  if (snap && b && checkable && fresh(snap, now) && leftOf(b) >= ROOM_LEFT) {
     mine.mutedUntil = Date.now() + FALSE_ALARM_MUTE
     if (mine.falseAlarmFor !== id) {
       mine.falseAlarmFor = id
-      addLog('false-alarm', `The terminal mentioned a usage limit, but ${label(run.accountId)} still has ${Math.round(leftOf(b))}% left. Carrying on.`)
+      const what = hit === 'fable' ? 'the Fable limit' : 'a usage limit'
+      addLog('false-alarm', `The terminal mentioned ${what}, but ${label(run.accountId)} still has ${leftWords(run.accountId, run.model)}. Carrying on.`)
     }
     return
   }
-  void handoff('limit')
+  void handoff(hit)
 }
 
 /** The account to continue on: most left, not drained during this run, and able to open the chat's history. */
@@ -541,8 +564,8 @@ function nextAccount(run: AutopilotRun): Account | undefined {
   return pickNext(run, s.accounts, s.usage, { now: Date.now(), defaultHome: claudeHome(), platform: api.platform, modelWindow: modelWindow(run.model) })
 }
 
-/** The run's account ran out (`limit`) or its CLI stopped (`exit`): move the chat to the best account. */
-async function handoff(why: 'limit' | 'exit') {
+/** The run's account ran out (`limit`), ran out of Fable on a Fable run (`fable`) or its CLI stopped (`exit`): move the chat to the best account. */
+async function handoff(why: Drain | 'exit') {
   const { phase, run } = get()
   const mine = w
   if (phase !== 'running' || !run || mine.busy) return
@@ -552,9 +575,14 @@ async function handoff(why: 'limit' | 'exit') {
     const from = run.accountId
     const snap = useStore.getState().usage[from]
     const b = bindingWindow(snap)
-    const exhausted = why === 'limit' ? { ...run.exhausted, [from]: exhaustedUntil(snap, Date.now()) } : run.exhausted
+    const exhausted = why === 'exit' ? run.exhausted : { ...run.exhausted, [from]: exhaustedUntil(snap, Date.now(), why === 'fable' ? modelWindow(run.model) : undefined) }
     // Window labels read "5-hour session" or "Weekly limit".
-    const reason = why === 'limit' ? `${label(from)} ran out${b ? ` (${b.label.replace(/\s*limit$/i, '')} limit)` : ''}.` : 'The terminal stopped.'
+    const reason =
+      why === 'fable'
+        ? `${label(from)} ran out of Fable.`
+        : why === 'limit'
+          ? `${label(from)} ran out${b ? ` (${b.label.replace(/\s*limit$/i, '')} limit)` : ''}.`
+          : 'The terminal stopped.'
     set({ phase: 'handing-off', run: { ...run, exhausted } })
     // The CLI is still running here (unless it exited): the last moment it can say which chat it is in.
     await learnConversation(true)
