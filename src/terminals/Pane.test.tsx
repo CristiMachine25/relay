@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
-import type { Account, UsageSnapshot } from '@shared/types'
+import type { Account, UsageSnapshot, UsageWindow } from '@shared/types'
 import { DEFAULT_SHARING } from '@shared/types'
 
 vi.mock('@/api', () => ({ api: { platform: 'darwin', on: () => () => {} }, errorText: String }))
@@ -10,7 +10,7 @@ vi.mock('./store', async () => {
   const { create } = await import('zustand')
   return {
     useGrid: create(() => ({
-      ws: { focused: 0, maximized: null },
+      ws: { focused: 0, maximized: null, panes: [{ uid: 'p1', accountId: 'w', target: 'cli' }] },
       infos: { t1: { id: 't1', accountId: 'w', exited: false } },
       starting: {},
       errors: {},
@@ -26,6 +26,7 @@ vi.mock('@/autopilot/store', async () => {
 const { useStore } = await import('@/store')
 const { useAutopilot } = await import('@/autopilot/store')
 const { Pane } = await import('./Pane')
+const { useLimitView } = await import('./limitView')
 
 const account = (id: string, label: string): Account => ({
   id,
@@ -76,5 +77,120 @@ describe('a pane an autopilot run owns', () => {
       expect(html).not.toContain('>Autopilot</span>')
       expect(html).toContain('Continue on Home</button>')
     }
+  })
+})
+
+const win = (id: string, label: string, used: number, extra: Partial<UsageWindow> = {}): UsageWindow => ({ id, label, usedPercent: used, windowMinutes: id === 'five_hour' ? 300 : 10080, resetsAt: null, ...extra })
+const withWindows = (...windows: UsageWindow[]) => {
+  // A static render reads the store's initial state.
+  Object.assign(useStore.getInitialState(), { usage: { w: { ...snap('w', 0), windows } } })
+}
+const header = (view: 'five_hour' | 'seven_day' | 'seven_day_fable' = 'five_hour') => {
+  Object.assign(useLimitView.getInitialState(), { view })
+  Object.assign(useAutopilot.getInitialState(), { phase: 'idle', run: null })
+  return renderToStaticMarkup(<Pane index={0} pane={pane} />)
+}
+
+describe('the limit a pane header shows', () => {
+  const both = [win('five_hour', '5-hour session', 36, { resetsAt: '2026-11-09T14:10:00Z' }), win('seven_day', 'Weekly', 80)]
+
+  it('is named, with how much is left and when it resets', () => {
+    Object.assign(useStore.getInitialState(), { now: Date.parse('2026-11-09T12:00:00Z') })
+    withWindows(...both)
+    const html = header()
+    expect(html).toContain('>5h</span>')
+    expect(html).toContain('64%')
+    expect(html).toContain('resets 2h 10m')
+  })
+
+  it('follows the chosen view', () => {
+    withWindows(...both)
+    const html = header('seven_day')
+    expect(html).toContain('>Week</span>')
+    expect(html).toContain('20%')
+    expect(html).not.toContain('>5h</span>')
+  })
+
+  it('lists every window in the tooltip', () => {
+    withWindows(...both)
+    const html = header()
+    expect(html).toContain('5-hour session: 64% left')
+    expect(html).toContain('Weekly: 20% left')
+  })
+
+  it('says so, quietly, when the account has no such limit', () => {
+    withWindows(win('seven_day', 'Weekly', 10))
+    expect(header()).toContain('No 5-hour limit')
+    withWindows(...both)
+    expect(header('seven_day_fable')).not.toContain('Fable limit')
+    withWindows()
+    expect(header()).toContain('No live limits')
+  })
+
+  it('marks an account that is out through the limit not on screen', () => {
+    withWindows(win('five_hour', '5-hour session', 20), win('seven_day', 'Weekly', 100))
+    const html = header()
+    expect(html).toContain('Weekly limit reached')
+    expect(html).toContain('80%')
+    // Viewing the limit that ran out needs no extra mark.
+    expect(header('seven_day')).not.toContain('limit reached</span>')
+  })
+
+  it('does not warn while the account still has room', () => {
+    withWindows(...both)
+    expect(header()).not.toContain('limit reached')
+  })
+
+  it('is a button that offers the next limit, Fable included when an account has one', () => {
+    withWindows(...both)
+    expect(header()).toContain('aria-label="Showing the 5-hour limit. Click to show the weekly limit"')
+    expect(header('seven_day')).toContain('aria-label="Showing the weekly limit. Click to show the 5-hour limit"')
+    withWindows(...both, win('seven_day_fable', 'Weekly Fable', 5, { shareOfWeekly: 50 }))
+    expect(header('seven_day')).toContain('aria-label="Showing the weekly limit. Click to show the weekly Fable limit"')
+    const html = header('seven_day_fable')
+    expect(html).toContain('>Fable</span>')
+    expect(html).toContain('Weekly Fable (50% of the weekly limit): 95% left')
+  })
+
+  it('also cycles from the no-limit wording', () => {
+    withWindows(win('seven_day', 'Weekly', 10))
+    expect(header()).toContain('aria-label="Showing the 5-hour limit. Click to show the weekly limit"')
+  })
+})
+
+describe('the figures beside other accounts', () => {
+  const other = (...windows: UsageWindow[]) =>
+    Object.assign(useStore.getInitialState(), {
+      usage: { w: { ...snap('w', 100), windows: [win('five_hour', '5-hour session', 100)] }, h: { ...snap('h', 0), windows } }
+    })
+  const home = [win('five_hour', '5-hour session', 10), win('seven_day', 'Weekly', 70)]
+  const banner = (view: 'five_hour' | 'seven_day') => {
+    Object.assign(useLimitView.getInitialState(), { view })
+    Object.assign(useAutopilot.getInitialState(), { phase: 'idle', run: null })
+    return renderToStaticMarkup(<Pane index={0} pane={pane} />)
+  }
+  const picker = (view: 'five_hour' | 'seven_day') => {
+    Object.assign(useLimitView.getInitialState(), { view })
+    return renderToStaticMarkup(<Pane index={0} pane={{ uid: 'p1', target: 'cli' }} />)
+  }
+
+  it('name the limit in the limit banner, which still names the limit that was hit', () => {
+    other(...home)
+    expect(banner('five_hour')).toContain('Work hit its 5-hour session limit. Continue on Home (5h 90% left).')
+    expect(banner('seven_day')).toContain('Continue on Home (Week 30% left).')
+  })
+
+  it('name the limit in the account picker', () => {
+    other(...home)
+    expect(picker('five_hour')).toContain('5h 90% left')
+    expect(picker('seven_day')).toContain('Week 30% left')
+  })
+
+  it('say when an account has no such limit, or is out through the other one', () => {
+    other(win('seven_day', 'Weekly', 10))
+    expect(picker('five_hour')).toContain('No 5-hour limit')
+    other(win('five_hour', '5-hour session', 10), win('seven_day', 'Weekly', 100))
+    expect(picker('five_hour')).toContain('Week limit reached')
+    expect(picker('five_hour')).not.toContain('5h 90% left')
   })
 })

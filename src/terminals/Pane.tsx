@@ -1,18 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
-import { ArrowRightLeft, FolderOpen, History, Loader2, LogIn, Maximize2, Minimize2, Play, RotateCcw, RotateCw, X } from 'lucide-react'
+import { ArrowRightLeft, FolderOpen, History, Loader2, LogIn, Maximize2, Minimize2, Play, RotateCcw, RotateCw, TriangleAlert, X } from 'lucide-react'
 import type { Account } from '@shared/types'
 import { api } from '@/api'
 import { useStore } from '@/store'
 import { atLimit, continueCandidates, historyShared, historyToTurnOn, isBlocked, isSignedOut, isUsable, statusLabel, pickerGroups, type PaneConfig, type PaneTarget } from '@/lib/grid'
 import { bindingWindow, leftOf } from '@/lib/quota'
 import { formatCountdown, formatPct, windowName } from '@/lib/format'
+import { VIEW_NAME, type LimitView, hiddenLimit, nextView, limitName, shortLabel, viewWindow, windowsTip } from '@/lib/limitView'
 import { PROVIDER_META } from '@/lib/providers'
 import { Meter } from '@/components/Meter'
 import { AccountDot, ProviderMark, onRadioArrows } from '@/components/ui'
 import { useAutopilot } from '@/autopilot/store'
 import { acquireWebgl, fitTerm, getTerm } from './registry'
 import { useGrid } from './store'
+import { useLimitView, useLimitViews } from './limitView'
 
 /** Adopts the registry's xterm host and keeps it fitted to the pane. */
 function TermView({ id }: { id: string }) {
@@ -46,13 +48,17 @@ function useAccount(id: string | undefined): Account | undefined {
   return useStore((s) => (id ? s.accounts.find((a) => a.id === id) : undefined))
 }
 
-/** "Claude H2 (100% left)" style candidate text. */
-function leftText(a: Account, usage: ReturnType<typeof useStore.getState>['usage']): string {
-  const b = bindingWindow(usage[a.id])
+/** "Claude H2 (5h 100% left)" style candidate text: the figure names the limit it is about. */
+function leftText(a: Account, usage: ReturnType<typeof useStore.getState>['usage'], view: LimitView): string {
+  const snap = usage[a.id]
   const status = statusLabel(a)
   if (status) return status
-  if (!b) return 'No live limits'
-  return atLimit(usage[a.id]) ? 'Limit reached' : `${formatPct(leftOf(b))} left`
+  // Out is out, whichever limit is on screen.
+  const b = bindingWindow(snap)
+  if (b && atLimit(snap)) return `${shortLabel(b)} limit reached`
+  if (!snap?.windows.length) return 'No live limits'
+  const w = viewWindow(snap, view)
+  return w ? `${shortLabel(w)} ${formatPct(leftOf(w))} left` : `No ${VIEW_NAME[view]}`
 }
 
 function ContinueMenu({ index, account, onDone }: { index: number; account: Account; onDone(): void }) {
@@ -61,6 +67,7 @@ function ContinueMenu({ index, account, onDone }: { index: number; account: Acco
   const recs = useStore((s) => s.recs)
   const updateAccount = useStore((s) => s.updateAccount)
   const continueOn = useGrid((s) => s.continueOn)
+  const { view } = useLimitViews()
   const defaultHome = useStore((s) => s.providers.find((p) => p.id === account.providerId)?.defaultHome)
   const list = continueCandidates(account, accounts, usage, recs)
   const ref = useRef<HTMLDivElement>(null)
@@ -101,7 +108,7 @@ function ContinueMenu({ index, account, onDone }: { index: number; account: Acco
             >
               <AccountDot account={a} />
               <span className="truncate text-sm">{a.label}</span>
-              <span className="ml-auto shrink-0 text-xs tabular-nums text-muted">{leftText(a, usage)}</span>
+              <span className="ml-auto shrink-0 text-xs tabular-nums text-muted">{leftText(a, usage, view)}</span>
             </button>
             {!shared && usable && (
               <button
@@ -128,6 +135,7 @@ function LimitBanner({ index, account, auto, waiting }: { index: number; account
   const usage = useStore((s) => s.usage)
   const recs = useStore((s) => s.recs)
   const continueOn = useGrid((s) => s.continueOn)
+  const { view } = useLimitViews()
   const b = bindingWindow(usage[account.id])
   const next = continueCandidates(account, accounts, usage, recs).find((a) => isUsable(a, usage))
   return (
@@ -138,7 +146,7 @@ function LimitBanner({ index, account, auto, waiting }: { index: number; account
         {auto ? (
           <span className="text-muted">{waiting ? ' Autopilot is waiting for an account to have room…' : ' Autopilot is moving this chat to another account…'}</span>
         ) : next ? (
-          ` Continue on ${next.label} (${leftText(next, usage)}).`
+          ` Continue on ${next.label} (${leftText(next, usage, view)}).`
         ) : (
           ' No other account has quota left right now.'
         )}
@@ -152,18 +160,59 @@ function LimitBanner({ index, account, auto, waiting }: { index: number; account
   )
 }
 
-function Header({ index, pane, account, auto }: { index: number; pane: PaneConfig; account: Account; auto: boolean }) {
-  const usage = useStore((s) => s.usage)
+/** The limit the panes are set to show, always named, with a mark when the account is out through another limit. */
+function LimitMeter({ account, view, views }: { account: Account; view: LimitView; views: LimitView[] }) {
+  const snap = useStore((s) => s.usage[account.id])
   const now = useStore((s) => s.now)
+  const cycle = useLimitView((s) => s.cycle)
+  const w = viewWindow(snap, view)
+  const next = nextView(view, views)
+  // One click moves every pane to the next limit, right where the question comes up.
+  const press = {
+    type: 'button' as const,
+    'aria-label': `Showing the ${VIEW_NAME[view]}. Click to show the ${VIEW_NAME[next]}`,
+    'data-tip': `${windowsTip(snap, now)}\n\nClick to show the ${VIEW_NAME[next]} on every pane`,
+    onClick: () => cycle(views),
+    className: 'pane-meter -mx-1 flex shrink-0 items-center gap-1.5 rounded px-1 py-0.5 hover:bg-raised'
+  }
+  if (!w)
+    return (
+      <button {...press} className={clsx(press.className, 'text-[11px] text-faint')}>
+        {snap?.windows.length ? `No ${VIEW_NAME[view]}` : 'No live limits'}
+      </button>
+    )
+  const left = leftOf(w)
+  const countdown = w.resetsAt ? formatCountdown(w.resetsAt, now) : null
+  const out = hiddenLimit(snap, w)
+  return (
+    <>
+      <button {...press}>
+        <span className="text-[11px] font-semibold text-muted">{shortLabel(w)}</span>
+        <span className="pane-cells w-14">
+          <Meter left={left} cells={10} size="xs" label={`${account.label} ${w.label} left`} />
+        </span>
+        <span className="shrink-0 text-[11px] tabular-nums text-muted">
+          {formatPct(left)}
+          {countdown && <span className="pane-reset"> · resets {countdown}</span>}
+        </span>
+      </button>
+      {out && (
+        <span className="pane-warn flex shrink-0 items-center gap-1 text-[11px] font-semibold text-empty" data-tip={windowsTip(snap, now)}>
+          <TriangleAlert size={12} aria-hidden />
+          <span className="pane-warn-text">{`${limitName(out)[0]!.toUpperCase()}${limitName(out).slice(1)} reached`}</span>
+        </span>
+      )}
+    </>
+  )
+}
+
+function Header({ index, pane, account, auto }: { index: number; pane: PaneConfig; account: Account; auto: boolean }) {
   const info = useGrid((s) => (pane.terminalId ? s.infos[pane.terminalId] : undefined))
   const maximized = useGrid((s) => s.ws.maximized === index)
   const starting = useGrid((s) => !!s.starting[pane.uid])
   const { restart, close, toggleMax } = useGrid.getState()
   const [menu, setMenu] = useState(false)
-  const b = bindingWindow(usage[account.id])
-  const left = b ? leftOf(b) : undefined
-  const countdown = b?.resetsAt ? formatCountdown(b.resetsAt, now) : null
-
+  const { view, views } = useLimitViews()
   const status = starting
     ? 'Starting…'
     : !info
@@ -189,12 +238,7 @@ function Header({ index, pane, account, auto }: { index: number; pane: PaneConfi
           Autopilot
         </span>
       )}
-      {left !== undefined && b && (
-        <span className="pane-meter ml-1 flex w-28 shrink-0 items-center gap-1.5" data-tip={`${b.label}: ${formatPct(left)} left`}>
-          <Meter left={left} cells={10} size="xs" label={`${account.label} ${b.label} left`} />
-          <span className="shrink-0 text-[11px] tabular-nums text-muted">{countdown ?? formatPct(left)}</span>
-        </span>
-      )}
+      <LimitMeter account={account} view={view} views={views} />
       <span className={clsx('pane-status ml-auto shrink-0 truncate pl-2 text-xs', info?.exited ? 'text-muted' : 'text-faint')}>{status}</span>
       <div className="ml-auto flex shrink-0 items-center">
         <button className="pane-restart btn btn-ghost btn-sm px-1.5" data-tip="Restart this CLI in a new session" aria-label="Restart" onClick={() => void restart(index, false)}>
@@ -238,6 +282,7 @@ function Picker({ index, pane }: { index: number; pane: PaneConfig }) {
   const providers = useStore((s) => s.providers)
   const defaultCwd = useStore((s) => s.settings?.defaultCwd)
   const start = useGrid((s) => s.start)
+  const { view } = useLimitViews()
   const error = useGrid((s) => s.errors[pane.uid])
   const starting = useGrid((s) => !!s.starting[pane.uid])
   const groups = pickerGroups(accounts, recs)
@@ -286,7 +331,7 @@ function Picker({ index, pane }: { index: number; pane: PaneConfig }) {
               </p>
               {g.accounts.map((a) => {
                 const on = a.id === accountId
-                const b = bindingWindow(usage[a.id])
+                const w = viewWindow(usage[a.id], view)
                 return (
                   <button
                     type="button"
@@ -299,12 +344,12 @@ function Picker({ index, pane }: { index: number; pane: PaneConfig }) {
                   >
                     <AccountDot account={a} />
                     <span className="min-w-0 flex-1 truncate text-sm">{a.label}</span>
-                    {b && !isSignedOut(a) && (
+                    {w && !isSignedOut(a) && (
                       <span className="w-16 shrink-0">
-                        <Meter left={leftOf(b)} cells={8} size="xs" label={`${a.label} quota left`} />
+                        <Meter left={leftOf(w)} cells={8} size="xs" label={`${a.label} ${w.label} left`} />
                       </span>
                     )}
-                    <span className="w-20 shrink-0 text-right text-xs tabular-nums text-muted">{leftText(a, usage)}</span>
+                    <span className="w-28 shrink-0 text-right text-xs tabular-nums text-muted">{leftText(a, usage, view)}</span>
                   </button>
                 )
               })}

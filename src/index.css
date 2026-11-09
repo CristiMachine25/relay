@@ -305,19 +305,36 @@ summary {
 .pane-body {
   container-type: size;
 }
+/* A warning beside the meter takes the place of the status text, then of Restart and Resume, before the buttons are pushed out. */
+@container (max-width: 700px) {
+  .pane-warn ~ .pane-status {
+    display: none;
+  }
+}
+@container (max-width: 620px) {
+  .pane-warn ~ div .pane-restart {
+    display: none;
+  }
+}
+@container (max-width: 560px) {
+  .pane-reset {
+    display: none;
+  }
+}
 @container (max-width: 520px) {
   .pane-provider {
     display: none;
   }
 }
 @container (max-width: 420px) {
-  .pane-meter,
+  .pane-cells,
+  .pane-warn-text,
   .pane-status {
     display: none;
   }
 }
 /* Keep Maximize and Close inside a narrow pane; Restart and Resume come back when it is maximized. */
-@container (max-width: 280px) {
+@container (max-width: 340px) {
   .pane-restart {
     display: none;
   }
