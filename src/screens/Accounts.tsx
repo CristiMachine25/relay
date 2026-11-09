@@ -17,7 +17,8 @@ import { AccountDot, Dialog, EmptyState, ProviderMark, Segmented, SectionTitle, 
 import { CopyButton } from '@/components/Toasts'
 import { DailyTokens, WindowHistory } from '@/charts/AccountCharts'
 import { Page, Toolbar } from '@/components/Page'
-import { sortWindows } from '@/lib/windows'
+import { idleBehind, sortWindows, spentWindow } from '@/lib/windows'
+import { limitName } from '@/lib/limitView'
 import { SubscriptionBadge } from '@/components/SubscriptionBadge'
 import { SubscriptionSection } from '@/components/SubscriptionSection'
 
@@ -117,6 +118,9 @@ function AccountDetail({ account: a }: { account: Account }) {
   const blocked = isBlocked(a)
   // A blocked account's CLI refuses to start, so its launch buttons are hidden.
   const canLaunch = !signedOut && !blocked
+
+  // While a longer limit is out, the shorter ones are not counting: "100% left" would mislead.
+  const spent = snap ? spentWindow(snap.windows) : undefined
 
   const [range, setRange] = useState<'7' | '30'>('7')
   const [history, setHistory] = useState<UsageHistoryPoint[]>([])
@@ -282,7 +286,14 @@ function AccountDetail({ account: a }: { account: Account }) {
             {snap && snap.windows.length ? (
               <div className="grid grid-cols-1 gap-x-8 gap-y-5 min-[1100px]:grid-cols-2">
                 {sortWindows(snap.windows).map((w) => (
-                  <WindowGauge key={w.id} w={w} now={now} stale={snap.stale} refreshing={refreshingThis} />
+                  <WindowGauge
+                    key={w.id}
+                    w={w}
+                    now={now}
+                    stale={snap.stale}
+                    refreshing={refreshingThis}
+                    idle={spent && idleBehind(w, spent) ? `Not counting until the ${limitName(spent)} resets` : undefined}
+                  />
                 ))}
                 {snap.credits && <p className="self-end text-muted">{creditsText(snap.credits)}.</p>}
               </div>
