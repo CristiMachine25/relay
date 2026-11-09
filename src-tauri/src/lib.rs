@@ -7,6 +7,8 @@ pub mod knowledge;
 pub mod launcher;
 pub mod model;
 pub mod notify;
+#[cfg(target_os = "macos")]
+mod notify_macos;
 pub mod providers;
 pub mod pty;
 pub mod recommend;
@@ -58,6 +60,11 @@ pub fn run() {
             app.manage(awake::KeepAwake::default());
             build_tray(app.handle())?;
             sync_autostart(app.handle(), &state);
+            #[cfg(target_os = "macos")]
+            notify_macos::init(app.handle());
+            if state.settings.try_read().is_ok_and(|s| s.notifications.enabled) {
+                notify::request_permission();
+            }
             if std::env::args().any(|a| a == MINIMIZED_ARG) {
                 if let Some(w) = app.get_webview_window(MAIN_WINDOW) {
                     let _ = w.hide();
@@ -179,7 +186,7 @@ fn minimize_to_tray(app: &AppHandle) -> bool {
     app.try_state::<Arc<AppState>>().and_then(|s| s.settings.try_read().ok().map(|s| s.minimize_to_tray)).unwrap_or(true)
 }
 
-fn show_main_window(app: &AppHandle) {
+pub(crate) fn show_main_window(app: &AppHandle) {
     if let Some(w) = app.get_webview_window(MAIN_WINDOW) {
         let _ = w.show();
         let _ = w.unminimize();

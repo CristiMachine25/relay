@@ -280,9 +280,24 @@ pub async fn deliver(app: &AppHandle, state: &AppState, items: Vec<AppNotificati
 }
 
 pub fn show_native(app: &AppHandle, title: &str, body: &str) {
+    #[cfg(target_os = "macos")]
+    if crate::notify_macos::available() {
+        let (title, body) = (title.to_string(), body.to_string());
+        tauri::async_runtime::spawn(async move { crate::notify_macos::post(&title, &body).await });
+        return;
+    }
     use tauri_plugin_notification::NotificationExt;
     if let Err(e) = app.notification().builder().title(title).body(body).show() {
         log::warn!("native notification failed: {e}");
+    }
+}
+
+/// Ask the system for permission to show banners, where it must be asked (macOS). It prompts the
+/// user only the first time.
+pub fn request_permission() {
+    #[cfg(target_os = "macos")]
+    if crate::notify_macos::available() {
+        tauri::async_runtime::spawn(crate::notify_macos::authorize());
     }
 }
 

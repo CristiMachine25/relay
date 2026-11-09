@@ -53,6 +53,13 @@ junction = "1"
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
+# System notifications through UNUserNotificationCenter (see notify_macos.rs).
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+block2 = "0.6"
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSBundle", "NSError", "NSString"] }
+objc2-user-notifications = { version = "0.3", default-features = false, features = ["std", "block2", "bitflags", "UNNotification", "UNNotificationContent", "UNNotificationRequest", "UNNotificationResponse", "UNNotificationTrigger", "UNUserNotificationCenter"] }
+
 [dev-dependencies]
 tempfile = "3"
 
