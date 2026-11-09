@@ -274,6 +274,8 @@ export interface AppSettings {
   liveUsage: boolean
   /** Passed as CLI flags on every launch, for every account of that tool. */
   permissionModes: PermissionModes
+  /** Turn Claude Code's voice mode on in every Claude account Relay starts. */
+  claudeVoice: boolean
 }
 
 /** How much each CLI may do without asking. "default" adds no flag. */
@@ -465,6 +467,8 @@ export interface RelayApi {
     appDataDir(): Promise<string>
     /** Keep the computer from sleeping (`true`) or let it sleep again. False when the OS offers no way to. */
     keepAwake(on: boolean): Promise<boolean>
+    /** Start the system's dictation in the focused text field. False where Relay can't start it (only macOS can). */
+    startDictation(): Promise<boolean>
   }
   transfer: {
     export(path: string, opts: ExportOptions): Promise<ExportSummary>
@@ -508,6 +512,7 @@ export const COMMANDS = {
   systemOpenPath: 'system_open_path', // { path }
   systemOpenUrl: 'system_open_url', // { url }
   systemKeepAwake: 'system_keep_awake', // { on }
+  systemStartDictation: 'system_start_dictation',
   terminalSpawn: 'terminal_spawn', // { req }
   terminalWrite: 'terminal_write', // { id, data }
   terminalResize: 'terminal_resize', // { id, cols, rows }

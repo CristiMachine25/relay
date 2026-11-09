@@ -138,13 +138,16 @@ export function App() {
       <div className="flex min-h-0 flex-1">
         <Sidebar />
         <main className="min-h-0 min-w-0 flex-1 overflow-hidden focus-visible:outline-none" id="main" tabIndex={-1}>
-          {screen === 'overview' && <Overview />}
-          {screen === 'accounts' && <Accounts />}
-          {screen === 'knowledge' && <Knowledge />}
-          {screen === 'skills' && <Skills />}
-          {screen === 'terminals' && <Terminals />}
-          {screen === 'notifications' && <Notifications />}
-          {screen === 'settings' && <Settings />}
+          {/* Keyed by screen, so each switch replays the fade-in. */}
+          <div key={screen} className="screen-in h-full">
+            {screen === 'overview' && <Overview />}
+            {screen === 'accounts' && <Accounts />}
+            {screen === 'knowledge' && <Knowledge />}
+            {screen === 'skills' && <Skills />}
+            {screen === 'terminals' && <Terminals />}
+            {screen === 'notifications' && <Notifications />}
+            {screen === 'settings' && <Settings />}
+          </div>
         </main>
       </div>
       <CommandPalette />

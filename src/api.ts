@@ -63,6 +63,7 @@ function createTauriApi(): RelayApi {
       openPath: (path) => call(COMMANDS.systemOpenPath, { path }),
       openUrl: (url) => call(COMMANDS.systemOpenUrl, { url }),
       keepAwake: (on) => call(COMMANDS.systemKeepAwake, { on }),
+      startDictation: () => call(COMMANDS.systemStartDictation),
       async pickDirectory() {
         const { open } = await import('@tauri-apps/plugin-dialog')
         const picked = await open({ directory: true, multiple: false })

@@ -56,7 +56,7 @@ export function AddAccountDialog() {
       {asking && (
         <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-deck/95 px-8" role="alertdialog" aria-label="Keep this profile as a draft?">
           <div className="max-w-sm text-center">
-            <p className="font-serif text-[17px] font-semibold">Keep this profile as a draft?</p>
+            <p className="font-sans text-[17px] font-semibold">Keep this profile as a draft?</p>
             <p className="mt-1 text-muted">It waits in your accounts list, so you can finish it later without filling everything in again.</p>
             <div className="mt-5 flex justify-center gap-2">
               <button className="btn" onClick={close}>

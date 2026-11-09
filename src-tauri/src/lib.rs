@@ -17,6 +17,7 @@ pub mod store;
 pub mod transfer;
 pub mod usage;
 pub mod util;
+pub mod voice;
 
 use model::{LaunchRequest, LaunchTarget};
 use std::sync::Arc;
@@ -114,6 +115,7 @@ pub fn run() {
             commands::skills_remove,
             commands::system_open_url,
             commands::system_keep_awake,
+            commands::system_start_dictation,
         ])
         .build(tauri::generate_context!());
     match app {

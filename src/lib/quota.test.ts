@@ -155,6 +155,40 @@ describe('recommend', () => {
   })
   const plan = (id: string, p: string, extra: Partial<Account> = {}) => account(id, { plan: p, ...extra })
 
+  it('ranks current evidence before unknown and stale quota', () => {
+    const accounts = [plan('unknown', 'Max', { tags: ['heavy'] }), plan('stale', 'Max'), plan('current', 'Pro')]
+    const usage = {
+      stale: snap('stale', [win('five_hour', 0, 2, 300)], { stale: true }),
+      current: snap('current', [win('five_hour', 80, 2, 300)])
+    }
+    expect(recommend('long-refactor', undefined, accounts, usage, [], NOW).map(r => r.accountId)).toEqual(['current', 'stale', 'unknown'])
+  })
+
+  it('does not infer a plan from tags or partial words', () => {
+    expect(tier({ plan: null, tags: ['maximum', 'project', 'Pro'] })).toBe(0)
+    expect(tier({ plan: 'Prototype', tags: [] })).toBe(0)
+    expect(tier({ plan: 'Pro  200', tags: [] })).toBe(3)
+  })
+
+  it('treats a passed reset as unverified without hiding a current exhausted window', () => {
+    const a = plan('a', 'Pro')
+    const expired = win('five_hour', 100, -1, 300)
+    const s = snap('a', [expired], { stale: true })
+    const r = scoreAccount(a, 'any', s, NOW)
+    expect(r.score).toBeGreaterThan(0)
+    expect(r.reason).toContain('reset has passed')
+    expect(r.reason).not.toContain('100%')
+    const blocked = snap('a', [expired, win('seven_day', 100, 20, 10080)], { stale: true })
+    expect(scoreAccount(a, 'any', blocked, NOW).score).toBe(0)
+  })
+
+  it('does not give a general reset bonus for a model-only window', () => {
+    const a = plan('a', 'Pro')
+    const general = win('seven_day', 50, 100, 10080)
+    const model = win('seven_day_opus', 0, 2, 10080)
+    expect(scoreAccount(a, 'any', snap('a', [general, model]), NOW).score).toBe(scoreAccount(a, 'any', snap('a', [general]), NOW).score)
+  })
+
   it('ranks exhausted and signed-out accounts last', () => {
     const accounts = [plan('a', 'Pro'), plan('b', 'Pro'), plan('c', 'Max', { status: 'needs-login' })]
     const usage = { a: snap('a', [win('five_hour', 100, 2, 300)]), b: snap('b', [win('five_hour', 30, 2, 300)]) }

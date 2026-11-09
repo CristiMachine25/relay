@@ -28,13 +28,13 @@ export default {
       },
       fontSize: {
         xs: ['12px', '16px'],
-        sm: ['13.5px', '19px'],
+        sm: ['14px', '21px'],
         base: ['14px', '20px'],
         md: ['15px', '22px'],
-        lg: ['20px', { lineHeight: '26px', letterSpacing: '-0.01em' }],
+        lg: ['22px', { lineHeight: '28px', letterSpacing: '-0.01em' }],
         hero: ['44px', { lineHeight: '44px', letterSpacing: '-0.025em' }]
       },
-      borderRadius: { DEFAULT: '6px', md: '6px', lg: '8px' }
+      borderRadius: { DEFAULT: '8px', md: '10px', lg: '14px' }
     }
   },
   plugins: [

@@ -249,6 +249,25 @@ describe('accounts in panes', () => {
     expect(continueCandidates(accounts[1]!, accounts, usage, []).map((a) => a.id)).toEqual(['h3', 'h1', 'out'])
   })
 
+  it('keeps evidence order when continuation scores are not descending', () => {
+    const recs = [
+      { accountId: 'h3', score: 20, reason: 'Current quota' },
+      { accountId: 'h2', score: 60, reason: 'Last known quota' }
+    ]
+    expect(continueCandidates(accounts[0]!, accounts, usage, recs).map(a => a.id)).toEqual(['h3', 'h2', 'out'])
+  })
+
+  it('keeps evidence order within and across picker groups', () => {
+    const recs = [
+      { accountId: 'h3', score: 20, reason: 'Current quota' },
+      { accountId: 'gpt', score: 80, reason: 'Unknown quota' },
+      { accountId: 'h2', score: 60, reason: 'Unknown quota' }
+    ]
+    const groups = pickerGroups(accounts, recs)
+    expect(groups.map(g => g.providerId)).toEqual(['claude', 'codex'])
+    expect(groups[0]!.accounts.map(a => a.id)).toEqual(['h3', 'h2', 'h1', 'out'])
+  })
+
   it('keeps an expired login usable: starting the CLI renews it', () => {
     const expired = acc('exp', 'claude', { status: 'expired' })
     expect(isSignedOut(expired)).toBe(false)

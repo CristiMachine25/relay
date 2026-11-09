@@ -2,45 +2,44 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Palette: see docs/DESIGN.md. Channels only, so Tailwind can apply alpha. Dark is the default look. */
+/* Shared by application chrome, charts, and terminal themes. */
 :root,
 :root[data-theme='dark'] {
   color-scheme: dark;
-  /* A slightly cool near-black that matches the app icon's charcoal tile. */
-  --ground: 14 15 18; /* Ground #0E0F12 */
-  --well: 10 11 13; /* Side lists, code previews #0A0B0D */
-  --deck: 22 24 28; /* Panel #16181C */
-  --raised: 33 35 41; /* Hover, selected #212329 */
-  --rivet: 43 46 53; /* Line #2B2E35 */
-  --ink: 233 234 239; /* #E9EAEF */
-  --muted: 157 161 172; /* #9DA1AC */
-  --faint: 134 138 149; /* #868A95: the quietest text, still 4.5:1 on raised */
-  --hop: 134 160 251; /* Periwinkle #86A0FB, from the icon's route */
-  --hop-ink: 10 15 40; /* #0A0F28 */
-  --full: 94 214 162; /* #5ED6A2, leans toward the icon's mint */
-  --half: 230 194 95; /* #E6C25F */
-  --low: 239 144 78; /* #EF904E */
-  --empty: 243 109 109; /* #F36D6D */
-  --cell-off: 39 42 49; /* #272A31 */
+  --ground: 8 8 8;
+  --well: 3 3 3;
+  --deck: 17 17 17;
+  --raised: 29 29 29;
+  --rivet: 48 48 48;
+  --ink: 245 245 245;
+  --muted: 180 180 180;
+  --faint: 155 155 155;
+  --hop: 154 183 255;
+  --hop-ink: 15 31 62;
+  --full: 106 220 171;
+  --half: 237 203 116;
+  --low: 248 170 111;
+  --empty: 255 139 145;
+  --cell-off: 42 42 42;
 }
 
 :root[data-theme='light'] {
   color-scheme: light;
-  --ground: 245 243 238; /* Paper #F5F3EE */
-  --well: 236 233 226;
-  --deck: 251 250 247;
-  --raised: 238 235 228;
-  --rivet: 220 215 205;
-  --ink: 31 29 26;
-  --muted: 96 92 84;
-  --faint: 109 105 96; /* #6D6960: 4.5:1 on well */
-  --hop: 69 86 214; /* #4556D6 */
+  --ground: 255 255 255;
+  --well: 250 250 250;
+  --deck: 255 255 255;
+  --raised: 242 242 242;
+  --rivet: 224 224 224;
+  --ink: 23 23 23;
+  --muted: 89 89 89;
+  --faint: 102 102 102;
+  --hop: 49 91 199;
   --hop-ink: 255 255 255;
-  --full: 22 128 74;
-  --half: 146 104 0;
-  --low: 182 80 14;
-  --empty: 196 46 52;
-  --cell-off: 226 222 213;
+  --full: 17 113 67;
+  --half: 130 90 0;
+  --low: 166 70 10;
+  --empty: 184 38 48;
+  --cell-off: 232 232 232;
 }
 
 /* Theme-independent: the Windows close button's hover red. */
@@ -56,7 +55,7 @@
   }
   body {
     @apply bg-ground text-ink font-sans text-sm antialiased;
-    /* Both bundled faces default to tabular figures, so countdowns and percentages never jitter. */
+    /* Keep quota figures and reset countdowns steady as they update. */
     font-feature-settings: 'tnum' 1;
     text-rendering: optimizeLegibility;
     overflow: hidden;
@@ -111,10 +110,6 @@
 }
 
 @layer components {
-  /* Serif headings sit a touch tighter; text-lg and text-hero set their own tracking. */
-  .font-serif {
-    letter-spacing: -0.008em;
-  }
   /* Small square icon buttons in side panels. */
   .side-icon-btn {
     @apply flex h-7 w-7 items-center justify-center rounded text-muted transition-colors hover:bg-raised hover:text-ink;
@@ -128,8 +123,18 @@
     color: rgb(255 255 255);
   }
   .btn {
-    @apply inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded text-sm font-medium whitespace-nowrap
-      border border-rivet bg-deck text-ink transition-colors select-none;
+    @apply inline-flex items-center justify-center gap-2 h-9 px-3 rounded text-sm font-medium whitespace-nowrap
+      border border-rivet bg-deck text-ink select-none;
+    transition:
+      color 150ms var(--ease-out),
+      background-color 150ms var(--ease-out),
+      border-color 150ms var(--ease-out),
+      filter 150ms var(--ease-out),
+      transform 120ms var(--ease-out);
+  }
+  /* A slight press, so a click feels like it landed. */
+  .btn:active:not(:disabled) {
+    transform: scale(0.97);
   }
   .btn:hover:not(:disabled) {
     @apply bg-raised border-faint/60;
@@ -191,18 +196,81 @@
   }
 }
 
+/* Motion: one easing for everything that arrives, short enough to never wait on. */
+:root {
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 @keyframes toast-in {
   from {
-    transform: translateY(6px);
+    transform: translateY(8px) scale(0.98);
     opacity: 0;
-  }
-  to {
-    transform: none;
-    opacity: 1;
   }
 }
 .toast-in {
-  animation: toast-in 160ms ease-out;
+  animation: toast-in 240ms var(--ease-out);
+}
+
+/* A screen fades in as you switch to it. Opacity and a small shift only, so terminals measure their real size. */
+@keyframes screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+.screen-in {
+  animation: screen-in 260ms var(--ease-out);
+}
+
+/* Dialogs and the command palette: the backdrop fades while the panel grows out of it. */
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+.backdrop-in {
+  animation: backdrop-in 180ms ease-out;
+}
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+}
+.dialog-in {
+  animation: dialog-in 220ms var(--ease-out);
+}
+
+/* A small icon swapping in, such as the check after a refresh. */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+.pop-in {
+  animation: pop-in 260ms var(--ease-out);
+}
+
+/* The sidebar slides between its widths; labels fade back in as it opens (an element shown again restarts its animation). */
+.sidebar {
+  transition: width 240ms var(--ease-out);
+}
+@keyframes label-in {
+  from {
+    opacity: 0;
+  }
+}
+.sidebar-label {
+  animation: label-in 200ms 80ms ease-out both;
+}
+
+/* Opening a disclosure eases its content in instead of snapping. */
+details[open] > :not(summary) {
+  animation: screen-in 240ms var(--ease-out);
+}
+summary {
+  transition: color 150ms var(--ease-out);
 }
 
 /* Tooltips show at once; the fade only softens the pop. */
