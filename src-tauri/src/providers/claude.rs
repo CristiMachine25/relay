@@ -329,7 +329,7 @@ fn parse_usage(v: &Value) -> (Vec<UsageWindow>, Option<Credits>) {
         ("seven_day_opus", "Weekly Opus", 10080),
         ("seven_day_sonnet", "Weekly Sonnet", 10080),
     ];
-    let windows = WINDOWS
+    let mut windows: Vec<UsageWindow> = WINDOWS
         .iter()
         .filter_map(|(key, label, minutes)| {
             let w = v.get(*key).filter(|w| w.is_object())?;
@@ -344,6 +344,11 @@ fn parse_usage(v: &Value) -> (Vec<UsageWindow>, Option<Credits>) {
             })
         })
         .collect();
+    for w in scoped_windows(v) {
+        if !windows.iter().any(|x| x.id == w.id) {
+            windows.push(w);
+        }
+    }
 
     // Amounts are in minor units (cents), as CodexBar's ClaudeUsageFetcher divides by 100.
     let credits = v.get("extra_usage").filter(|e| e.get("is_enabled").and_then(Value::as_bool) == Some(true)).and_then(|e| {
@@ -355,6 +360,35 @@ fn parse_usage(v: &Value) -> (Vec<UsageWindow>, Option<Credits>) {
         Some(Credits { used: used.unwrap_or(0.0) / 100.0, limit: limit.map(|l| l / 100.0), unit: str_field(e, "currency").unwrap_or("USD").to_string() })
     });
     (windows, credits)
+}
+
+/// Weekly limits that cap one model, from the `limits` list: "Fable" becomes `seven_day_fable`.
+/// `weekly_scoped_shares` says how much of the whole weekly limit each may use, by place in the list.
+fn scoped_windows(v: &Value) -> Vec<UsageWindow> {
+    let Some(limits) = v.get("limits").and_then(Value::as_array) else { return Vec::new() };
+    let shares = v.get("weekly_scoped_shares").and_then(Value::as_array);
+    let share = |index: usize| {
+        let s = shares?.iter().find(|s| num(s.get("limit_index")) == Some(index as f64))?;
+        num(s.get("allowance_percent_of_weekly"))
+    };
+    limits
+        .iter()
+        .enumerate()
+        .filter(|(_, l)| l.get("kind").and_then(Value::as_str) == Some("weekly_scoped"))
+        .filter_map(|(i, l)| {
+            let name = str_field(l.get("scope")?.get("model")?, "display_name")?;
+            let used = num(l.get("percent"))?;
+            let slug: String = name.to_ascii_lowercase().chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '_' }).collect();
+            Some(UsageWindow {
+                id: format!("seven_day_{slug}"),
+                label: format!("Weekly {name}"),
+                used_percent: used.max(0.0),
+                resets_at: str_field(l, "resets_at").map(normalize_iso),
+                window_minutes: Some(10080),
+                share_of_weekly: share(i),
+            })
+        })
+        .collect()
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1483,6 +1517,73 @@ mod tests {
         assert!((c.used - 12.34).abs() < 1e-9);
         assert_eq!(c.limit, Some(50.0));
         assert_eq!(c.unit, "USD");
+    }
+
+    /// As `/api/oauth/usage` answers for a Pro account since the Fable model has its own weekly allowance.
+    const USAGE_WITH_LIMITS: &str = r#"{"five_hour":{"utilization":10,"resets_at":"2026-11-09T23:10:00.912350+00:00"},
+        "seven_day":{"utilization":3,"resets_at":"2026-11-14T13:00:00.912370+00:00"},
+        "seven_day_opus":null,"seven_day_sonnet":null,
+        "limits":[
+          {"kind":"session","group":"session","percent":10,"severity":"normal","resets_at":"2026-11-09T23:10:00.912350+00:00","scope":null,"is_active":true},
+          {"kind":"weekly_all","group":"weekly","percent":3,"severity":"normal","resets_at":"2026-11-14T13:00:00.912370+00:00","scope":null,"is_active":false},
+          {"kind":"weekly_scoped","group":"weekly","percent":3,"severity":"normal","resets_at":"2026-11-14T12:59:59.912607+00:00",
+           "scope":{"model":{"id":null,"display_name":"Fable"},"surface":null},"is_active":false}],
+        "weekly_scoped_shares":[{"limit_index":2,"used_percent_of_weekly":2,"allowance_percent_of_weekly":50}]}"#;
+
+    #[test]
+    fn a_model_with_its_own_weekly_allowance_gets_a_window() {
+        let v: Value = serde_json::from_str(USAGE_WITH_LIMITS).unwrap();
+        let (w, _) = parse_usage(&v);
+        assert_eq!(w.iter().map(|w| w.id.as_str()).collect::<Vec<_>>(), ["five_hour", "seven_day", "seven_day_fable"]);
+        let fable = &w[2];
+        assert_eq!(fable.label, "Weekly Fable");
+        assert_eq!(fable.used_percent, 3.0);
+        assert_eq!(fable.window_minutes, Some(10080));
+        assert_eq!(fable.share_of_weekly, Some(50.0));
+        assert_eq!(fable.resets_at.as_deref(), Some("2026-11-14T12:59:59.912607+00:00"));
+        assert!(w[..2].iter().all(|w| w.share_of_weekly.is_none()));
+
+        // Without the list, the answer reads as it always did.
+        let mut old = v.clone();
+        old.as_object_mut().unwrap().retain(|k, _| k != "limits" && k != "weekly_scoped_shares");
+        assert_eq!(parse_usage(&old).0.iter().map(|w| w.id.as_str()).collect::<Vec<_>>(), ["five_hour", "seven_day"]);
+    }
+
+    #[test]
+    fn model_limits_that_cannot_be_read_are_skipped() {
+        let scoped =
+            |model: Value, percent: Value| json!({"kind": "weekly_scoped", "percent": percent, "resets_at": null, "scope": {"model": model, "surface": null}});
+        let ids = |v: &Value| parse_usage(v).0.into_iter().map(|w| (w.id, w.used_percent, w.share_of_weekly)).collect::<Vec<_>>();
+
+        // No model name, no number, another kind, not an object: none of them is an error.
+        let v = json!({"limits": [
+            scoped(json!({"id": "x", "display_name": null}), json!(5)),
+            scoped(json!({"display_name": "  "}), json!(5)),
+            scoped(Value::Null, json!(5)),
+            scoped(json!({"display_name": "Mythos"}), Value::Null),
+            {"kind": "weekly_scoped", "percent": 5, "scope": null},
+            {"kind": "monthly_scoped", "percent": 5, "scope": {"model": {"display_name": "Fable"}}},
+            "garbage",
+            scoped(json!({"display_name": "Fable 5.2"}), json!(-4)),
+        ], "weekly_scoped_shares": "garbage"});
+        assert_eq!(ids(&v), [("seven_day_fable_5_2".to_string(), 0.0, None)]);
+        assert!(parse_usage(&json!({"limits": {"kind": "weekly_scoped"}})).0.is_empty());
+
+        // The share belongs to the limit at that place in the list, and to no other.
+        let v = json!({"limits": [scoped(json!({"display_name": "Fable"}), json!(1)), scoped(json!({"display_name": "Opus"}), json!(2))],
+                       "weekly_scoped_shares": [{"limit_index": 1, "allowance_percent_of_weekly": 25}, {"limit_index": 7, "allowance_percent_of_weekly": 50}]});
+        assert_eq!(ids(&v), [("seven_day_fable".to_string(), 1.0, None), ("seven_day_opus".to_string(), 2.0, Some(25.0))]);
+    }
+
+    #[test]
+    fn a_window_is_never_listed_twice() {
+        let scoped = |name: &str, percent: f64| json!({"kind": "weekly_scoped", "percent": percent, "scope": {"model": {"display_name": name}}});
+        // The older top-level key wins over the same model in the list; a repeated model keeps its first entry.
+        let v = json!({"seven_day_opus": {"utilization": 40, "resets_at": null},
+                       "limits": [scoped("Opus", 99.0), scoped("Fable", 3.0), scoped("fable", 80.0)]});
+        let w = parse_usage(&v).0;
+        assert_eq!(w.iter().map(|w| (w.id.as_str(), w.used_percent)).collect::<Vec<_>>(), [("seven_day_opus", 40.0), ("seven_day_fable", 3.0)]);
+        assert_eq!(w[0].label, "Weekly Opus");
     }
 
     #[test]
