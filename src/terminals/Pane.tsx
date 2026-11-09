@@ -48,13 +48,17 @@ function useAccount(id: string | undefined): Account | undefined {
   return useStore((s) => (id ? s.accounts.find((a) => a.id === id) : undefined))
 }
 
-/** "Claude H2 (100% left)" style candidate text. */
-function leftText(a: Account, usage: ReturnType<typeof useStore.getState>['usage']): string {
-  const b = bindingWindow(usage[a.id])
+/** "Claude H2 (5h 100% left)" style candidate text: the figure names the limit it is about. */
+function leftText(a: Account, usage: ReturnType<typeof useStore.getState>['usage'], view: LimitView): string {
+  const snap = usage[a.id]
   const status = statusLabel(a)
   if (status) return status
-  if (!b) return 'No live limits'
-  return atLimit(usage[a.id]) ? 'Limit reached' : `${formatPct(leftOf(b))} left`
+  // Out is out, whichever limit is on screen.
+  const b = bindingWindow(snap)
+  if (b && atLimit(snap)) return `${shortLabel(b)} limit reached`
+  if (!snap?.windows.length) return 'No live limits'
+  const w = viewWindow(snap, view)
+  return w ? `${shortLabel(w)} ${formatPct(leftOf(w))} left` : `No ${VIEW_NAME[view]}`
 }
 
 function ContinueMenu({ index, account, onDone }: { index: number; account: Account; onDone(): void }) {
@@ -63,6 +67,7 @@ function ContinueMenu({ index, account, onDone }: { index: number; account: Acco
   const recs = useStore((s) => s.recs)
   const updateAccount = useStore((s) => s.updateAccount)
   const continueOn = useGrid((s) => s.continueOn)
+  const { view } = useLimitViews()
   const defaultHome = useStore((s) => s.providers.find((p) => p.id === account.providerId)?.defaultHome)
   const list = continueCandidates(account, accounts, usage, recs)
   const ref = useRef<HTMLDivElement>(null)
@@ -103,7 +108,7 @@ function ContinueMenu({ index, account, onDone }: { index: number; account: Acco
             >
               <AccountDot account={a} />
               <span className="truncate text-sm">{a.label}</span>
-              <span className="ml-auto shrink-0 text-xs tabular-nums text-muted">{leftText(a, usage)}</span>
+              <span className="ml-auto shrink-0 text-xs tabular-nums text-muted">{leftText(a, usage, view)}</span>
             </button>
             {!shared && usable && (
               <button
@@ -130,6 +135,7 @@ function LimitBanner({ index, account, auto, waiting }: { index: number; account
   const usage = useStore((s) => s.usage)
   const recs = useStore((s) => s.recs)
   const continueOn = useGrid((s) => s.continueOn)
+  const { view } = useLimitViews()
   const b = bindingWindow(usage[account.id])
   const next = continueCandidates(account, accounts, usage, recs).find((a) => isUsable(a, usage))
   return (
@@ -140,7 +146,7 @@ function LimitBanner({ index, account, auto, waiting }: { index: number; account
         {auto ? (
           <span className="text-muted">{waiting ? ' Autopilot is waiting for an account to have room…' : ' Autopilot is moving this chat to another account…'}</span>
         ) : next ? (
-          ` Continue on ${next.label} (${leftText(next, usage)}).`
+          ` Continue on ${next.label} (${leftText(next, usage, view)}).`
         ) : (
           ' No other account has quota left right now.'
         )}
@@ -276,6 +282,7 @@ function Picker({ index, pane }: { index: number; pane: PaneConfig }) {
   const providers = useStore((s) => s.providers)
   const defaultCwd = useStore((s) => s.settings?.defaultCwd)
   const start = useGrid((s) => s.start)
+  const { view } = useLimitViews()
   const error = useGrid((s) => s.errors[pane.uid])
   const starting = useGrid((s) => !!s.starting[pane.uid])
   const groups = pickerGroups(accounts, recs)
@@ -324,7 +331,7 @@ function Picker({ index, pane }: { index: number; pane: PaneConfig }) {
               </p>
               {g.accounts.map((a) => {
                 const on = a.id === accountId
-                const b = bindingWindow(usage[a.id])
+                const w = viewWindow(usage[a.id], view)
                 return (
                   <button
                     type="button"
@@ -337,12 +344,12 @@ function Picker({ index, pane }: { index: number; pane: PaneConfig }) {
                   >
                     <AccountDot account={a} />
                     <span className="min-w-0 flex-1 truncate text-sm">{a.label}</span>
-                    {b && !isSignedOut(a) && (
+                    {w && !isSignedOut(a) && (
                       <span className="w-16 shrink-0">
-                        <Meter left={leftOf(b)} cells={8} size="xs" label={`${a.label} quota left`} />
+                        <Meter left={leftOf(w)} cells={8} size="xs" label={`${a.label} ${w.label} left`} />
                       </span>
                     )}
-                    <span className="w-20 shrink-0 text-right text-xs tabular-nums text-muted">{leftText(a, usage)}</span>
+                    <span className="w-28 shrink-0 text-right text-xs tabular-nums text-muted">{leftText(a, usage, view)}</span>
                   </button>
                 )
               })}

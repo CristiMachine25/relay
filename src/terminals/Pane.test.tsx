@@ -157,3 +157,40 @@ describe('the limit a pane header shows', () => {
     expect(header()).toContain('aria-label="Showing the 5-hour limit. Click to show the weekly limit"')
   })
 })
+
+describe('the figures beside other accounts', () => {
+  const other = (...windows: UsageWindow[]) =>
+    Object.assign(useStore.getInitialState(), {
+      usage: { w: { ...snap('w', 100), windows: [win('five_hour', '5-hour session', 100)] }, h: { ...snap('h', 0), windows } }
+    })
+  const home = [win('five_hour', '5-hour session', 10), win('seven_day', 'Weekly', 70)]
+  const banner = (view: 'five_hour' | 'seven_day') => {
+    Object.assign(useLimitView.getInitialState(), { view })
+    Object.assign(useAutopilot.getInitialState(), { phase: 'idle', run: null })
+    return renderToStaticMarkup(<Pane index={0} pane={pane} />)
+  }
+  const picker = (view: 'five_hour' | 'seven_day') => {
+    Object.assign(useLimitView.getInitialState(), { view })
+    return renderToStaticMarkup(<Pane index={0} pane={{ uid: 'p1', target: 'cli' }} />)
+  }
+
+  it('name the limit in the limit banner, which still names the limit that was hit', () => {
+    other(...home)
+    expect(banner('five_hour')).toContain('Work hit its 5-hour session limit. Continue on Home (5h 90% left).')
+    expect(banner('seven_day')).toContain('Continue on Home (Week 30% left).')
+  })
+
+  it('name the limit in the account picker', () => {
+    other(...home)
+    expect(picker('five_hour')).toContain('5h 90% left')
+    expect(picker('seven_day')).toContain('Week 30% left')
+  })
+
+  it('say when an account has no such limit, or is out through the other one', () => {
+    other(win('seven_day', 'Weekly', 10))
+    expect(picker('five_hour')).toContain('No 5-hour limit')
+    other(win('five_hour', '5-hour session', 10), win('seven_day', 'Weekly', 100))
+    expect(picker('five_hour')).toContain('Week limit reached')
+    expect(picker('five_hour')).not.toContain('5h 90% left')
+  })
+})
