@@ -1,18 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
-import { ArrowRightLeft, FolderOpen, History, Loader2, LogIn, Maximize2, Minimize2, Play, RotateCcw, RotateCw, X } from 'lucide-react'
+import { ArrowRightLeft, FolderOpen, History, Loader2, LogIn, Maximize2, Minimize2, Play, RotateCcw, RotateCw, TriangleAlert, X } from 'lucide-react'
 import type { Account } from '@shared/types'
 import { api } from '@/api'
 import { useStore } from '@/store'
 import { atLimit, continueCandidates, historyShared, historyToTurnOn, isBlocked, isSignedOut, isUsable, statusLabel, pickerGroups, type PaneConfig, type PaneTarget } from '@/lib/grid'
 import { bindingWindow, leftOf } from '@/lib/quota'
 import { formatCountdown, formatPct, windowName } from '@/lib/format'
+import { VIEW_NAME, type LimitView, hiddenLimit, limitName, shortLabel, viewWindow, windowsTip } from '@/lib/limitView'
 import { PROVIDER_META } from '@/lib/providers'
 import { Meter } from '@/components/Meter'
 import { AccountDot, ProviderMark, onRadioArrows } from '@/components/ui'
 import { useAutopilot } from '@/autopilot/store'
 import { acquireWebgl, fitTerm, getTerm } from './registry'
 import { useGrid } from './store'
+import { useLimitViews } from './limitView'
 
 /** Adopts the registry's xterm host and keeps it fitted to the pane. */
 function TermView({ id }: { id: string }) {
@@ -152,18 +154,49 @@ function LimitBanner({ index, account, auto, waiting }: { index: number; account
   )
 }
 
-function Header({ index, pane, account, auto }: { index: number; pane: PaneConfig; account: Account; auto: boolean }) {
-  const usage = useStore((s) => s.usage)
+/** The limit the panes are set to show, always named, with a mark when the account is out through another limit. */
+function LimitMeter({ account, view }: { account: Account; view: LimitView }) {
+  const snap = useStore((s) => s.usage[account.id])
   const now = useStore((s) => s.now)
+  const w = viewWindow(snap, view)
+  if (!w)
+    return (
+      <span className="pane-meter ml-1 shrink-0 text-[11px] text-faint" data-tip={windowsTip(snap, now)}>
+        {snap?.windows.length ? `No ${VIEW_NAME[view]}` : 'No live limits'}
+      </span>
+    )
+  const left = leftOf(w)
+  const countdown = w.resetsAt ? formatCountdown(w.resetsAt, now) : null
+  const out = hiddenLimit(snap, w)
+  return (
+    <>
+      <span className="pane-meter ml-1 flex shrink-0 items-center gap-1.5" data-tip={windowsTip(snap, now)}>
+        <span className="text-[11px] font-semibold text-muted">{shortLabel(w)}</span>
+        <span className="pane-cells w-14">
+          <Meter left={left} cells={10} size="xs" label={`${account.label} ${w.label} left`} />
+        </span>
+        <span className="shrink-0 text-[11px] tabular-nums text-muted">
+          {formatPct(left)}
+          {countdown && <span className="pane-reset"> · resets {countdown}</span>}
+        </span>
+      </span>
+      {out && (
+        <span className="pane-warn flex shrink-0 items-center gap-1 text-[11px] font-semibold text-empty" data-tip={`${windowsTip(snap, now)}`}>
+          <TriangleAlert size={12} aria-hidden />
+          <span className="pane-warn-text">{`${limitName(out)[0]!.toUpperCase()}${limitName(out).slice(1)} reached`}</span>
+        </span>
+      )}
+    </>
+  )
+}
+
+function Header({ index, pane, account, auto }: { index: number; pane: PaneConfig; account: Account; auto: boolean }) {
   const info = useGrid((s) => (pane.terminalId ? s.infos[pane.terminalId] : undefined))
   const maximized = useGrid((s) => s.ws.maximized === index)
   const starting = useGrid((s) => !!s.starting[pane.uid])
   const { restart, close, toggleMax } = useGrid.getState()
   const [menu, setMenu] = useState(false)
-  const b = bindingWindow(usage[account.id])
-  const left = b ? leftOf(b) : undefined
-  const countdown = b?.resetsAt ? formatCountdown(b.resetsAt, now) : null
-
+  const { view } = useLimitViews()
   const status = starting
     ? 'Starting…'
     : !info
@@ -189,12 +222,7 @@ function Header({ index, pane, account, auto }: { index: number; pane: PaneConfi
           Autopilot
         </span>
       )}
-      {left !== undefined && b && (
-        <span className="pane-meter ml-1 flex w-28 shrink-0 items-center gap-1.5" data-tip={`${b.label}: ${formatPct(left)} left`}>
-          <Meter left={left} cells={10} size="xs" label={`${account.label} ${b.label} left`} />
-          <span className="shrink-0 text-[11px] tabular-nums text-muted">{countdown ?? formatPct(left)}</span>
-        </span>
-      )}
+      <LimitMeter account={account} view={view} />
       <span className={clsx('pane-status ml-auto shrink-0 truncate pl-2 text-xs', info?.exited ? 'text-muted' : 'text-faint')}>{status}</span>
       <div className="ml-auto flex shrink-0 items-center">
         <button className="pane-restart btn btn-ghost btn-sm px-1.5" data-tip="Restart this CLI in a new session" aria-label="Restart" onClick={() => void restart(index, false)}>

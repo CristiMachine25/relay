@@ -290,13 +290,19 @@ summary {
 .pane-body {
   container-type: size;
 }
+@container (max-width: 560px) {
+  .pane-reset {
+    display: none;
+  }
+}
 @container (max-width: 520px) {
   .pane-provider {
     display: none;
   }
 }
 @container (max-width: 420px) {
-  .pane-meter,
+  .pane-cells,
+  .pane-warn-text,
   .pane-status {
     display: none;
   }
