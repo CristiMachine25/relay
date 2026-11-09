@@ -308,7 +308,7 @@ summary {
   }
 }
 /* Keep Maximize and Close inside a narrow pane; Restart and Resume come back when it is maximized. */
-@container (max-width: 280px) {
+@container (max-width: 340px) {
   .pane-restart {
     display: none;
   }
