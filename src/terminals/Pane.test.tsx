@@ -140,4 +140,20 @@ describe('the limit a pane header shows', () => {
     withWindows(...both)
     expect(header()).not.toContain('limit reached')
   })
+
+  it('is a button that offers the next limit, Fable included when an account has one', () => {
+    withWindows(...both)
+    expect(header()).toContain('aria-label="Showing the 5-hour limit. Click to show the weekly limit"')
+    expect(header('seven_day')).toContain('aria-label="Showing the weekly limit. Click to show the 5-hour limit"')
+    withWindows(...both, win('seven_day_fable', 'Weekly Fable', 5, { shareOfWeekly: 50 }))
+    expect(header('seven_day')).toContain('aria-label="Showing the weekly limit. Click to show the weekly Fable limit"')
+    const html = header('seven_day_fable')
+    expect(html).toContain('>Fable</span>')
+    expect(html).toContain('Weekly Fable (50% of the weekly limit): 95% left')
+  })
+
+  it('also cycles from the no-limit wording', () => {
+    withWindows(win('seven_day', 'Weekly', 10))
+    expect(header()).toContain('aria-label="Showing the 5-hour limit. Click to show the weekly limit"')
+  })
 })

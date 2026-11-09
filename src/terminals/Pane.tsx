@@ -7,14 +7,14 @@ import { useStore } from '@/store'
 import { atLimit, continueCandidates, historyShared, historyToTurnOn, isBlocked, isSignedOut, isUsable, statusLabel, pickerGroups, type PaneConfig, type PaneTarget } from '@/lib/grid'
 import { bindingWindow, leftOf } from '@/lib/quota'
 import { formatCountdown, formatPct, windowName } from '@/lib/format'
-import { VIEW_NAME, type LimitView, hiddenLimit, limitName, shortLabel, viewWindow, windowsTip } from '@/lib/limitView'
+import { VIEW_NAME, type LimitView, hiddenLimit, nextView, limitName, shortLabel, viewWindow, windowsTip } from '@/lib/limitView'
 import { PROVIDER_META } from '@/lib/providers'
 import { Meter } from '@/components/Meter'
 import { AccountDot, ProviderMark, onRadioArrows } from '@/components/ui'
 import { useAutopilot } from '@/autopilot/store'
 import { acquireWebgl, fitTerm, getTerm } from './registry'
 import { useGrid } from './store'
-import { useLimitViews } from './limitView'
+import { useLimitView, useLimitViews } from './limitView'
 
 /** Adopts the registry's xterm host and keeps it fitted to the pane. */
 function TermView({ id }: { id: string }) {
@@ -155,22 +155,32 @@ function LimitBanner({ index, account, auto, waiting }: { index: number; account
 }
 
 /** The limit the panes are set to show, always named, with a mark when the account is out through another limit. */
-function LimitMeter({ account, view }: { account: Account; view: LimitView }) {
+function LimitMeter({ account, view, views }: { account: Account; view: LimitView; views: LimitView[] }) {
   const snap = useStore((s) => s.usage[account.id])
   const now = useStore((s) => s.now)
+  const cycle = useLimitView((s) => s.cycle)
   const w = viewWindow(snap, view)
+  const next = nextView(view, views)
+  // One click moves every pane to the next limit, right where the question comes up.
+  const press = {
+    type: 'button' as const,
+    'aria-label': `Showing the ${VIEW_NAME[view]}. Click to show the ${VIEW_NAME[next]}`,
+    'data-tip': `${windowsTip(snap, now)}\n\nClick to show the ${VIEW_NAME[next]} on every pane`,
+    onClick: () => cycle(views),
+    className: 'pane-meter -mx-1 flex shrink-0 items-center gap-1.5 rounded px-1 py-0.5 hover:bg-raised'
+  }
   if (!w)
     return (
-      <span className="pane-meter ml-1 shrink-0 text-[11px] text-faint" data-tip={windowsTip(snap, now)}>
+      <button {...press} className={clsx(press.className, 'text-[11px] text-faint')}>
         {snap?.windows.length ? `No ${VIEW_NAME[view]}` : 'No live limits'}
-      </span>
+      </button>
     )
   const left = leftOf(w)
   const countdown = w.resetsAt ? formatCountdown(w.resetsAt, now) : null
   const out = hiddenLimit(snap, w)
   return (
     <>
-      <span className="pane-meter ml-1 flex shrink-0 items-center gap-1.5" data-tip={windowsTip(snap, now)}>
+      <button {...press}>
         <span className="text-[11px] font-semibold text-muted">{shortLabel(w)}</span>
         <span className="pane-cells w-14">
           <Meter left={left} cells={10} size="xs" label={`${account.label} ${w.label} left`} />
@@ -179,9 +189,9 @@ function LimitMeter({ account, view }: { account: Account; view: LimitView }) {
           {formatPct(left)}
           {countdown && <span className="pane-reset"> · resets {countdown}</span>}
         </span>
-      </span>
+      </button>
       {out && (
-        <span className="pane-warn flex shrink-0 items-center gap-1 text-[11px] font-semibold text-empty" data-tip={`${windowsTip(snap, now)}`}>
+        <span className="pane-warn flex shrink-0 items-center gap-1 text-[11px] font-semibold text-empty" data-tip={windowsTip(snap, now)}>
           <TriangleAlert size={12} aria-hidden />
           <span className="pane-warn-text">{`${limitName(out)[0]!.toUpperCase()}${limitName(out).slice(1)} reached`}</span>
         </span>
@@ -196,7 +206,7 @@ function Header({ index, pane, account, auto }: { index: number; pane: PaneConfi
   const starting = useGrid((s) => !!s.starting[pane.uid])
   const { restart, close, toggleMax } = useGrid.getState()
   const [menu, setMenu] = useState(false)
-  const { view } = useLimitViews()
+  const { view, views } = useLimitViews()
   const status = starting
     ? 'Starting…'
     : !info
@@ -222,7 +232,7 @@ function Header({ index, pane, account, auto }: { index: number; pane: PaneConfi
           Autopilot
         </span>
       )}
-      <LimitMeter account={account} view={view} />
+      <LimitMeter account={account} view={view} views={views} />
       <span className={clsx('pane-status ml-auto shrink-0 truncate pl-2 text-xs', info?.exited ? 'text-muted' : 'text-faint')}>{status}</span>
       <div className="ml-auto flex shrink-0 items-center">
         <button className="pane-restart btn btn-ghost btn-sm px-1.5" data-tip="Restart this CLI in a new session" aria-label="Restart" onClick={() => void restart(index, false)}>
