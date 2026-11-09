@@ -158,6 +158,9 @@ pub(crate) async fn import_accounts(app: &AppHandle, state: &Arc<AppState>, foun
             launch_count: 0,
             monthly_cost: None,
             pinned: None,
+            subscription: None,
+            renews_on: None,
+            auto_renew: None,
         };
         accounts.push(account.clone());
         created.push(account);
@@ -232,6 +235,9 @@ pub(crate) async fn create_account(app: &AppHandle, state: &Arc<AppState>, input
             launch_count: 0,
             monthly_cost: input.monthly_cost.filter(|c| c.is_finite() && *c >= 0.0),
             pinned: None,
+            subscription: None,
+            renews_on: None,
+            auto_renew: None,
         };
         accounts.push(account.clone());
         account
@@ -243,19 +249,15 @@ pub(crate) async fn create_account(app: &AppHandle, state: &Arc<AppState>, input
     Ok(account)
 }
 
-pub(crate) async fn update_account(app: &AppHandle, state: &Arc<AppState>, id: &str, mut patch: serde_json::Value) -> anyhow::Result<Account> {
-    if let Some(obj) = patch.as_object_mut() {
-        for k in ["id", "providerId", "createdAt", "isDefaultHome", "launchCount", "lastLaunchedAt"] {
-            obj.remove(k);
-        }
-    } else {
+pub(crate) async fn update_account(app: &AppHandle, state: &Arc<AppState>, id: &str, patch: serde_json::Value) -> anyhow::Result<Account> {
+    if !patch.is_object() {
         return Err(anyhow!("Patch must be an object"));
     }
     let (updated, sharing_changed) = {
         let mut accounts = state.accounts.write().await;
         let idx = accounts.iter().position(|a| a.id == id).ok_or_else(|| anyhow!("Account not found"))?;
         let old = accounts[idx].clone();
-        let mut new = merge_account(&old, &patch)?;
+        let mut new = apply_patch(&old, patch)?;
 
         new.label = new.label.trim().to_string();
         if new.label.is_empty() {
@@ -286,6 +288,25 @@ pub(crate) async fn update_account(app: &AppHandle, state: &Arc<AppState>, id: &
     emit_accounts(app, state).await;
     crate::refresh_tray(app); // labels appear in the tray menu
     Ok(updated)
+}
+
+/// The account with a patch from the UI applied. It never writes the account's identity, its
+/// counters, or the plan details usage checks read from the provider.
+fn apply_patch(old: &Account, mut patch: serde_json::Value) -> anyhow::Result<Account> {
+    let obj = patch.as_object_mut().ok_or_else(|| anyhow!("Patch must be an object"))?;
+    for k in ["id", "providerId", "createdAt", "isDefaultHome", "launchCount", "lastLaunchedAt", "subscription"] {
+        obj.remove(k);
+    }
+    let mut new = merge_account(old, &patch)?;
+    new.renews_on = renewal_day(new.renews_on)?;
+    Ok(new)
+}
+
+/// A renewal day typed by hand: a real calendar day as YYYY-MM-DD. Empty clears it.
+fn renewal_day(day: Option<String>) -> anyhow::Result<Option<String>> {
+    let Some(day) = util::non_empty(day) else { return Ok(None) };
+    let real = day.len() == 10 && chrono::NaiveDate::parse_from_str(&day, "%Y-%m-%d").is_ok();
+    real.then_some(Some(day)).ok_or_else(|| anyhow!("Enter the renewal day as year-month-day, like 2026-12-16"))
 }
 
 /// The account with `patch` merged over it. A `null` clears an optional field; a missing key keeps it.
@@ -371,5 +392,34 @@ mod tests {
         let new = merge_account(&new, &serde_json::json!({ "notes": null })).unwrap();
         assert_eq!(new.notes, None);
         assert!(merge_account(&old, &serde_json::json!({ "label": null })).is_err());
+    }
+
+    #[test]
+    fn renewal_day_and_auto_renew_are_set_by_hand() {
+        let old = crate::recommend::tests::account("a", "Pro");
+        let new = apply_patch(&old, serde_json::json!({ "renewsOn": " 2026-12-16 ", "autoRenew": false })).unwrap();
+        assert_eq!((new.renews_on.as_deref(), new.auto_renew), (Some("2026-12-16"), Some(false)));
+        let cleared = apply_patch(&new, serde_json::json!({ "renewsOn": null, "autoRenew": null })).unwrap();
+        assert_eq!((cleared.renews_on, cleared.auto_renew), (None, None));
+        assert_eq!(apply_patch(&new, serde_json::json!({ "renewsOn": "" })).unwrap().renews_on, None);
+        assert_eq!(apply_patch(&new, serde_json::json!({ "label": "Work" })).unwrap().renews_on.as_deref(), Some("2026-12-16"));
+
+        for bad in ["2026-02-30", "2026-13-01", "2026-1-5", "16/12/2026", "2026-12-16T00:00:00Z", "soon"] {
+            let e = apply_patch(&old, serde_json::json!({ "renewsOn": bad })).unwrap_err();
+            assert!(e.to_string().starts_with("Enter the renewal day as"), "{bad}: {e}");
+        }
+        assert!(apply_patch(&old, serde_json::json!({ "autoRenew": "yes" })).is_err());
+        assert!(apply_patch(&old, serde_json::json!([])).is_err());
+    }
+
+    #[test]
+    fn a_patch_cannot_write_what_the_provider_reported() {
+        let mut old = crate::recommend::tests::account("a", "Pro");
+        old.subscription = Some(Subscription { status: Some("active".into()), started_at: None, ends_at: None, checked_at: "t".into() });
+        let patch = serde_json::json!({ "subscription": { "status": "canceled", "checkedAt": "x" }, "id": "b", "launchCount": 9 });
+        let new = apply_patch(&old, patch).unwrap();
+        assert_eq!(new.subscription, old.subscription);
+        assert_eq!((new.id.as_str(), new.launch_count), (old.id.as_str(), old.launch_count));
+        assert_eq!(apply_patch(&old, serde_json::json!({ "subscription": null })).unwrap().subscription, old.subscription);
     }
 }

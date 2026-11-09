@@ -7,9 +7,25 @@ import { api, errorText } from '@/api'
 import { useStore } from '@/store'
 import { useGrid } from '@/terminals/store'
 import { markEnd, tailText } from '@/terminals/registry'
-import { CONTINUE_PROMPT, exhaustedUntil, limitHit, nextAccount as pickNext, permissionArgs, pickAccount, restartPrompt, soonestReset, taskArg } from '@/lib/autopilot'
+import {
+  CONTINUE_PROMPT,
+  exhaustedUntil,
+  fableLimitHit,
+  limitHit,
+  limitingWindow,
+  modelArgs,
+  modelWindow,
+  nextAccount as pickNext,
+  nextBack,
+  permissionArgs,
+  pickAccount,
+  restartPrompt,
+  taskArg,
+  type RunModel
+} from '@/lib/autopilot'
 import { atLimit, historyToTurnOn, isBlocked, isSignedOut } from '@/lib/grid'
 import { bindingWindow, leftOf } from '@/lib/quota'
+import { formatCountdown } from '@/lib/format'
 
 export type AutopilotPhase = 'idle' | 'starting' | 'running' | 'handing-off' | 'waiting' | 'stopped'
 
@@ -27,6 +43,8 @@ export interface AutopilotRun {
   task: string
   cwd?: string
   skipPermissions: boolean
+  /** The model every start of the run asks for. Runs saved before this load as 'default'. */
+  model: RunModel
   providerId: 'claude'
   /** The account the run's terminal is on now. */
   accountId: string
@@ -55,6 +73,8 @@ export interface AutopilotStartInput {
   task: string
   cwd?: string
   skipPermissions: boolean
+  /** The account's default model when not given. */
+  model?: RunModel
 }
 
 interface AutopilotState {
@@ -103,6 +123,9 @@ const ACCOUNT_REMOVED = "The run's account was removed"
 const GONE_AFTER_RESTART = "Relay restarted and the run's terminal was gone"
 
 const active = (p: AutopilotPhase) => p !== 'idle' && p !== 'stopped'
+
+/** What an account ran out of: its usage in general, or the Fable allowance a Fable run needs. */
+type Drain = 'limit' | 'fable'
 
 /** What the engine tracks about the run's current terminal; reset for every run, never saved. */
 interface Watch {
@@ -194,7 +217,8 @@ export const useAutopilot = create<AutopilotState>((set, get) => ({
     if (active(get().phase)) return fail('Autopilot is already running', 'Stop the current run first.')
     const task = input.task.trim()
     if (!task) return fail('Give Autopilot a task first')
-    if (!best()) return fail('No Claude account has room right now', "Autopilot needs a signed-in Claude account that isn't at its limit.")
+    const model = input.model ?? 'default'
+    if (!best(model)) return fail(...NO_ROOM[model])
 
     w = freshWatch()
     set({ phase: 'starting', run: null, log: [] })
@@ -207,9 +231,9 @@ export const useAutopilot = create<AutopilotState>((set, get) => ({
         await useStore.getState().updateAccount(x.id, { sharing: { ...x.sharing, history: true } }, { quiet: true })
       await useGrid.getState().restore()
       if (!starting()) return false
-      const first = best()
+      const first = best(model)
       if (!first) {
-        finish('No Claude account has room right now', true)
+        finish(NO_ROOM[model][0], true)
         return false
       }
 
@@ -225,6 +249,7 @@ export const useAutopilot = create<AutopilotState>((set, get) => ({
         task,
         cwd,
         skipPermissions: input.skipPermissions,
+        model,
         providerId: 'claude',
         accountId: first.id,
         paneUid,
@@ -235,7 +260,7 @@ export const useAutopilot = create<AutopilotState>((set, get) => ({
         exhausted: {}
       }
       set({ run })
-      await useGrid.getState().start(0, { accountId: first.id, target: 'cli', cwd, extraArgs: [...permissionArgs(input.skipPermissions), taskArg(task)] })
+      await useGrid.getState().start(0, { accountId: first.id, target: 'cli', cwd, extraArgs: [...launchArgs(run), taskArg(task)] })
       if (!starting() || get().run?.id !== run.id) return false
       const tid = paneOf(paneUid)?.pane.terminalId
       if (!tid) {
@@ -244,7 +269,7 @@ export const useAutopilot = create<AutopilotState>((set, get) => ({
       }
       spawned(tid)
       set({ phase: 'running' })
-      addLog('start', `Started on ${first.label}${leftText(first.id)}.`)
+      addLog('start', `Started on ${first.label}${leftText(first.id, model)}.`)
       return true
     } catch (e) {
       if (starting()) finish(`Couldn't start: ${errorText(e)}`, true)
@@ -303,18 +328,33 @@ function finish(reason: string, error: boolean) {
 
 const claudeHome = () => useStore.getState().providers.find((p) => p.id === 'claude')?.defaultHome
 
-const best = () => {
+const best = (model: RunModel) => {
   const s = useStore.getState()
-  return pickAccount(s.accounts, s.usage, { providerId: 'claude' })
+  return pickAccount(s.accounts, s.usage, { providerId: 'claude', modelWindow: modelWindow(model) })
+}
+
+const NO_ROOM: Record<RunModel, [string, string]> = {
+  default: ['No Claude account has room right now', "Autopilot needs a signed-in Claude account that isn't at its limit."],
+  fable: ['No Claude account has Fable left right now', "Autopilot needs a signed-in Claude account that isn't at its limit and hasn't used up its Fable allowance."]
 }
 
 const label = (id: string) => useStore.getState().accounts.find((a) => a.id === id)?.label ?? 'The account'
 
-/** " (82% left)" for an account with usage numbers, '' without. */
-function leftText(id: string): string {
-  const b = bindingWindow(useStore.getState().usage[id])
-  return b ? ` (${Math.round(leftOf(b))}% left)` : ''
+/** "82% left" for an account with usage numbers, '' without; "Fable 71% left" when Fable is what limits a Fable run. */
+function leftWords(id: string, model: RunModel): string {
+  const mw = modelWindow(model)
+  const b = limitingWindow(useStore.getState().usage[id], mw)
+  return b ? `${b.id === mw ? 'Fable ' : ''}${Math.round(leftOf(b))}% left` : ''
 }
+
+/** " (82% left)", as `leftWords` says it, or ''. */
+function leftText(id: string, model: RunModel): string {
+  const words = leftWords(id, model)
+  return words ? ` (${words})` : ''
+}
+
+/** The run's flags, before the task or prompt argument. */
+const launchArgs = (run: AutopilotRun) => [...permissionArgs(run.skipPermissions), ...modelArgs(run.model)]
 
 /** The pane the run owns, wherever it is, or null when no session has it. */
 function paneOf(uid: string) {
@@ -430,7 +470,9 @@ function onAccounts() {
 function onUsage() {
   const { phase, run } = get()
   if (!run) return
-  if (phase === 'running' && atLimit(useStore.getState().usage[run.accountId])) void handoff('limit')
+  const snap = useStore.getState().usage[run.accountId]
+  if (phase === 'running' && atLimit(snap)) void handoff('limit')
+  else if (phase === 'running' && atLimit(snap, modelWindow(run.model))) void handoff('fable')
   else if (phase === 'waiting') void wake(false)
 }
 
@@ -473,6 +515,12 @@ function onExit(tid: string) {
 /** Usage that came from a refresh just now and that the provider vouches for. */
 const fresh = (snap: UsageSnapshot, since: number) => !snap.stale && !snap.error && Date.parse(snap.fetchedAt) >= since - FRESH_USAGE
 
+/** Which limit the screen says the run's account ran out of: its usage, or (on a Fable run) its Fable allowance. */
+function drainOnScreen(text: string, model: RunModel): Drain | undefined {
+  if (limitHit(text)) return 'limit'
+  if (model === 'fable' && fableLimitHit(text)) return 'fable'
+}
+
 /** Looks for the CLI's limit message on screen; the account's usage has the last word when it has numbers. */
 async function checkText() {
   const { phase, run } = get()
@@ -483,7 +531,8 @@ async function checkText() {
   const now = Date.now()
   if (!mine.quietOver || now < mine.mutedUntil) return
   // A mark whose row scrolled out of the buffer reads -1: everything left came after it.
-  if (!limitHit(tailText(id, 40, mine.mark ? mine.mark.line + 1 : 0))) return
+  const hit = drainOnScreen(tailText(id, 40, mine.mark ? mine.mark.line + 1 : 0), run.model)
+  if (!hit) return
   mine.checking = true
   try {
     await useStore.getState().refresh(run.accountId)
@@ -494,26 +543,30 @@ async function checkText() {
   }
   if (w !== mine || get().phase !== 'running' || get().run?.id !== run.id || mine.terminalId !== id) return
   const snap = useStore.getState().usage[run.accountId]
-  const b = bindingWindow(snap)
-  if (snap && b && fresh(snap, now) && leftOf(b) >= ROOM_LEFT) {
+  const mw = modelWindow(run.model)
+  const b = limitingWindow(snap, mw)
+  // Only a Fable window can say the Fable text is wrong.
+  const checkable = hit === 'limit' || !!snap?.windows.some((x) => x.id === mw)
+  if (snap && b && checkable && fresh(snap, now) && leftOf(b) >= ROOM_LEFT) {
     mine.mutedUntil = Date.now() + FALSE_ALARM_MUTE
     if (mine.falseAlarmFor !== id) {
       mine.falseAlarmFor = id
-      addLog('false-alarm', `The terminal mentioned a usage limit, but ${label(run.accountId)} still has ${Math.round(leftOf(b))}% left. Carrying on.`)
+      const what = hit === 'fable' ? 'the Fable limit' : 'a usage limit'
+      addLog('false-alarm', `The terminal mentioned ${what}, but ${label(run.accountId)} still has ${leftWords(run.accountId, run.model)}. Carrying on.`)
     }
     return
   }
-  void handoff('limit')
+  void handoff(hit)
 }
 
 /** The account to continue on: most left, not drained during this run, and able to open the chat's history. */
 function nextAccount(run: AutopilotRun): Account | undefined {
   const s = useStore.getState()
-  return pickNext(run, s.accounts, s.usage, { now: Date.now(), defaultHome: claudeHome(), platform: api.platform })
+  return pickNext(run, s.accounts, s.usage, { now: Date.now(), defaultHome: claudeHome(), platform: api.platform, modelWindow: modelWindow(run.model) })
 }
 
-/** The run's account ran out (`limit`) or its CLI stopped (`exit`): move the chat to the best account. */
-async function handoff(why: 'limit' | 'exit') {
+/** The run's account ran out (`limit`), ran out of Fable on a Fable run (`fable`) or its CLI stopped (`exit`): move the chat to the best account. */
+async function handoff(why: Drain | 'exit') {
   const { phase, run } = get()
   const mine = w
   if (phase !== 'running' || !run || mine.busy) return
@@ -523,9 +576,14 @@ async function handoff(why: 'limit' | 'exit') {
     const from = run.accountId
     const snap = useStore.getState().usage[from]
     const b = bindingWindow(snap)
-    const exhausted = why === 'limit' ? { ...run.exhausted, [from]: exhaustedUntil(snap, Date.now()) } : run.exhausted
+    const exhausted = why === 'exit' ? run.exhausted : { ...run.exhausted, [from]: exhaustedUntil(snap, Date.now(), why === 'fable' ? modelWindow(run.model) : undefined) }
     // Window labels read "5-hour session" or "Weekly limit".
-    const reason = why === 'limit' ? `${label(from)} ran out${b ? ` (${b.label.replace(/\s*limit$/i, '')} limit)` : ''}.` : 'The terminal stopped.'
+    const reason =
+      why === 'fable'
+        ? `${label(from)} ran out of Fable.`
+        : why === 'limit'
+          ? `${label(from)} ran out${b ? ` (${b.label.replace(/\s*limit$/i, '')} limit)` : ''}.`
+          : 'The terminal stopped.'
     set({ phase: 'handing-off', run: { ...run, exhausted } })
     // The CLI is still running here (unless it exited): the last moment it can say which chat it is in.
     await learnConversation(true)
@@ -562,15 +620,25 @@ async function wake(refresh: boolean) {
 function wait() {
   const run = get().run!
   const s = useStore.getState()
-  const until = soonestReset(
+  const mw = modelWindow(run.model)
+  const back = nextBack(
     s.accounts.filter((a) => a.providerId === 'claude'),
     s.usage,
     run.exhausted,
-    Date.now()
+    Date.now(),
+    mw
   )
+  const until = back?.at
   const changed = get().phase !== 'waiting' || run.waitingUntil !== until
   set({ phase: 'waiting', run: { ...run, waitingUntil: until } })
-  if (changed) addLog('waiting', until ? `No account has room. Waiting until ${clock(until)}.` : 'No account has room. Checking again every 10 minutes.')
+  if (changed) {
+    const text = !back
+      ? 'No account has room. Checking again every 10 minutes.'
+      : back.window && back.window.id === mw
+        ? `Every account is out of Fable for now. Waiting for ${back.account.label}'s weekly Fable limit to reset in ${formatCountdown(new Date(back.at).toISOString())}.`
+        : `No account has room. Waiting until ${clock(back.at)}.`
+    addLog('waiting', text)
+  }
   scheduleWake(until)
 }
 
@@ -601,7 +669,7 @@ async function relaunch(next: Account, describe: (left: string) => string, kind:
     const at = paneOf(run.paneUid)
     if (!at?.pane.accountId) return finish(PANE_CLOSED, true)
     // By the pane's id, in whichever session holds it: the user may be working in another one.
-    const perms = permissionArgs(run.skipPermissions)
+    const perms = launchArgs(run)
     const g = useGrid.getState()
     if (conversationId) await g.continuePane(run.paneUid, next.id, { resumeSession: conversationId, extraArgs: [...perms, CONTINUE_PROMPT] })
     else await g.startPane(run.paneUid, { accountId: next.id, target: 'cli', cwd: at.pane.cwd ?? run.cwd, extraArgs: [...perms, taskArg(restartPrompt(run.task))] })
@@ -623,7 +691,7 @@ async function relaunch(next: Account, describe: (left: string) => string, kind:
   }
   if (thrown) addLog('error', thrown)
   spawned(tid)
-  const text = describe(leftText(next.id)) + (conversationId ? '' : " It couldn't tell which chat to reopen, so it started the task over in a new chat.")
+  const text = describe(leftText(next.id, run.model)) + (conversationId ? '' : " It couldn't tell which chat to reopen, so it started the task over in a new chat.")
   const now = get().run!
   const legs = [...(now.legs ?? []), { accountId: next.id, at: Date.now() }].slice(-LEGS_MAX)
   set({ phase: 'running', run: { ...now, accountId: next.id, handoffs: run.handoffs + 1, legs, waitingUntil: undefined } })
@@ -639,7 +707,7 @@ function load(): Pick<AutopilotState, 'phase' | 'run' | 'log'> | null {
     const saved = d.run && typeof d.run.paneUid === 'string' && typeof d.run.accountId === 'string' ? d.run : null
     // A damaged route only loses the route, not the run.
     const legs = Array.isArray(saved?.legs) ? saved.legs.filter((l) => typeof l?.accountId === 'string' && typeof l.at === 'number') : undefined
-    const run = saved && { ...saved, legs }
+    const run = saved && { ...saved, legs, model: saved.model === 'fable' ? ('fable' as const) : ('default' as const) }
     return { phase: d.phase as AutopilotPhase, run, log: Array.isArray(d.log) ? d.log.slice(0, LOG_MAX) : [] }
   } catch {
     return null

@@ -1,5 +1,6 @@
 // Fake embedded terminals for the browser preview: prints a banner, echoes what you type, and understands
-// a few demo commands (/limit simulates this account hitting its limit, /exit ends the session). A prompt
+// a few demo commands (/limit simulates this account hitting its limit, /fable-limit running out of Fable,
+// /exit ends the session). A prompt
 // passed as the last CLI argument shows as if it had been typed.
 import type { Account, AppEvents, RelayApi, ProviderInfo, TerminalInfo, UsageSnapshot } from '@shared/types'
 
@@ -82,7 +83,7 @@ export function createMockTerminals(deps: Deps): RelayApi['terminals'] {
     if (login) s += `Opening the browser to sign in as ${bold(a.label)}…\r\n${dim('(browser preview: nothing is really opened)')}\r\n\r\n`
     else if (resume) s += `${dim(resumed ? `Resuming conversation ${resumed}…` : 'Resuming the most recent conversation in this folder…')}\r\n\r\n`
     s += dim('Browser preview: this terminal only echoes what you type.') + '\r\n'
-    s += dim('Try ') + '/limit' + dim(' to simulate a usage limit, or ') + '/exit' + dim('.') + '\r\n\r\n'
+    s += dim('Try ') + '/limit' + dim(' to simulate a usage limit, ') + '/fable-limit' + dim(' for the Fable one, or ') + '/exit' + dim('.') + '\r\n\r\n'
     if (task) s += `${color(BRAND[a.providerId], '>')} ${dim(task)}\r\n${dim('⎿ Working on it…')}\r\n\r\n`
     out(t, s)
     prompt(t)
@@ -97,7 +98,7 @@ export function createMockTerminals(deps: Deps): RelayApi['terminals'] {
     }
     if (cmd === '/limit') {
       const snap = deps.usage()[t.account.id]
-      const w = snap?.windows.find((x) => !/opus|sonnet|haiku/i.test(x.id)) ?? snap?.windows[0]
+      const w = snap?.windows.find((x) => !/opus|sonnet|haiku|fable/i.test(x.id)) ?? snap?.windows[0]
       if (w) {
         w.usedPercent = 100
         if (!w.resetsAt) w.resetsAt = new Date(Date.now() + 2 * 3600e3).toISOString()
@@ -105,6 +106,17 @@ export function createMockTerminals(deps: Deps): RelayApi['terminals'] {
         deps.notify(t.account.id, `${t.account.label} reached its ${w.label.toLowerCase()} limit`, 'Switch to another account to keep going.')
       }
       out(t, `${color('#F06868', '⎿')} You've hit your limit · resets in 2h\r\n\r\n`)
+      prompt(t)
+      return
+    }
+    if (cmd === '/fable-limit') {
+      // Like the CLI: Fable's own allowance is gone, and it carries on with another model.
+      const w = deps.usage()[t.account.id]?.windows.find((x) => x.id === 'seven_day_fable')
+      if (w) {
+        w.usedPercent = 100
+        deps.emit('usage-updated', deps.usage())
+      }
+      out(t, `${color('#F06868', '⎿')} Fable limit reached · continuing on Sonnet 5\r\n\r\n`)
       prompt(t)
       return
     }

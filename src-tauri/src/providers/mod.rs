@@ -156,6 +156,12 @@ pub trait ProviderAdapter: Send + Sync {
     /// its kind) instead.
     async fn fetch_usage(&self, account: &Account, live: bool) -> UsageSnapshot;
 
+    /// The paid plan behind the account, from what `fetch_usage` last read or from local files (no
+    /// network of its own). None leaves the stored value as it is.
+    fn subscription(&self, _account: &Account) -> Option<Subscription> {
+        None
+    }
+
     /// Per-day token activity from local session logs (for charts). Empty vec if unsupported.
     async fn scan_activity(&self, account: &Account, since_days: u32) -> Vec<DailyActivity>;
 }

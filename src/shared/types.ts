@@ -75,6 +75,24 @@ export interface Account {
   /** Manual monthly price, for "value left" maths. */
   monthlyCost?: number | null
   pinned?: boolean | null
+  /** What the provider says about the paid plan behind this account. Filled in by usage checks, never by the UI. */
+  subscription?: Subscription | null
+  /** Set by hand: the day the paid period ends (YYYY-MM-DD), for when the estimate from the start date is wrong (a yearly plan). */
+  renewsOn?: string | null
+  /** Set by hand: whether the plan renews by itself. No provider tells a CLI sign-in this; null = not said. */
+  autoRenew?: boolean | null
+}
+
+/** The paid plan behind an account, as far as the provider tells a CLI sign-in. */
+export interface Subscription {
+  /** As the provider words it: "active", "canceled", "past_due"... */
+  status?: string | null
+  /** When the plan began (ISO). A monthly plan renews on this day of each month. */
+  startedAt?: string | null
+  /** The exact end of the paid period (ISO), from providers that report it. */
+  endsAt?: string | null
+  /** When this was last read from the provider (ISO). */
+  checkedAt: string
 }
 
 /** Fields to change on an account. JSON drops `undefined`, so a cleared field is sent as `null`. */
@@ -164,11 +182,13 @@ export interface DetectedAccount {
 
 /** One rate-limit window, e.g. Claude "5-hour session" or "Weekly". */
 export interface UsageWindow {
-  id: string // stable key: "five_hour", "seven_day", "seven_day_opus", "primary", "secondary", "premium", "gemini-2.5-pro"...
+  id: string // stable key: "five_hour", "seven_day", "seven_day_opus", "seven_day_fable", "primary", "secondary", "premium", "gemini-2.5-pro"...
   label: string // "5-hour session"
   usedPercent: number // 0..100
   resetsAt?: string | null // ISO
   windowMinutes?: number | null
+  /** For a window that caps one model: its allowance as a percent of the whole weekly one (50 = half). */
+  shareOfWeekly?: number | null
 }
 
 export interface UsageSnapshot {

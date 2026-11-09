@@ -301,6 +301,7 @@ export function createMockApi(platform: Platform): RelayApi {
       async refresh(accountId) {
         await wait(700)
         nudgeUsage()
+        for (const [id, snap] of Object.entries(db.usage)) if (!accountId || id === accountId) snap.fetchedAt = new Date().toISOString()
         if (accountId && db.usage[accountId]?.stale) {
           // Simulate the provider coming back.
           db.usage[accountId].stale = false

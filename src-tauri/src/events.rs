@@ -113,6 +113,9 @@ mod tests {
             launch_count: 0,
             monthly_cost: None,
             pinned: None,
+            subscription: None,
+            renews_on: None,
+            auto_renew: None,
         };
         let accounts = vec![account];
         assert_eq!(serde_json::to_value(AccountsChanged(&accounts)).unwrap(), serde_json::to_value(&accounts).unwrap());

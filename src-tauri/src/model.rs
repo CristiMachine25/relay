@@ -153,6 +153,29 @@ pub struct Account {
     pub launch_count: u32,
     pub monthly_cost: Option<f64>,
     pub pinned: Option<bool>,
+    /// What the provider says about the paid plan; filled in by usage checks, never by the UI.
+    #[serde(default)]
+    pub subscription: Option<Subscription>,
+    /// Set by hand: the day the paid period ends (YYYY-MM-DD).
+    #[serde(default)]
+    pub renews_on: Option<String>,
+    /// Set by hand: whether the plan renews by itself. No provider tells a CLI sign-in this.
+    #[serde(default)]
+    pub auto_renew: Option<bool>,
+}
+
+/// The paid plan behind an account, as far as the provider tells a CLI sign-in.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Subscription {
+    /// As the provider words it: "active", "canceled", "past_due"...
+    pub status: Option<String>,
+    /// When the plan began (ISO). A monthly plan renews on this day of each month.
+    pub started_at: Option<String>,
+    /// The exact end of the paid period (ISO), from providers that report it.
+    pub ends_at: Option<String>,
+    /// When this was last read from the provider (ISO).
+    pub checked_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -192,6 +215,9 @@ pub struct UsageWindow {
     pub used_percent: f64,
     pub resets_at: Option<String>,
     pub window_minutes: Option<u32>,
+    /// For a window that caps one model: its allowance as a percent of the whole weekly one (50 = half).
+    #[serde(default)]
+    pub share_of_weekly: Option<f64>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -771,6 +797,14 @@ mod contract_tests {
             launch_count: 3,
             monthly_cost: Some(200.0),
             pinned: Some(true),
+            subscription: Some(Subscription {
+                status: some("active"),
+                started_at: some("2025-12-16T00:00:00Z"),
+                ends_at: some("2026-01-16T00:00:00Z"),
+                checked_at: s("2026-01-01T00:00:00Z"),
+            }),
+            renews_on: some("2026-01-16"),
+            auto_renew: Some(true),
         };
         f.value("Account", "T.Account", &account);
 
@@ -805,6 +839,7 @@ mod contract_tests {
             used_percent: 42.5,
             resets_at: some("2026-01-01T05:00:00Z"),
             window_minutes: Some(300),
+            share_of_weekly: Some(50.0),
         };
         let snapshot = UsageSnapshot {
             account_id: s("acc-1"),

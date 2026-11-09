@@ -117,6 +117,15 @@ fn identity_from_auth(auth: Option<&CodexAuth>) -> Identity {
     Identity { logged_in: has_tokens || a.api_key.is_some(), email, plan }
 }
 
+/// The ChatGPT plan's paid period from the id_token claims (no network). No status: the token can
+/// be days old.
+fn subscription_from_auth(auth: &CodexAuth, checked_at: &str) -> Option<Subscription> {
+    let c = auth.claims.as_ref()?.get(AUTH_CLAIMS)?;
+    let date = |k: &str| str_field(c, k).map(normalize_iso);
+    let (started_at, ends_at) = (date("chatgpt_subscription_active_start"), date("chatgpt_subscription_active_until"));
+    (started_at.is_some() || ends_at.is_some()).then(|| Subscription { status: None, started_at, ends_at, checked_at: checked_at.into() })
+}
+
 // ---------------------------------------------------------------------------------------------
 // config.toml
 // ---------------------------------------------------------------------------------------------
@@ -171,6 +180,7 @@ fn make_window(id: &str, used: f64, minutes: Option<u32>, reset: Option<DateTime
         used_percent: if rolled { 0.0 } else { used.max(0.0) },
         resets_at: if rolled { None } else { reset.map(|r| r.to_rfc3339()) },
         window_minutes: minutes,
+        share_of_weekly: None,
     }
 }
 
@@ -814,6 +824,10 @@ impl ProviderAdapter for CodexAdapter {
         self.local_snapshot(account, &ident, Some(usage_error(api_error))).await
     }
 
+    fn subscription(&self, account: &Account) -> Option<Subscription> {
+        subscription_from_auth(&read_auth(Path::new(&account.home_dir))?, &util::now_iso())
+    }
+
     async fn scan_activity(&self, account: &Account, since_days: u32) -> Vec<DailyActivity> {
         let id = account.id.clone();
         let home = PathBuf::from(&account.home_dir);
@@ -886,6 +900,24 @@ mod tests {
         assert_eq!(id.plan.as_deref(), Some("API key"));
         assert!(!identity_from_auth(None).logged_in);
         assert!(jwt_claims("not-a-jwt").is_none());
+    }
+
+    #[test]
+    fn subscription_dates_from_the_id_token() {
+        let at = "2026-11-09T12:00:00+00:00";
+        assert_eq!(subscription_from_auth(&parse_auth(&auth_json()), at), None, "no dates in the token");
+        let id_token = fake_jwt(json!({"https://api.openai.com/auth": {"chatgpt_plan_type": "plus",
+            "chatgpt_subscription_active_start": "2026-10-20T08:00:00Z", "chatgpt_subscription_active_until": "2026-11-20T08:00:00Z"}}));
+        let auth = parse_auth(&json!({"tokens": {"id_token": id_token, "access_token": "at"}}));
+        assert_eq!(
+            subscription_from_auth(&auth, at),
+            Some(Subscription {
+                status: None,
+                started_at: Some("2026-10-20T08:00:00+00:00".into()),
+                ends_at: Some("2026-11-20T08:00:00+00:00".into()),
+                checked_at: at.into()
+            })
+        );
     }
 
     #[test]

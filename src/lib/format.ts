@@ -3,6 +3,7 @@ const HOUR = 60 * MIN
 const DAY = 24 * HOUR
 
 const monthDay = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' })
+const monthDayYear = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 const timeOfDay = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' })
 
 function parse(iso: string | null | undefined): number | null {
@@ -55,10 +56,10 @@ export function formatClock(iso: string): string {
   return timeOfDay.format(Date.parse(iso))
 }
 
-/** "Oct 12" from an ISO timestamp, a YYYY-MM-DD day, or epoch ms. */
-export function formatDay(value: string | number): string {
+/** "Oct 12" from an ISO timestamp, a YYYY-MM-DD day, or epoch ms; "Oct 12, 2027" with `year`. */
+export function formatDay(value: string | number, year = false): string {
   const t = typeof value === 'number' ? value : Date.parse(value.length === 10 ? value + 'T12:00:00' : value)
-  return monthDay.format(t)
+  return (year ? monthDayYear : monthDay).format(t)
 }
 
 /** 950 -> "950", 1234 -> "1.2k", 3_400_000 -> "3.4M". */
@@ -89,7 +90,7 @@ export function formatPct(n: number): string {
   return `${Math.round(n)}%`
 }
 
-const PROPER = new Set(['Opus', 'Sonnet', 'Haiku', 'Gemini', 'Pro', 'Flash', 'Claude', 'Codex', 'Copilot', 'GPT'])
+const PROPER = new Set(['Opus', 'Sonnet', 'Haiku', 'Fable', 'Mythos', 'Gemini', 'Pro', 'Flash', 'Claude', 'Codex', 'Copilot', 'GPT'])
 
 /** A window label for use mid-sentence: "Weekly Opus" -> "weekly Opus", "Gemini Pro daily" stays. */
 export function windowName(label: string): string {

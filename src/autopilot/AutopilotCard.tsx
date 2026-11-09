@@ -19,16 +19,16 @@ import {
   X,
   type LucideIcon
 } from 'lucide-react'
-import type { Account, UsageSnapshot } from '@shared/types'
+import type { Account, UsageSnapshot, UsageWindow } from '@shared/types'
 import { api, errorText } from '@/api'
 import { useStore } from '@/store'
-import { nextAccount, pickAccount } from '@/lib/autopilot'
-import { atLimit, historyToTurnOn, isBlocked, isSignedOut } from '@/lib/grid'
+import { FABLE, limitingWindow, modelWindow, nextAccount, nextBack, pickAccount, type RunModel } from '@/lib/autopilot'
+import { atLimit, historyToTurnOn, isBlocked, isSignedOut, isUsable } from '@/lib/grid'
 import { bindingWindow, leftOf } from '@/lib/quota'
 import { formatClock, formatCountdown, formatPct, plural, resetText, windowName } from '@/lib/format'
 import { modKey } from '@/lib/platform'
 import { Meter } from '@/components/Meter'
-import { AccountDot } from '@/components/ui'
+import { AccountDot, Segmented } from '@/components/ui'
 import { useAutopilot, type AutopilotLogKind, type AutopilotPhase, type AutopilotRun } from './store'
 
 const DRAFT_KEY = 'relay.autopilot.draft'
@@ -47,6 +47,26 @@ function saveDraft(text: string) {
     else localStorage.removeItem(DRAFT_KEY)
   } catch {
     // A blocked storage only loses the draft.
+  }
+}
+
+const MODEL_KEY = 'relay.autopilot.model'
+
+/** The model the user last chose for a run, or null when they never chose. */
+function readModel(): RunModel | null {
+  try {
+    const m = localStorage.getItem(MODEL_KEY)
+    return m === 'fable' || m === 'default' ? m : null
+  } catch {
+    return null
+  }
+}
+
+function saveModel(m: RunModel) {
+  try {
+    localStorage.setItem(MODEL_KEY, m)
+  } catch {
+    // A blocked storage only forgets the choice.
   }
 }
 
@@ -98,34 +118,39 @@ export function AutopilotCard() {
   )
 }
 
-/** The soonest reset among accounts at their limit, for saying when one is back. */
-function soonestBack(accounts: Account[], usage: Record<string, UsageSnapshot>): { a: Account; at: string } | undefined {
-  let soonest: { a: Account; at: string } | undefined
-  for (const a of accounts) {
-    const b = bindingWindow(usage[a.id])
-    if (atLimit(usage[a.id]) && b?.resetsAt && (!soonest || Date.parse(b.resetsAt) < Date.parse(soonest.at))) soonest = { a, at: b.resetsAt }
-  }
-  return soonest
+/**
+ * How much a run on `model` has left on an account, by the window that limits it: "62% left", or "Fable 62% left"
+ * when that is the Fable one.
+ */
+function runLeft(snap: UsageSnapshot | undefined, model: RunModel): { w: UsageWindow; left: number; text: string } | undefined {
+  const mw = modelWindow(model)
+  const w = limitingWindow(snap, mw)
+  if (!w) return undefined
+  const left = leftOf(w)
+  return { w, left, text: `${w.id === mw ? 'Fable ' : ''}${formatPct(left)} left` }
 }
 
 /** The accounts in the order a run would use them (the best first), and the ones it can't use now. */
-function handoffOrder(accounts: Account[], usage: Record<string, UsageSnapshot>): { order: Account[]; out: Account[] } {
+function handoffOrder(accounts: Account[], usage: Record<string, UsageSnapshot>, model: RunModel): { order: Account[]; out: Account[] } {
   const order: Account[] = []
-  for (let next = pickAccount(accounts, usage, { providerId: 'claude' }); next; ) {
-    order.push(next)
-    next = pickAccount(accounts, usage, { providerId: 'claude', exclude: order.map((a) => a.id) })
-  }
+  const pick = () => pickAccount(accounts, usage, { providerId: 'claude', exclude: order.map((a) => a.id), modelWindow: modelWindow(model) })
+  for (let next = pick(); next; next = pick()) order.push(next)
   return { order, out: accounts.filter((a) => !order.includes(a)) }
 }
 
 /** Why an account can't take the run now, in a few words. */
-function outReason(a: Account, snap: UsageSnapshot | undefined, now: number): string {
+function outReason(a: Account, snap: UsageSnapshot | undefined, now: number, model: RunModel): string {
   if (isSignedOut(a)) return 'Signed out'
   if (isBlocked(a)) return "Can't use Claude Code"
   const b = bindingWindow(snap)
   if (atLimit(snap)) return b?.resetsAt ? `Back in ${formatCountdown(b.resetsAt, now)}` : 'Limit reached'
+  const f = snap?.windows.find((w) => w.id === FABLE.window)
+  if (model === 'fable' && atLimit(snap, FABLE.window)) return f?.resetsAt ? `Out of Fable until ${dayTime(f.resetsAt)}` : 'Out of Fable'
   return 'Unavailable'
 }
+
+/** "Fri 14:00". */
+const dayTime = (iso: string) => new Date(iso).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })
 
 function Draft({ claude }: { claude: Account[] }) {
   const usage = useStore((s) => s.usage)
@@ -135,14 +160,19 @@ function Draft({ claude }: { claude: Account[] }) {
   const [task, setTask] = useState(readDraft)
   const [cwd, setCwd] = useState<string | undefined>()
   const [skip, setSkip] = useState(true)
+  const [chosen, setChosen] = useState(readModel)
   const [busy, setBusy] = useState(false)
   const box = useRef<HTMLTextAreaElement>(null)
   const ids = useId()
 
-  const { order, out } = handoffOrder(claude, usage)
+  // Staying on Fable is the default once an account says how much Fable it allows.
+  const fableKnown = claude.some((a) => isUsable(a, usage) && usage[a.id]?.windows.some((w) => w.id === FABLE.window))
+  const model: RunModel = chosen ?? (fableKnown ? 'fable' : 'default')
+  const { order, out } = handoffOrder(claude, usage, model)
   const best = order[0]
-  const bind = best && bindingWindow(usage[best.id])
-  const back = best ? undefined : soonestBack(claude, usage)
+  const bestLeft = best && runLeft(usage[best.id], model)
+  const back = best ? undefined : nextBack(claude, usage, {}, now, modelWindow(model))
+  const outOfFable = model === 'fable' && claude.some((a) => isUsable(a, usage))
   // Starting turns history on for these, so the conversation can move to any of them.
   const toShare = historyToTurnOn(
     claude.filter((a) => !isSignedOut(a) && !isBlocked(a)),
@@ -157,7 +187,7 @@ function Draft({ claude }: { claude: Account[] }) {
     setBusy(true)
     try {
       // A start that failed keeps the task, so it can be tried again.
-      if (await useAutopilot.getState().start({ task: task.trim(), cwd: folder, skipPermissions: skip })) {
+      if (await useAutopilot.getState().start({ task: task.trim(), cwd: folder, skipPermissions: skip, model })) {
         setTask('')
         saveDraft('')
       }
@@ -238,9 +268,35 @@ function Draft({ claude }: { claude: Account[] }) {
             {best && <span className="kbd hidden shrink-0 sm:inline-flex">{modKey(api.platform)} Enter</span>}
             <button type="submit" className="btn btn-primary" disabled={!best || empty || busy} data-tip={best && empty ? 'Write the task first' : undefined}>
               <Play size={14} fill="currentColor" />
-              {best ? `Start on ${best.label}${bind ? ` · ${formatPct(leftOf(bind))} left` : ''}` : 'Start'}
+              {best ? `Start on ${best.label}${bestLeft ? ` · ${bestLeft.text}` : ''}` : 'Start'}
             </button>
           </div>
+        </div>
+
+        <div className="flex max-w-[80ch] flex-col gap-2 rounded-lg border border-rivet px-4 py-3">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span id={`${ids}-model`} className="font-medium">
+              Model
+            </span>
+            <Segmented
+              aria-labelledby={`${ids}-model`}
+              size="sm"
+              value={model}
+              onChange={(m) => {
+                setChosen(m)
+                saveModel(m)
+              }}
+              options={[
+                { id: 'default', label: 'Account default' },
+                { id: 'fable', label: `${FABLE.name} only` }
+              ]}
+            />
+          </div>
+          <p className="text-xs text-muted">
+            {model === 'fable'
+              ? "Fable may use half of each account's weekly limit. Autopilot moves to the next account when Fable runs out, instead of carrying on with another model."
+              : "Runs each account's usual model. When an account runs out of Fable, the CLI carries on with another model."}
+          </p>
         </div>
 
         <label
@@ -271,9 +327,9 @@ function Draft({ claude }: { claude: Account[] }) {
           <div className="flex items-center gap-3 rounded-lg border border-rivet bg-ground p-4">
             <Hourglass className="shrink-0 text-low" size={18} aria-hidden />
             <p>
-              <span className="font-semibold">No Claude account can take a task right now. </span>
+              <span className="font-semibold">{outOfFable ? 'No Claude account has Fable left right now. ' : 'No Claude account can take a task right now. '}</span>
               <span className="text-muted">
-                {back ? `${back.a.label} is back first, in ${formatCountdown(back.at, now)}.` : 'Sign in to a Claude account to start.'}
+                {back ? `${back.account.label} is back first, in ${formatCountdown(iso(back.at), now)}.` : 'Sign in to a Claude account to start.'}
               </span>
             </p>
           </div>
@@ -288,7 +344,7 @@ function Draft({ claude }: { claude: Account[] }) {
         {order.length > 0 && (
           <ol className="mt-3 flex flex-col gap-2.5">
             {order.map((a, i) => (
-              <OrderRow key={a.id} n={i + 1} account={a} snap={usage[a.id]} />
+              <OrderRow key={a.id} n={i + 1} account={a} snap={usage[a.id]} model={model} />
             ))}
           </ol>
         )}
@@ -298,7 +354,7 @@ function Draft({ claude }: { claude: Account[] }) {
               <li key={a.id} className="flex items-center gap-2 text-xs text-muted">
                 <AccountDot account={a} size={8} />
                 <span className="min-w-0 flex-1 truncate">{a.label}</span>
-                <span className="shrink-0 tabular-nums">{outReason(a, usage[a.id], now)}</span>
+                <span className="shrink-0 tabular-nums">{outReason(a, usage[a.id], now, model)}</span>
               </li>
             ))}
           </ul>
@@ -308,8 +364,10 @@ function Draft({ claude }: { claude: Account[] }) {
   )
 }
 
-function OrderRow({ n, account, snap }: { n: number; account: Account; snap: UsageSnapshot | undefined }) {
-  const bind = bindingWindow(snap)
+function OrderRow({ n, account, snap, model }: { n: number; account: Account; snap: UsageSnapshot | undefined; model: RunModel }) {
+  const l = runLeft(snap, model)
+  // Ranked after the accounts that report their Fable allowance, but not left out: unknown isn't none.
+  const fableUnknown = model === 'fable' && !!snap && !snap.windows.some((w) => w.id === FABLE.window)
   return (
     <li className="flex items-center gap-3">
       <span
@@ -325,9 +383,15 @@ function OrderRow({ n, account, snap }: { n: number; account: Account; snap: Usa
         <div className="flex items-center gap-2">
           <AccountDot account={account} size={8} />
           <span className="min-w-0 flex-1 truncate font-medium">{account.label}</span>
-          <span className="shrink-0 text-xs tabular-nums text-muted">{bind ? `${formatPct(leftOf(bind))} left` : 'Usage unknown'}</span>
+          {l && fableUnknown ? (
+            <span className="shrink-0 text-xs text-muted" data-tip={`${l.text}. It hasn't reported its Fable allowance yet, so it comes after the accounts that have.`}>
+              Fable unknown
+            </span>
+          ) : (
+            <span className="shrink-0 text-xs tabular-nums text-muted">{l ? l.text : 'Usage unknown'}</span>
+          )}
         </div>
-        {bind && <Meter left={leftOf(bind)} cells={16} size="xs" label={`${account.label}, ${bind.label}`} className="mt-1.5" />}
+        {l && <Meter left={l.left} cells={16} size="xs" label={`${account.label}, ${l.w.label}`} className="mt-1.5" />}
       </div>
     </li>
   )
@@ -375,7 +439,8 @@ function Live({ phase, run }: { phase: Exclude<AutopilotPhase, 'idle'>; run: Aut
   const stopped = phase === 'stopped'
   const status = STATUS[phase]
   const snap = account && usage[account.id]
-  const bind = bindingWindow(snap)
+  const mw = modelWindow(run?.model)
+  const bind = limitingWindow(snap, mw)
   const left = bind ? leftOf(bind) : undefined
   const back = phase === 'waiting' && run?.waitingUntil ? formatCountdown(iso(run.waitingUntil), now) : null
   // The newest entry of a stopped run is its stop, so that is where its time ends.
@@ -383,8 +448,8 @@ function Live({ phase, run }: { phase: Exclude<AutopilotPhase, 'idle'>; run: Aut
   const shown = all ? log : log.slice(0, LOG_SHOWN)
   const defaultHome = useStore((s) => s.providers.find((p) => p.id === 'claude')?.defaultHome)
   // Who takes over if this account runs out: the engine's own pick, other than the account it is on.
-  const next = run && !stopped ? nextAccount(run, accounts, usage, { now, defaultHome, platform: api.platform, others: true }) : undefined
-  const nextBind = next && bindingWindow(usage[next.id])
+  const next = run && !stopped ? nextAccount(run, accounts, usage, { now, defaultHome, platform: api.platform, others: true, modelWindow: mw }) : undefined
+  const nextLeft = next && run && runLeft(usage[next.id], run.model)
   const path = run ? route(run) : []
   // The buttons that took focus go away with the run; land on the next sensible stop instead.
   const leave = (selector: string) => {
@@ -407,6 +472,7 @@ function Live({ phase, run }: { phase: Exclude<AutopilotPhase, 'idle'>; run: Aut
           <>
             <p className="mt-1 text-xs tabular-nums text-muted">
               {stopped ? 'Ran' : 'Running'} {elapsed(end - run.startedAt)} · {run.handoffs ? plural(run.handoffs, 'handoff') : stopped ? 'no handoffs' : 'no handoffs yet'}
+              {run.model === 'fable' && ` · ${FABLE.name} only`}
               {run.cwd && (
                 <>
                   {' · '}
@@ -439,7 +505,9 @@ function Live({ phase, run }: { phase: Exclude<AutopilotPhase, 'idle'>; run: Aut
                   <div className="mt-3 flex flex-wrap items-baseline justify-between gap-2">
                     <p>
                       <strong className="text-hero font-semibold">{formatPct(left)}</strong>
-                      <span className="ml-2 text-muted">{atLimit(snap) ? 'Limit reached' : `left of ${windowName(bind.label)}`}</span>
+                      <span className="ml-2 text-muted">
+                        {atLimit(snap, mw) ? (bind.id === mw ? 'Out of Fable' : 'Limit reached') : `left of ${bind.id === mw ? 'weekly Fable' : windowName(bind.label)}`}
+                      </span>
                     </p>
                     <span className="text-xs tabular-nums text-muted">{resetText(bind.resetsAt, now) ?? 'No reset scheduled'}</span>
                   </div>
@@ -454,7 +522,7 @@ function Live({ phase, run }: { phase: Exclude<AutopilotPhase, 'idle'>; run: Aut
                     <>
                       Next if it runs out: <AccountDot account={next} size={8} />
                       <span className="font-medium text-ink">{next.label}</span>
-                      {nextBind && <span className="tabular-nums">· {formatPct(leftOf(nextBind))} left</span>}
+                      {nextLeft && <span className="tabular-nums">· {nextLeft.text}</span>}
                     </>
                   ) : (
                     'No other account has room; it will wait for a reset if this one runs out.'

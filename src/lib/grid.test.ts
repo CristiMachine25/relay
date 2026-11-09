@@ -240,6 +240,17 @@ describe('accounts in panes', () => {
     expect(atLimit(undefined)).toBe(false)
   })
 
+  it("counts a model's own window only when asked to", () => {
+    const fable = { id: 'seven_day_fable', label: 'Weekly Fable', usedPercent: 100 }
+    const outOfFable = { ...usage.h3, windows: [...usage.h3.windows, fable] }
+    expect(atLimit(outOfFable)).toBe(false)
+    expect(atLimit(outOfFable, 'seven_day_fable')).toBe(true)
+    expect(atLimit(usage.h3, 'seven_day_fable')).toBe(false)
+    expect(atLimit(usage.h1, 'seven_day_fable')).toBe(true)
+    expect(isUsable(accounts[2]!, { h3: outOfFable })).toBe(true)
+    expect(isUsable(accounts[2]!, { h3: outOfFable }, 'seven_day_fable')).toBe(false)
+  })
+
   it('lists same-provider accounts, usable and best first', () => {
     const recs = [
       { accountId: 'h3', score: 80, reason: '' },

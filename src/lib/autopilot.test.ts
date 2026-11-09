@@ -1,7 +1,24 @@
 import { describe, expect, it } from 'vitest'
 import type { Account, UsageSnapshot, UsageWindow } from '@shared/types'
 import { DEFAULT_SHARING } from '@shared/types'
-import { CONTINUE_PROMPT, exhaustedUntil, limitHit, nextAccount, permissionArgs, pickAccount, restartPrompt, soonestReset, stripAnsi, taskArg } from './autopilot'
+import {
+  CONTINUE_PROMPT,
+  FABLE,
+  exhaustedUntil,
+  fableLimitHit,
+  limitHit,
+  limitingWindow,
+  modelArgs,
+  modelWindow,
+  nextAccount,
+  nextBack,
+  permissionArgs,
+  pickAccount,
+  restartPrompt,
+  soonestReset,
+  stripAnsi,
+  taskArg
+} from './autopilot'
 
 const acc = (id: string, extra: Partial<Account> = {}): Account => ({
   id,
@@ -28,6 +45,11 @@ const snap = (accountId: string, windows: UsageWindow[]): UsageSnapshot => ({
 /** A Claude snapshot: 5-hour session and weekly window, by percent used. */
 const claude = (accountId: string, session: number, weekly = 0, extra: Partial<UsageWindow> = {}) =>
   snap(accountId, [win('five_hour', session, { windowMinutes: 300, ...extra }), win('seven_day', weekly, { windowMinutes: 10080 })])
+/** The same with the Fable window (half the weekly limit), by percent of it used; the weekly window is unused. */
+const withFable = (accountId: string, session: number, fable: number, extra: Partial<UsageWindow> = {}) => {
+  const s = claude(accountId, session)
+  return { ...s, windows: [...s.windows, win('seven_day_fable', fable, { label: 'Weekly Fable', windowMinutes: 10080, shareOfWeekly: 50, ...extra })] }
+}
 
 describe('limitHit', () => {
   it.each([
@@ -55,6 +77,9 @@ describe('limitHit', () => {
 
   it.each([
     "You've hit your Opus limit · resets Mon 9am",
+    "You've reached your Fable limit.",
+    'Fable limit reached · continuing on Sonnet 5',
+    'Fable weekly limit reached ∙ resets Mon 9am',
     'Opus limit reached ∙ now using Sonnet',
     'Opus weekly limit reached ∙ resets Mon 9am',
     'Sonnet weekly limit reached ∙ resets Mon 9am',
@@ -65,6 +90,25 @@ describe('limitHit', () => {
   ])('ignores model-only, credit and unrelated text: %s', (text) => {
     expect(limitHit(text)).toBe(false)
   })
+})
+
+describe('fableLimitHit', () => {
+  it.each([
+    "You've reached your Fable limit.",
+    'You’ve reached your Fable limit.',
+    'Fable limit reached · continuing on Sonnet 5',
+    'Fable weekly limit reached ∙ resets Mon 9am',
+    "\x1b[33m⎿\x1b[0m You've reached your\n Fable limit."
+  ])('sees the CLI run out of Fable: %s', (text) => {
+    expect(fableLimitHit(text)).toBe(true)
+  })
+
+  it.each(["You've hit your limit · resets in 2h", 'Opus limit reached ∙ now using Sonnet', 'Weekly limit reached ∙ resets Mon 9am', 'Using Fable 5.2', ''])(
+    'ignores other text: %s',
+    (text) => {
+      expect(fableLimitHit(text)).toBe(false)
+    }
+  )
 })
 
 describe('stripAnsi', () => {
@@ -91,6 +135,69 @@ describe('nextAccount', () => {
     const usage = { a: claude('a', 10), b: claude('b', 50) }
     expect(nextAccount({ accountId: 'a', exhausted: {} }, accounts, usage, opts)?.id).toBe('a')
     expect(nextAccount({ accountId: 'a', exhausted: {} }, accounts, usage, { ...opts, others: true })?.id).toBe('b')
+  })
+})
+
+describe('limitingWindow', () => {
+  it('is the binding window unless a model window is named', () => {
+    const s = withFable('a', 30, 90)
+    expect(limitingWindow(s)?.id).toBe('five_hour')
+    expect(limitingWindow(undefined, 'seven_day_fable')).toBeUndefined()
+  })
+
+  it("is the model's window when that has less left than the general ones", () => {
+    expect(limitingWindow(withFable('a', 30, 90), 'seven_day_fable')?.id).toBe('seven_day_fable')
+    expect(limitingWindow(withFable('a', 95, 40), 'seven_day_fable')?.id).toBe('five_hour')
+    // No such window on this account: only the general ones are known.
+    expect(limitingWindow(claude('a', 30, 10), 'seven_day_fable')?.id).toBe('five_hour')
+  })
+})
+
+describe('staying on Fable', () => {
+  const opts = { providerId: 'claude' as const, modelWindow: 'seven_day_fable' }
+
+  it('names the model, its window and the flags that ask the CLI for it', () => {
+    expect(FABLE).toEqual({ id: 'claude-fable-5-2', name: 'Fable 5.2', window: 'seven_day_fable' })
+    expect(modelArgs('fable')).toEqual(['--model', 'claude-fable-5-2'])
+    expect(modelArgs('default')).toEqual([])
+    expect(modelArgs(undefined)).toEqual([])
+    expect(modelWindow('fable')).toBe('seven_day_fable')
+    expect(modelWindow('default')).toBeUndefined()
+    expect(modelWindow(undefined)).toBeUndefined()
+  })
+
+  it('ranks by the least left among the general windows and the Fable one', () => {
+    const accounts = [acc('a'), acc('b'), acc('c')]
+    // a: 90% session left but 20% Fable; b: 60% and 70%; c: 50% and 95%.
+    const usage = { a: withFable('a', 10, 80), b: withFable('b', 40, 30), c: withFable('c', 50, 5) }
+    expect(pickAccount(accounts, usage, opts)?.id).toBe('b')
+    expect(pickAccount(accounts, usage, { ...opts, exclude: ['b'] })?.id).toBe('c')
+    expect(pickAccount(accounts, usage, { providerId: 'claude' })?.id).toBe('a')
+  })
+
+  it('never picks an account that is out of Fable, though it is usable in general', () => {
+    const accounts = [acc('a'), acc('b')]
+    const usage = { a: withFable('a', 0, 100), b: withFable('b', 90, 80) }
+    expect(pickAccount(accounts, usage, opts)?.id).toBe('b')
+    expect(pickAccount(accounts, usage, { ...opts, exclude: ['b'] })).toBeUndefined()
+    expect(pickAccount(accounts, usage, { providerId: 'claude' })?.id).toBe('a')
+  })
+
+  it('ranks an account with no Fable window after the ones with a known allowance, but keeps it eligible', () => {
+    const accounts = [acc('old'), acc('low'), acc('none')]
+    const usage = { old: claude('old', 0), low: withFable('low', 90, 90) }
+    expect(pickAccount(accounts, usage, opts)?.id).toBe('low')
+    expect(pickAccount(accounts, usage, { ...opts, exclude: ['low'] })?.id).toBe('old')
+    expect(pickAccount(accounts, usage, { ...opts, exclude: ['low', 'old'] })?.id).toBe('none')
+  })
+
+  it('continues on the account with the most Fable left', () => {
+    const shared = (id: string) => ({ ...acc(id), sharing: { ...DEFAULT_SHARING, history: true } })
+    const accounts = [shared('a'), shared('b'), shared('c')]
+    const usage = { a: withFable('a', 20, 100), b: withFable('b', 10, 70), c: withFable('c', 40, 20) }
+    const at = { now: 1_000, defaultHome: '/home/sam/.claude', platform: 'darwin' as const }
+    expect(nextAccount({ accountId: 'a', exhausted: {} }, accounts, usage, { ...at, modelWindow: 'seven_day_fable' })?.id).toBe('c')
+    expect(nextAccount({ accountId: 'a', exhausted: {} }, accounts, usage, at)?.id).toBe('b')
   })
 })
 
@@ -219,6 +326,17 @@ describe('exhaustedUntil', () => {
     expect(exhaustedUntil(claude('a', 100), now)).toBe(now + 60 * 60_000)
     expect(exhaustedUntil(claude('a', 100, 0, { resetsAt: '2026-11-04T11:00:00Z' }), now)).toBe(now + 60 * 60_000)
   })
+
+  it("is the Fable window's reset when the account ran out of Fable", () => {
+    const s = withFable('a', 40, 100, { resetsAt: '2026-11-07T09:00:00Z' })
+    s.windows[0]!.resetsAt = '2026-11-04T14:00:00Z'
+    expect(exhaustedUntil(s, now, 'seven_day_fable')).toBe(Date.parse('2026-11-07T09:00:00Z'))
+    expect(exhaustedUntil(s, now)).toBe(Date.parse('2026-11-04T14:00:00Z'))
+  })
+
+  it('is an hour from now when the account ran out of Fable and reports no Fable window', () => {
+    expect(exhaustedUntil(claude('a', 40, 0, { resetsAt: '2026-11-04T14:00:00Z' }), now, 'seven_day_fable')).toBe(now + 60 * 60_000)
+  })
 })
 
 describe('soonestReset', () => {
@@ -248,5 +366,39 @@ describe('soonestReset', () => {
     }
     expect(soonestReset(accounts, usage, { a: at(-2) }, now)).toBeUndefined()
     expect(soonestReset([], {}, {}, now)).toBeUndefined()
+  })
+})
+
+describe('waiting for Fable', () => {
+  const now = Date.parse('2026-11-04T12:00:00Z')
+  const at = (h: number) => now + h * 3600_000
+  const iso = (h: number) => new Date(at(h)).toISOString()
+  const mw = 'seven_day_fable'
+
+  it('waits for the soonest Fable reset when every account is out of Fable', () => {
+    const accounts = [acc('a'), acc('b')]
+    const usage = { a: withFable('a', 10, 100, { resetsAt: iso(50) }), b: withFable('b', 20, 100, { resetsAt: iso(30) }) }
+    expect(soonestReset(accounts, usage, {}, now, mw)).toBe(at(30))
+    // The general windows have room, so without the model nobody is waited for.
+    expect(soonestReset(accounts, usage, {}, now)).toBeUndefined()
+    const back = nextBack(accounts, usage, {}, now, mw)
+    expect(back).toMatchObject({ account: accounts[1], at: at(30) })
+    expect(back!.window?.id).toBe(mw)
+  })
+
+  it('waits for both resets of an account that is out of its session and of Fable', () => {
+    const s = withFable('a', 100, 100, { resetsAt: iso(30) })
+    s.windows[0]!.resetsAt = iso(2)
+    expect(soonestReset([acc('a')], { a: s }, {}, now, mw)).toBe(at(30))
+    expect(soonestReset([acc('a')], { a: s }, {}, now)).toBe(at(2))
+  })
+
+  it('says which window an account is waited for, when one resets at that time', () => {
+    const usage = { a: claude('a', 100, 0, { resetsAt: iso(2) }), b: withFable('b', 40, 97, { resetsAt: iso(30) }) }
+    expect(nextBack([acc('a')], usage, {}, now)).toMatchObject({ at: at(2), window: { id: 'five_hour' } })
+    // b ran out by what the CLI said; its usage is a little behind, so only the mark knows.
+    expect(nextBack([acc('b')], usage, { b: at(30) }, now, mw)).toMatchObject({ at: at(30), window: { id: mw } })
+    expect(nextBack([acc('b')], usage, { b: at(1) }, now, mw)).toMatchObject({ at: at(1), window: undefined })
+    expect(nextBack([acc('b')], usage, {}, now, mw)).toBeUndefined()
   })
 })

@@ -49,7 +49,15 @@ export const Account = {
   "lastLaunchedAt": "2026-01-02T00:00:00Z",
   "launchCount": 3,
   "monthlyCost": 200.0,
-  "pinned": true
+  "pinned": true,
+  "subscription": {
+    "status": "active",
+    "startedAt": "2025-12-16T00:00:00Z",
+    "endsAt": "2026-01-16T00:00:00Z",
+    "checkedAt": "2026-01-01T00:00:00Z"
+  },
+  "renewsOn": "2026-01-16",
+  "autoRenew": true
 } satisfies Full<T.Account>
 
 export const NewAccountInput = {
@@ -96,7 +104,8 @@ export const UsageSnapshot = {
       "label": "5-hour session",
       "usedPercent": 42.5,
       "resetsAt": "2026-01-01T05:00:00Z",
-      "windowMinutes": 300
+      "windowMinutes": 300,
+      "shareOfWeekly": 50.0
     }
   ],
   "plan": "Max 20x",
@@ -397,7 +406,8 @@ export const event_usage_updated = {
         "label": "5-hour session",
         "usedPercent": 42.5,
         "resetsAt": "2026-01-01T05:00:00Z",
-        "windowMinutes": 300
+        "windowMinutes": 300,
+        "shareOfWeekly": 50.0
       }
     ],
     "plan": "Max 20x",
@@ -442,7 +452,15 @@ export const event_accounts_changed = [
     "lastLaunchedAt": "2026-01-02T00:00:00Z",
     "launchCount": 3,
     "monthlyCost": 200.0,
-    "pinned": true
+    "pinned": true,
+    "subscription": {
+      "status": "active",
+      "startedAt": "2025-12-16T00:00:00Z",
+      "endsAt": "2026-01-16T00:00:00Z",
+      "checkedAt": "2026-01-01T00:00:00Z"
+    },
+    "renewsOn": "2026-01-16",
+    "autoRenew": true
   }
 ] satisfies Full<T.AppEvents['accounts-changed']>
 
@@ -477,14 +495,20 @@ null satisfies T.ProviderInfo['cliVersion']
 null satisfies T.ProviderInfo['desktopName']
 null satisfies T.ProviderInfo['desktopPath']
 null satisfies T.ProviderInfo['homeEnvVar']
+null satisfies T.Account['autoRenew']
 null satisfies T.Account['email']
 null satisfies T.Account['lastLaunchedAt']
 null satisfies T.Account['monthlyCost']
 null satisfies T.Account['notes']
 null satisfies T.Account['pinned']
 null satisfies T.Account['plan']
+null satisfies T.Account['renewsOn']
 null satisfies T.Account['sharedFrom']
 null satisfies T.Account['statusMessage']
+null satisfies T.Account['subscription']
+null satisfies NonNullable<T.Account['subscription']>['endsAt']
+null satisfies NonNullable<T.Account['subscription']>['startedAt']
+null satisfies NonNullable<T.Account['subscription']>['status']
 null satisfies T.DetectedAccount['email']
 null satisfies T.DetectedAccount['hint']
 null satisfies T.DetectedAccount['plan']
@@ -495,6 +519,7 @@ null satisfies T.UsageSnapshot['error']
 null satisfies T.UsageSnapshot['plan']
 null satisfies T.UsageSnapshot['stale']
 null satisfies T.UsageSnapshot['windows'][number]['resetsAt']
+null satisfies T.UsageSnapshot['windows'][number]['shareOfWeekly']
 null satisfies T.UsageSnapshot['windows'][number]['windowMinutes']
 null satisfies T.LaunchResult['commandLine']
 null satisfies T.LaunchResult['error']

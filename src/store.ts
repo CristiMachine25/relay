@@ -40,6 +40,8 @@ interface State {
   selectedId: string | null
   now: number
   refreshing: boolean
+  /** The accounts whose usage is being checked right now. */
+  refreshingIds: string[]
   toasts: Toast[]
   paletteOpen: boolean
   addOpen: boolean
@@ -68,6 +70,8 @@ let toastSeq = 1
 let settingsSeq = 0
 let recommendationSeq = 0
 let subscribed = false
+/** Refreshes started and not yet ended, so `refreshing` stays on until the last one is done. */
+let refreshesInFlight = 0
 /** How many times the backend has pushed accounts / usage, so a load answered before a push never overwrites it. */
 const pushes = { accounts: 0, usage: 0 }
 
@@ -86,6 +90,7 @@ export const useStore = create<State>((set, get) => ({
   selectedId: null,
   now: Date.now(),
   refreshing: false,
+  refreshingIds: [],
   toasts: [],
   paletteOpen: false,
   addOpen: false,
@@ -174,7 +179,9 @@ export const useStore = create<State>((set, get) => ({
   },
 
   async refresh(accountId) {
-    set({ refreshing: true })
+    const ids = accountId ? [accountId] : get().accounts.map((a) => a.id)
+    refreshesInFlight++
+    set((s) => ({ refreshing: true, refreshingIds: [...new Set([...s.refreshingIds, ...ids])] }))
     try {
       const usage = await api.usage.refresh(accountId)
       set({ usage, now: Date.now() })
@@ -182,7 +189,8 @@ export const useStore = create<State>((set, get) => ({
     } catch (e) {
       get().toast({ kind: 'error', title: "Couldn't refresh usage", body: errorText(e) })
     } finally {
-      set({ refreshing: false })
+      refreshesInFlight--
+      set((s) => ({ refreshing: refreshesInFlight > 0, refreshingIds: s.refreshingIds.filter((id) => !ids.includes(id)) }))
     }
   },
 

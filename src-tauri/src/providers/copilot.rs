@@ -201,6 +201,7 @@ fn parse_usage(v: &Value) -> CopilotUsage {
                 used_percent: used,
                 resets_at: reset.clone(),
                 window_minutes: Some(MONTH_MINUTES),
+                share_of_weekly: None,
             });
         }
     };
@@ -741,6 +742,9 @@ mod tests {
             launch_count: 0,
             monthly_cost: None,
             pinned: None,
+            subscription: None,
+            renews_on: None,
+            auto_renew: None,
         }
     }
 
