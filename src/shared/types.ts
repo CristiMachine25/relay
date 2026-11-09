@@ -453,6 +453,8 @@ export interface RelayApi {
   notifications: {
     list(): Promise<AppNotification[]>
     markRead(id: string | 'all'): Promise<void>
+    /** Show one test banner. 'blocked': the system does not allow Relay's notifications. */
+    test(): Promise<'sent' | 'blocked' | 'failed'>
   }
   settings: {
     get(): Promise<AppSettings>
@@ -520,6 +522,7 @@ export const COMMANDS = {
   recommend: 'recommend', // { task, providerId? }
   notificationsList: 'notifications_list',
   notificationsMarkRead: 'notifications_mark_read', // { id }
+  notificationsTest: 'notifications_test',
   settingsGet: 'settings_get',
   settingsSet: 'settings_set', // { patch }
   knowledgeGet: 'knowledge_get',

@@ -370,6 +370,9 @@ export const _LaunchTarget: Same<(typeof LaunchTarget)[number], T.LaunchTarget> 
 export const NotificationKind = ["limit-reached","limit-reset","nearly-exhausted","use-it-or-lose-it","switch-suggested","login-required","info"] as const
 export const _NotificationKind: Same<(typeof NotificationKind)[number], T.NotificationKind> = true
 
+export const NotificationTest = ["sent","blocked","failed"] as const
+export const _NotificationTest: Same<(typeof NotificationTest)[number], Awaited<ReturnType<T.RelayApi['notifications']['test']>>> = true
+
 export const TaskType = ["coding","long-refactor","quick-question","research","review","any"] as const
 export const _TaskType: Same<(typeof TaskType)[number], T.TaskType> = true
 
@@ -391,7 +394,7 @@ export const _PermissionModes_gemini: Same<(typeof PermissionModes_gemini)[numbe
 export const PermissionModes_copilot = ["default","allowAll"] as const
 export const _PermissionModes_copilot: Same<(typeof PermissionModes_copilot)[number], T.PermissionModes['copilot']> = true
 
-export const commands = ["providers_list","accounts_list","accounts_detect","accounts_import","accounts_create","accounts_update","accounts_remove","usage_latest","usage_history","usage_activity","usage_refresh","usage_set_manual","launch","terminal_spawn","terminal_write","terminal_resize","terminal_kill","terminal_list","terminal_scrollback","terminal_session","recommend","notifications_list","notifications_mark_read","settings_get","settings_set","transfer_export","transfer_preview","transfer_import","system_open_path","knowledge_get","knowledge_reseed","skills_search","skills_preview","skills_installed","skills_install","skills_remove","system_open_url","system_keep_awake","system_start_dictation"] as const
+export const commands = ["providers_list","accounts_list","accounts_detect","accounts_import","accounts_create","accounts_update","accounts_remove","usage_latest","usage_history","usage_activity","usage_refresh","usage_set_manual","launch","terminal_spawn","terminal_write","terminal_resize","terminal_kill","terminal_list","terminal_scrollback","terminal_session","recommend","notifications_list","notifications_mark_read","notifications_test","settings_get","settings_set","transfer_export","transfer_preview","transfer_import","system_open_path","knowledge_get","knowledge_reseed","skills_search","skills_preview","skills_installed","skills_install","skills_remove","system_open_url","system_keep_awake","system_start_dictation"] as const
 export const _commands: Same<(typeof commands)[number], (typeof T.COMMANDS)[keyof typeof T.COMMANDS]> = true
 
 export const event_usage_updated = {

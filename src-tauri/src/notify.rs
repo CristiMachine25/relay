@@ -280,9 +280,54 @@ pub async fn deliver(app: &AppHandle, state: &AppState, items: Vec<AppNotificati
 }
 
 pub fn show_native(app: &AppHandle, title: &str, body: &str) {
+    #[cfg(target_os = "macos")]
+    if crate::notify_macos::available() {
+        let (title, body) = (title.to_string(), body.to_string());
+        tauri::async_runtime::spawn(async move { crate::notify_macos::post(&title, &body).await });
+        return;
+    }
     use tauri_plugin_notification::NotificationExt;
     if let Err(e) = app.notification().builder().title(title).body(body).show() {
         log::warn!("native notification failed: {e}");
+    }
+}
+
+/// Ask the system for permission to show banners, where it must be asked (macOS). It prompts the
+/// user only the first time.
+pub fn request_permission() {
+    #[cfg(target_os = "macos")]
+    if crate::notify_macos::available() {
+        tauri::async_runtime::spawn(crate::notify_macos::authorize());
+    }
+}
+
+/// What the system did with a test notification.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum NotificationTest {
+    Sent,
+    /// The user (or macOS) does not allow Relay's notifications.
+    Blocked,
+    Failed,
+}
+
+/// Show one test banner, asking for permission first where needed, whatever the setting says.
+pub async fn send_test(app: &AppHandle) -> NotificationTest {
+    let (title, body) = ("Relay notification test", "Relay's notifications will appear like this.");
+    #[cfg(target_os = "macos")]
+    if crate::notify_macos::available() {
+        if !crate::notify_macos::authorize().await {
+            return NotificationTest::Blocked;
+        }
+        return if crate::notify_macos::post(title, body).await { NotificationTest::Sent } else { NotificationTest::Failed };
+    }
+    use tauri_plugin_notification::NotificationExt;
+    match app.notification().builder().title(title).body(body).show() {
+        Ok(()) => NotificationTest::Sent,
+        Err(e) => {
+            log::warn!("test notification failed: {e}");
+            NotificationTest::Failed
+        }
     }
 }
 
