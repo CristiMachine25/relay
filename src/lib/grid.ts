@@ -1,5 +1,5 @@
 // Pure helpers for the terminal grid: layout geometry, focus navigation, workspace persistence.
-import type { Account, Recommendation, TerminalInfo, UsageSnapshot } from '@shared/types'
+import type { Account, Recommendation, TerminalInfo, UsageSnapshot, UsageWindow } from '@shared/types'
 import type { Platform } from './platform'
 import { isMainFolder } from './profiles'
 import { bindingWindow, leftOf } from './quota'
@@ -243,10 +243,13 @@ export function reattach(ws: Workspace, running: TerminalInfo[], makeUid: () => 
 
 // ---------- Accounts in panes ----------
 
-/** The account has used up its binding window (Claude's 5-hour session, Codex primary...). */
-export function atLimit(snap: UsageSnapshot | undefined): boolean {
-  const b = bindingWindow(snap)
-  return !!b && b.usedPercent >= 99.5
+/**
+ * The account has used up its binding window (Claude's 5-hour session, Codex primary...), or, when `modelWindow`
+ * names one, that model's own window (e.g. "seven_day_fable" for a run that stays on Fable).
+ */
+export function atLimit(snap: UsageSnapshot | undefined, modelWindow?: string): boolean {
+  const full = (w: UsageWindow | undefined) => !!w && w.usedPercent >= 99.5
+  return full(bindingWindow(snap)) || (!!modelWindow && full(snap?.windows.find((w) => w.id === modelWindow)))
 }
 
 /** Nothing works for this account until the user signs in again. An expired login isn't signed
@@ -260,9 +263,9 @@ export function isBlocked(a: Pick<Account, 'status'>): boolean {
   return a.status === 'blocked'
 }
 
-/** Can start or continue a session now: signed in, not blocked, not at its limit. */
-export function isUsable(a: Account, usage: Record<string, UsageSnapshot>): boolean {
-  return !isSignedOut(a) && !isBlocked(a) && !atLimit(usage[a.id])
+/** Can start or continue a session now: signed in, not blocked, not at its limit (nor at `modelWindow`'s). */
+export function isUsable(a: Account, usage: Record<string, UsageSnapshot>, modelWindow?: string): boolean {
+  return !isSignedOut(a) && !isBlocked(a) && !atLimit(usage[a.id], modelWindow)
 }
 
 /** Short status for an account that is signed out, renewing its login or blocked; null when it is fine. */
