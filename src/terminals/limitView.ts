@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { useStore } from '@/store'
-import type { UsageSnapshot } from '@shared/types'
+import type { Account, UsageSnapshot } from '@shared/types'
 import { nextView, offeredViews, parseLimitView, shownView, type LimitView } from '@/lib/limitView'
 import { useGrid } from './store'
 
@@ -48,4 +48,11 @@ export function useLimitViews(): { view: LimitView; views: LimitView[] } {
   const panes = useGrid((s) => s.ws.panes)
   const usage = useStore((s) => s.usage)
   return useLimitViewFor(panes.map((p) => (p.accountId ? usage[p.accountId] : undefined)))
+}
+
+/** The switch for a screen that lists accounts: the view in effect, the views on offer, and how to change it. */
+export function useLimitSwitch(accounts: Account[]): { view: LimitView; views: LimitView[]; setView: (view: LimitView) => void } {
+  const usage = useStore((s) => s.usage)
+  const setView = useLimitView((s) => s.setView)
+  return { ...useLimitViewFor(accounts.map((a) => usage[a.id])), setView }
 }

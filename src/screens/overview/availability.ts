@@ -1,7 +1,8 @@
 import type { Account, UsageSnapshot, UsageWindow } from '@shared/types'
 import { bindingWindow, isModelWindow, leftOf } from '@/lib/quota'
 import { atLimit, isBlocked, isSignedOut } from '@/lib/grid'
-import { spentWindow } from '@/lib/windows'
+import { backText, spentWindow } from '@/lib/windows'
+import { limitName } from '@/lib/limitView'
 
 export function nextExhaustedReset(accounts: Account[], usage: Record<string, UsageSnapshot>, now: number) {
   let next: { account: Account; at: string } | undefined
@@ -47,4 +48,11 @@ export function splitFleet(accounts: Account[], usage: Record<string, UsageSnaps
   // Infinity - Infinity is NaN, which would leave the order to chance.
   out.sort((a, b) => (back(a) === back(b) ? 0 : back(a) < back(b) ? -1 : 1))
   return { ready, resting: [...out, ...stuck] }
+}
+
+/** What an account that is out says: "Weekly limit reached · back Sat 1:00 PM". */
+export function outText(window: UsageWindow | undefined, now: number): string {
+  const name = window ? limitName(window) : 'limit'
+  const back = backText(window?.resetsAt, now)
+  return `${name[0]!.toUpperCase()}${name.slice(1)} reached${back ? ` · ${back}` : ''}`
 }

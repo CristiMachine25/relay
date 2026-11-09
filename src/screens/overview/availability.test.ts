@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Account, UsageSnapshot, UsageWindow } from '@shared/types'
 import { DEFAULT_SHARING } from '@shared/types'
-import { splitFleet } from './availability'
+import { outText, splitFleet } from './availability'
 
 const NOW = Date.parse('2026-11-09T12:00:00Z')
 const at = (hours: number) => new Date(NOW + hours * 3_600_000).toISOString()
@@ -69,5 +69,17 @@ describe('splitFleet', () => {
   it('agrees with the rest of the app about who is out', () => {
     const r = splitFleet([account('x')], { x: snap('x', win('seven_day', 99.6, 5)) })
     expect(r.resting).toHaveLength(1)
+  })
+})
+
+describe('outText', () => {
+  it('names the limit and when it is back', () => {
+    expect(outText(win('seven_day', 100, 5.5), NOW)).toBe('Weekly limit reached · back in 5h 30m')
+    expect(outText(win('five_hour', 100, 2), NOW)).toBe('5-hour limit reached · back in 2h')
+  })
+
+  it('still says the limit is reached when it does not know when it comes back', () => {
+    expect(outText(win('seven_day', 100), NOW)).toBe('Weekly limit reached')
+    expect(outText(undefined, NOW)).toBe('Limit reached')
   })
 })
