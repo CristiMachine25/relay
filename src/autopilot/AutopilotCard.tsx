@@ -383,7 +383,13 @@ function OrderRow({ n, account, snap, model }: { n: number; account: Account; sn
         <div className="flex items-center gap-2">
           <AccountDot account={account} size={8} />
           <span className="min-w-0 flex-1 truncate font-medium">{account.label}</span>
-          <span className="shrink-0 text-xs tabular-nums text-muted">{l ? `${l.text}${fableUnknown ? ' · Fable unknown' : ''}` : 'Usage unknown'}</span>
+          {l && fableUnknown ? (
+            <span className="shrink-0 text-xs text-muted" data-tip={`${l.text}. It hasn't reported its Fable allowance yet, so it comes after the accounts that have.`}>
+              Fable unknown
+            </span>
+          ) : (
+            <span className="shrink-0 text-xs tabular-nums text-muted">{l ? l.text : 'Usage unknown'}</span>
+          )}
         </div>
         {l && <Meter left={l.left} cells={16} size="xs" label={`${account.label}, ${l.w.label}`} className="mt-1.5" />}
       </div>
