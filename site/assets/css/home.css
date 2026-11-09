@@ -438,6 +438,58 @@
   }
 }
 
+/* ---------- Autopilot ---------- */
+.autopilot {
+  border-top: 1px solid var(--line);
+}
+.ap-grid {
+  display: grid;
+  gap: clamp(32px, 5vw, 72px);
+  align-items: start;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+}
+.ap-points {
+  display: grid;
+  gap: 28px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ap-points h3 {
+  font-size: clamp(1.25rem, 1.1rem + 0.5vw, 1.5rem);
+}
+.ap-points p {
+  margin-top: 8px;
+  max-width: 32em;
+  color: var(--muted);
+}
+.ap-note {
+  margin-top: 28px;
+  max-width: 36em;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  font-size: var(--fs-small);
+  color: var(--faint);
+}
+.ap-shots {
+  display: grid;
+  gap: 40px;
+}
+.ap-shots figure {
+  margin: 0;
+}
+.ap-shots .window {
+  border-radius: var(--r-lg);
+}
+.ap-shots figcaption {
+  margin-top: 14px;
+}
+@media (max-width: 959px) {
+  .ap-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* ---------- Features bento ---------- */
 .features {
   border-top: 1px solid var(--line);

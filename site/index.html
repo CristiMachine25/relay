@@ -58,6 +58,7 @@
     </a>
     <nav class="nav-links" aria-label="Main">
       <ul>
+        <li><a href="./#autopilot">Autopilot</a></li>
         <li><a href="./#features">Features</a></li>
         <li><a href="./#tools">Tools</a></li>
         <li><a href="./#faq">FAQ</a></li>
@@ -72,6 +73,7 @@
         <summary><span class="nav-burger" aria-hidden="true"></span><span class="nav-menu-text">Menu</span></summary>
         <nav class="nav-sheet" aria-label="Menu">
           <ul>
+            <li><a href="./#autopilot">Autopilot</a></li>
             <li><a href="./#features">Features</a></li>
             <li><a href="./#tools">Tools</a></li>
             <li><a href="./#faq">FAQ</a></li>
@@ -219,6 +221,66 @@
         </figure>
       </div>
       <div class="seq-progress" aria-hidden="true"><span></span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Autopilot ===== -->
+<section class="home-section autopilot" id="autopilot" aria-labelledby="autopilot-title">
+  <div class="wrap">
+    <div class="section-head" data-reveal-stagger>
+      <p class="eyebrow">Autopilot</p>
+      <h2 id="autopilot-title">Give it a task. <span class="dim">Walk away.</span></h2>
+      <p class="lede">Autopilot runs a Claude Code task unattended. When the account runs out mid-task, the same conversation moves to the account with the most left and carries on.</p>
+    </div>
+    <div class="ap-grid">
+      <div data-reveal-stagger>
+        <ol class="ap-points">
+          <li>
+            <h3>Start it and leave</h3>
+            <p>Type the task (on a Mac, the mic button starts dictation), pick a folder and start. It begins on the account with the most left and shows the order it will move through.</p>
+          </li>
+          <li>
+            <h3>The chat follows the quota</h3>
+            <p>When an account runs out, Relay resumes the same chat on the next one in that order. It turns on chat history sharing for the accounts it may use, so the conversation can move.</p>
+          </li>
+          <li>
+            <h3>It waits if every account is out</h3>
+            <p>With nothing left anywhere, it waits until an account is expected to have room, then picks the task up again. Your computer is kept awake while a run is active.</p>
+          </li>
+          <li>
+            <h3>Fable 5.2 only, if you want it</h3>
+            <p>Fable may use only half of an account&rsquo;s weekly limit. This mode keeps the run on Fable 5.2 and moves to the next account when that allowance runs out, instead of letting the CLI carry on with another model.</p>
+          </li>
+        </ol>
+        <p class="ap-note">By default Autopilot starts Claude Code with permission prompts skipped, so it never sits waiting for a click. That lets it run any command and change any file in the folder you chose, so untick the box if you would rather it ask. Autopilot works with Claude Code accounts.</p>
+      </div>
+      <div class="ap-shots" data-reveal-stagger>
+        <figure>
+          <div class="window">
+            <div class="crop" style="--ar:2.52;--w:119.85%;--l:-19.1%;--t:-8.49%">
+              <img src="assets/screens/autopilot-running-900.webp"
+                   srcset="assets/screens/autopilot-running-900.webp 900w, assets/screens/autopilot-running.webp 1600w"
+                   sizes="(min-width: 960px) 56vw, calc(100vw - 32px)"
+                   width="1600" height="1000" loading="lazy" decoding="async"
+                   alt="The Autopilot card mid-run: Refactor the billing module and make the tests pass, running on Work Max 20x after H2 Max ran out of its 5-hour session, with the route so far and an activity log.">
+            </div>
+          </div>
+          <figcaption>Mid-run: H2 Max ran out, so the same chat moved to Work Max 20x.</figcaption>
+        </figure>
+        <figure>
+          <div class="window">
+            <div class="crop" style="--ar:2.52;--w:119.85%;--l:-19.1%;--t:-8.49%">
+              <img src="assets/screens/autopilot-900.webp"
+                   srcset="assets/screens/autopilot-900.webp 900w, assets/screens/autopilot.webp 1600w"
+                   sizes="(min-width: 960px) 56vw, calc(100vw - 32px)"
+                   width="1600" height="1000" loading="lazy" decoding="async"
+                   alt="The Autopilot card before a run: a task box with a folder, a mic and a Start button, the handoff order of accounts, and a Model choice set to Fable 5.2 only.">
+            </div>
+          </div>
+          <figcaption>Setting up: the task, the folder, the handoff order and the model.</figcaption>
+        </figure>
+      </div>
     </div>
   </div>
 </section>
