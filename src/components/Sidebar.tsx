@@ -187,13 +187,15 @@ function NavButton({ item, on, onClick, children }: { item: NavItem; on: boolean
   const Icon = item.icon
   return (
     <button
+      // Switch on press, like a native source list; click still covers the keyboard.
+      onMouseDown={(e) => e.button === 0 && onClick()}
       onClick={onClick}
       aria-current={on ? 'page' : undefined}
       data-tip={`${item.label} (${item.key})`}
       data-tip-side="right"
       className={clsx(
-        'relative flex h-10 w-full items-center gap-2.5 rounded px-2.5 text-sm transition-colors compact:justify-center compact:px-0',
-        on ? 'bg-hop/15 font-semibold text-hop' : 'text-muted hover:bg-raised/60 hover:text-ink'
+        'relative flex h-10 w-full items-center gap-2.5 rounded px-2.5 text-sm compact:justify-center compact:px-0',
+        on ? 'bg-hop/15 font-semibold text-hop' : 'text-muted transition-colors hover:bg-raised/60 hover:text-ink'
       )}
     >
       <Icon size={17} strokeWidth={on ? 2.2 : 1.8} className="shrink-0" />
