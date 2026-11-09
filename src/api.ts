@@ -42,7 +42,8 @@ function createTauriApi(): RelayApi {
     recommend: (task, providerId) => call(COMMANDS.recommend, { task, providerId: providerId ?? null }),
     notifications: {
       list: () => call(COMMANDS.notificationsList),
-      markRead: (id) => call(COMMANDS.notificationsMarkRead, { id })
+      markRead: (id) => call(COMMANDS.notificationsMarkRead, { id }),
+      test: () => call(COMMANDS.notificationsTest)
     },
     settings: {
       get: () => call(COMMANDS.settingsGet),

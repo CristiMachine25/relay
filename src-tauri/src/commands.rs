@@ -485,6 +485,11 @@ pub async fn notifications_list(state: St<'_>) -> Res<Vec<AppNotification>> {
 }
 
 #[tauri::command]
+pub async fn notifications_test(app: AppHandle) -> Res<crate::notify::NotificationTest> {
+    Ok(crate::notify::send_test(&app).await)
+}
+
+#[tauri::command]
 pub async fn notifications_mark_read(state: St<'_>, id: String) -> Res<()> {
     {
         let mut list = state.notifications.write().await;

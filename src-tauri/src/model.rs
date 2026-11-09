@@ -987,6 +987,10 @@ mod contract_tests {
             "T.NotificationKind",
             &variants!(NotificationKind: LimitReached, LimitReset, NearlyExhausted, UseItOrLoseIt, SwitchSuggested, LoginRequired, Info),
         );
+        f.values("NotificationTest", "Awaited<ReturnType<T.RelayApi['notifications']['test']>>", &{
+            use crate::notify::NotificationTest;
+            variants!(NotificationTest: Sent, Blocked, Failed)
+        });
         f.values("TaskType", "T.TaskType", &variants!(TaskType: Coding, LongRefactor, QuickQuestion, Research, Review, Any));
         f.values("Theme", "T.AppSettings['theme']", &variants!(Theme: System, Dark, Light));
         f.values("TerminalTarget", "T.TerminalSpawnRequest['target']", &variants!(TerminalTarget: Cli, Login));

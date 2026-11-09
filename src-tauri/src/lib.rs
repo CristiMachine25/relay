@@ -107,6 +107,7 @@ pub fn run() {
             commands::recommend,
             commands::notifications_list,
             commands::notifications_mark_read,
+            commands::notifications_test,
             commands::settings_get,
             commands::settings_set,
             commands::transfer_export,
