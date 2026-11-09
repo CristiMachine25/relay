@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { creditsText, formatAgo, formatCountdown, formatPct, formatTokens, resetText, windowName } from './format'
+import { creditsText, formatAgo, formatCountdown, formatDay, formatPct, formatTokens, resetText, windowName } from './format'
 
 const NOW = Date.parse('2026-10-20T12:00:00Z')
 const at = (ms: number) => new Date(NOW + ms).toISOString()
@@ -65,5 +65,12 @@ describe('creditsText', () => {
   })
   it('formats currency codes as money', () => {
     expect(creditsText({ used: 12.5, unit: 'USD' })).toBe('$12.50 of extra usage spent')
+  })
+})
+
+describe('formatDay', () => {
+  it('names a calendar day, with the year on request', () => {
+    expect(formatDay('2026-11-16')).toBe('Nov 16')
+    expect(formatDay('2027-10-16', true)).toBe('Oct 16, 2027')
   })
 })
