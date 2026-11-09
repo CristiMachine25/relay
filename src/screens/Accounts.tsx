@@ -17,10 +17,13 @@ import { AccountDot, Dialog, EmptyState, ProviderMark, Segmented, SectionTitle, 
 import { CopyButton } from '@/components/Toasts'
 import { DailyTokens, WindowHistory } from '@/charts/AccountCharts'
 import { Page, Toolbar } from '@/components/Page'
+import { SubscriptionBadge } from '@/components/SubscriptionBadge'
+import { SubscriptionSection } from '@/components/SubscriptionSection'
 
 export function Accounts() {
   const accounts = useStore((s) => s.accounts)
   const usage = useStore((s) => s.usage)
+  const now = useStore((s) => s.now)
   const selectedId = useStore((s) => s.selectedId)
   const go = useStore((s) => s.go)
   const setAddOpen = useStore((s) => s.setAddOpen)
@@ -83,6 +86,7 @@ export function Accounts() {
                             <span className="text-xs tabular-nums text-muted">{status ?? (left === null ? '' : left <= 0.5 ? 'Limit reached' : formatPct(left))}</span>
                           </span>
                           {left !== null && !status && <Meter left={left} cells={20} size="xs" label={`${a.label} quota left`} className="mt-1.5 pl-4" />}
+                          <SubscriptionBadge account={a} now={now} className="mt-1 pl-4" />
                         </button>
                       </li>
                     )
@@ -279,6 +283,11 @@ function AccountDetail({ account: a }: { account: Account }) {
               </p>
             )}
             {canLaunch && (!snap || snap.source === 'none' || snap.source === 'manual' || !snap.windows.length) && <ManualLimits account={a} />}
+          </section>
+
+          <section>
+            <SectionTitle>Subscription</SectionTitle>
+            <SubscriptionSection account={a} />
           </section>
 
           <section>
