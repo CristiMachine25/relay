@@ -263,7 +263,7 @@ function Alerts({ alerts }: { alerts: Alert[] }) {
 }
 
 /** Every account at a glance, grouped by tool. Accounts that can be used come first; those that are out wait below, quietly. */
-function Board() {
+export function Board() {
   const accounts = useStore((s) => s.accounts)
   const usage = useStore((s) => s.usage)
   const now = useStore((s) => s.now)
