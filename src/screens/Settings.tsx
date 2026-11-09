@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { Download, FolderOpen, ShieldCheck, Upload } from 'lucide-react'
+import { BellRing, Download, FolderOpen, ShieldCheck, Upload } from 'lucide-react'
 import type { AppSettings } from '@shared/types'
 import { api } from '@/api'
 import { useStore } from '@/store'
@@ -100,6 +100,7 @@ export function Settings() {
           <Row label="Tell me when a limit resets" help="Only for limits that you had used up or nearly used up.">
             {(ids) => <Switch {...ids} checked={n.onReset} onChange={(v) => setN({ onReset: v })} disabled={!n.enabled} />}
           </Row>
+          <NotificationTest />
         </Group>
 
         <Group title="Launching">
@@ -218,6 +219,54 @@ function Transfer() {
     </>
   )
 }
+
+type TestState = Awaited<ReturnType<typeof api.notifications.test>> | 'idle' | 'sending'
+
+function NotificationTest() {
+  const [state, setState] = useState<TestState>('idle')
+  const send = async () => {
+    setState('sending')
+    setState(await api.notifications.test().catch(() => 'failed' as const))
+  }
+  return (
+    <Row label="Send a test notification" help={<TestNote state={state} />}>
+      {(ids) => (
+        <button className="btn btn-sm" onClick={send} disabled={state === 'sending'} aria-describedby={ids['aria-describedby']}>
+          <BellRing size={14} /> {state === 'sending' ? 'Sending…' : 'Send test'}
+        </button>
+      )}
+    </Row>
+  )
+}
+
+/** What the system did with the test notification; on macOS the first test may wait for the permission prompt. */
+export function TestNote({ state }: { state: TestState }) {
+  const mac = api.platform === 'darwin'
+  const texts: Record<TestState, string> = {
+    idle: 'Shows one system notification, even when notifications are off, so you can check they get through.',
+    sending: mac ? 'Sending… If macOS asks whether Relay may send notifications, choose Allow.' : 'Sending…',
+    sent: mac
+      ? 'Sent. If no banner appeared, check that a Focus is not on and that Relay is allowed in System Settings → Notifications.'
+      : "Sent. If nothing appeared, check your system's notification settings.",
+    blocked: "macOS is blocking Relay's notifications. Allow them in System Settings → Notifications → Relay.",
+    failed: "The test notification could not be sent. Relay's log has the details."
+  }
+  return (
+    <span role="status">
+      {texts[state]}
+      {state === 'blocked' && mac && (
+        <>
+          {' '}
+          <button className="font-medium underline underline-offset-2" onClick={() => void api.system.openUrl(NOTIFICATION_SETTINGS).catch(() => {})}>
+            Open System Settings
+          </button>
+        </>
+      )}
+    </span>
+  )
+}
+
+const NOTIFICATION_SETTINGS = 'x-apple.systempreferences:com.apple.Notifications-Settings.extension'
 
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
