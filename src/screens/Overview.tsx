@@ -11,6 +11,7 @@ import { liveSnoozes, useSnoozes } from '@/lib/snooze'
 import { bindingWindow, computeAlerts, leftOf, longWindow, unusedAtResets, wastedValue, type Alert } from '@/lib/quota'
 import { creditsText, formatAgo, formatCountdown, formatMoney, formatPct, plural, resetText, windowName } from '@/lib/format'
 import { WindowGauge } from '@/components/Meter'
+import { SubscriptionBadge } from '@/components/SubscriptionBadge'
 import { AccountDot, ProviderMark, Segmented, SectionTitle } from '@/components/ui'
 import { PrimaryLaunch } from '@/components/PrimaryLaunch'
 import { UsageOverTime } from '@/charts/UsageOverTime'
@@ -312,6 +313,7 @@ function BoardRow({ a, snap, now, provider }: { a: Account; snap?: UsageSnapshot
             <ProviderMark id={provider} size={11} />
             {statusLabel(a) ?? (snap?.stale ? `Checked ${formatAgo(snap.fetchedAt, now)}` : a.plan && !a.label.includes(a.plan) ? a.plan : PROVIDER_META[provider].short)}
           </span>
+          <SubscriptionBadge account={a} now={now} className="mt-0.5" />
         </span>
       </button>
       <div className="min-w-0">
