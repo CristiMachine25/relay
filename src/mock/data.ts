@@ -6,6 +6,7 @@ import type {
   DailyActivity,
   DetectedAccount,
   ProviderInfo,
+  Subscription,
   UsageHistoryPoint,
   UsageSnapshot,
   UsageWindow
@@ -121,6 +122,17 @@ function nextFirstOfMonth(now: number): string {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1)).toISOString()
 }
 
+/** A local YYYY-MM-DD `days` from now. */
+function dayFrom(now: number, days: number): string {
+  const d = new Date(now + days * DAY)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** What a usage check would have read about a plan that began `daysAgo` days ago. */
+function subscriptionStarted(now: number, daysAgo: number, status: string): Subscription {
+  return { status, startedAt: new Date(now - daysAgo * DAY).toISOString(), checkedAt: new Date(now - 4 * MIN).toISOString() }
+}
+
 function seeds(now: number): Seed[] {
   return [
     {
@@ -138,12 +150,15 @@ function seeds(now: number): Seed[] {
         launchCount: 214,
         lastLaunchedAgo: 40 * MIN,
         monthlyCost: 200,
-        pinned: true
+        pinned: true,
+        autoRenew: true,
+        subscription: subscriptionStarted(now, 23, 'active')
       },
       windows: [
         { id: 'five_hour', label: '5-hour session', usedPercent: 64, windowMinutes: 300, resetsIn: 2 * HOUR + 14 * MIN },
         { id: 'seven_day', label: 'Weekly limit', usedPercent: 41, windowMinutes: 10080, resetsIn: 3 * DAY + 5 * HOUR },
-        { id: 'seven_day_opus', label: 'Weekly Opus', usedPercent: 77, windowMinutes: 10080, resetsIn: 3 * DAY + 5 * HOUR }
+        { id: 'seven_day_opus', label: 'Weekly Opus', usedPercent: 77, windowMinutes: 10080, resetsIn: 3 * DAY + 5 * HOUR },
+        { id: 'seven_day_fable', label: 'Weekly Fable', usedPercent: 38, windowMinutes: 10080, shareOfWeekly: 50, resetsIn: 3 * DAY + 5 * HOUR }
       ],
       typicalPeak: 82,
       intensity: 1,
@@ -162,11 +177,15 @@ function seeds(now: number): Seed[] {
         status: 'ok',
         launchCount: 61,
         lastLaunchedAgo: 5 * HOUR,
-        monthlyCost: 20
+        monthlyCost: 20,
+        autoRenew: false,
+        renewsOn: dayFrom(now, 2),
+        subscription: subscriptionStarted(now, 28, 'active')
       },
       windows: [
         { id: 'five_hour', label: '5-hour session', usedPercent: 12, windowMinutes: 300, resetsIn: 4 * HOUR + 40 * MIN },
-        { id: 'seven_day', label: 'Weekly limit', usedPercent: 96, windowMinutes: 10080, resetsIn: 1 * DAY + 7 * HOUR }
+        { id: 'seven_day', label: 'Weekly limit', usedPercent: 96, windowMinutes: 10080, resetsIn: 1 * DAY + 7 * HOUR },
+        { id: 'seven_day_fable', label: 'Weekly Fable', usedPercent: 100, windowMinutes: 10080, shareOfWeekly: 50, resetsIn: 1 * DAY + 7 * HOUR }
       ],
       typicalPeak: 97,
       intensity: 0.3,
@@ -185,12 +204,14 @@ function seeds(now: number): Seed[] {
         status: 'ok',
         launchCount: 38,
         lastLaunchedAgo: 3 * DAY,
-        monthlyCost: 100
+        monthlyCost: 100,
+        subscription: subscriptionStarted(now, 12, 'active')
       },
       windows: [
         { id: 'five_hour', label: '5-hour session', usedPercent: 0, windowMinutes: 300 },
         { id: 'seven_day', label: 'Weekly limit', usedPercent: 30, windowMinutes: 10080, resetsIn: 9 * HOUR + 20 * MIN },
-        { id: 'seven_day_opus', label: 'Weekly Opus', usedPercent: 18, windowMinutes: 10080, resetsIn: 9 * HOUR + 20 * MIN }
+        { id: 'seven_day_opus', label: 'Weekly Opus', usedPercent: 18, windowMinutes: 10080, resetsIn: 9 * HOUR + 20 * MIN },
+        { id: 'seven_day_fable', label: 'Weekly Fable', usedPercent: 12, windowMinutes: 10080, shareOfWeekly: 50, resetsIn: 9 * HOUR + 20 * MIN }
       ],
       typicalPeak: 45,
       intensity: 0.45,
@@ -233,7 +254,9 @@ function seeds(now: number): Seed[] {
         status: 'ok',
         launchCount: 44,
         lastLaunchedAgo: 70 * MIN,
-        monthlyCost: 20
+        monthlyCost: 20,
+        autoRenew: false,
+        renewsOn: dayFrom(now, -3)
       },
       windows: [
         { id: 'primary', label: '5-hour session', usedPercent: 100, windowMinutes: 300, resetsIn: 1 * HOUR + 20 * MIN },
@@ -309,7 +332,8 @@ function seeds(now: number): Seed[] {
         statusMessage: 'Claude rejected the saved sign-in. Sign in again to keep tracking this account.',
         launchCount: 3,
         lastLaunchedAgo: 12 * DAY,
-        monthlyCost: 30
+        monthlyCost: 30,
+        subscription: subscriptionStarted(now, 40, 'canceled')
       },
       windows: [],
       typicalPeak: 50,
