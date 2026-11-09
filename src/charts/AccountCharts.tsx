@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { memo, useMemo } from 'react'
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { DailyActivity, UsageHistoryPoint, UsageWindow } from '@shared/types'
 import { formatDay, formatTokens } from '@/lib/format'
@@ -7,7 +7,8 @@ import { axisTick, tipTime, useChartColors } from './theme'
 /** Fixed categorical order (validated all-pairs for the first three) for window lines within one account. */
 const WINDOW_COLORS = { dark: ['#3987E5', '#D95926', '#199E70', '#C98500'], light: ['#2A78D6', '#EB6834', '#1BAF7A', '#EDA100'] }
 
-export function WindowHistory({ windows, history, height = 200 }: { windows: UsageWindow[]; history: UsageHistoryPoint[]; height?: number }) {
+// Memoized: the account screen re-renders on every clock tick, and redrawing a chart is the costly part of that.
+export const WindowHistory = memo(function WindowHistory({ windows, history, height = 200 }: { windows: UsageWindow[]; history: UsageHistoryPoint[]; height?: number }) {
   const c = useChartColors()
   const colors = WINDOW_COLORS[c.theme]
   const data = useMemo(
@@ -70,9 +71,9 @@ export function WindowHistory({ windows, history, height = 200 }: { windows: Usa
       )}
     </div>
   )
-}
+})
 
-export function DailyTokens({ activity, color, span, height = 160 }: { activity: DailyActivity[]; color: string; span: number; height?: number }) {
+export const DailyTokens = memo(function DailyTokens({ activity, color, span, height = 160 }: { activity: DailyActivity[]; color: string; span: number; height?: number }) {
   const c = useChartColors()
   const data = useMemo(() => {
     // One bar per calendar day, including quiet days, so gaps read as gaps.
@@ -112,4 +113,4 @@ export function DailyTokens({ activity, color, span, height = 160 }: { activity:
       </ResponsiveContainer>
     </div>
   )
-}
+})

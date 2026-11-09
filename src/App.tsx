@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { Activity, useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
 import { useStore, type Screen } from './store'
 import { MAC_TRAFFIC_LIGHTS, Sidebar } from './components/Sidebar'
@@ -17,6 +17,15 @@ import { Terminals } from './terminals/Terminals'
 import { useAutopilot } from './autopilot/store'
 
 const SCREENS: Screen[] = ['overview', 'accounts', 'knowledge', 'skills', 'terminals', 'notifications', 'settings']
+const VIEWS: Record<Screen, () => React.ReactNode> = {
+  overview: Overview,
+  accounts: Accounts,
+  knowledge: Knowledge,
+  skills: Skills,
+  terminals: Terminals,
+  notifications: Notifications,
+  settings: Settings
+}
 
 function useTheme() {
   const pref = useStore((s) => s.settings?.theme ?? 'dark')
@@ -47,7 +56,9 @@ function useShortcuts() {
       }
       const t = e.target as HTMLElement
       const typing = t.closest('input, textarea, select, [contenteditable="true"]')
-      if (typing || e.ctrlKey || e.metaKey || e.altKey || s.paletteOpen || s.addOpen || document.querySelector('[role="dialog"]')) return
+      // A dialog left open on a hidden screen is still in the page; only a shown one owns the keys.
+      const dialog = [...document.querySelectorAll('[role="dialog"]')].some((d) => d.getClientRects().length > 0)
+      if (typing || e.ctrlKey || e.metaKey || e.altKey || s.paletteOpen || s.addOpen || dialog) return
       const n = Number(e.key)
       if (n >= 1 && n <= SCREENS.length) s.go(SCREENS[n - 1]!)
       if (e.key === 'r' || e.key === 'R') void s.refresh()
@@ -138,16 +149,19 @@ export function App() {
       <div className="flex min-h-0 flex-1">
         <Sidebar />
         <main className="min-h-0 min-w-0 flex-1 overflow-hidden focus-visible:outline-none" id="main" tabIndex={-1}>
-          {/* Keyed by screen, so each switch replays the fade-in. */}
-          <div key={screen} className="screen-in h-full">
-            {screen === 'overview' && <Overview />}
-            {screen === 'accounts' && <Accounts />}
-            {screen === 'knowledge' && <Knowledge />}
-            {screen === 'skills' && <Skills />}
-            {screen === 'terminals' && <Terminals />}
-            {screen === 'notifications' && <Notifications />}
-            {screen === 'settings' && <Settings />}
-          </div>
+          {/* Every screen stays mounted, so switching back is instant and keeps its scroll and selection. A hidden one
+              is pre-rendered when idle and runs no effects (no listeners, timers or store updates) until shown; shown
+              again, it replays the fade-in. */}
+          {SCREENS.map((id) => {
+            const View = VIEWS[id]
+            return (
+              <Activity key={id} mode={id === screen ? 'visible' : 'hidden'}>
+                <div className="screen-in h-full">
+                  <View />
+                </div>
+              </Activity>
+            )
+          })}
         </main>
       </div>
       <CommandPalette />

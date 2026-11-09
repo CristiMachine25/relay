@@ -2,7 +2,7 @@
 
 # Relay
 
-**Your work, handed to the account that still has quota.** All your AI subscriptions in one place. See how much of every limit you have left, get told before you hit one (or before unused quota resets), and launch Claude Code, Codex, Gemini CLI or Copilot CLI with the account you pick, in one click.
+**Your work, handed to the account that still has quota.** All your AI subscriptions in one place. See how much of every limit you have left, get told before you hit one (or before unused quota resets), start work on the right account, and let Autopilot move a Claude Code task to the next account when one runs out. Launch Claude Code, Codex, Gemini CLI or Copilot CLI with the account you pick, in one click.
 
 Runs on **Windows, macOS and Linux**. Free and open source (MIT). Everything stays on your computer.
 
@@ -10,7 +10,7 @@ Runs on **Windows, macOS and Linux**. Free and open source (MIT). Everything sta
 
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/overview-light.webp">
-  <img src="docs/screenshots/overview-dark.webp" alt="Relay's Overview screen: the best account to use right now, alternatives, alerts and every account's limits">
+  <img src="docs/screenshots/overview-dark.webp" alt="Relay's Start work screen: choose a task, see the account suggested for it and why, other options, and the Autopilot card below">
 </picture>
 
 > [!WARNING]
@@ -24,16 +24,20 @@ If you pay for more than one AI plan (two Claude Max accounts, ChatGPT Pro, Gemi
 
 - **Finds your accounts.** Detects installed CLIs and existing config folders, including side-by-side ones like `~/.claude-work`.
 - **Every account stays signed in.** Each account gets its own config home (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, ...), so switching never means logging out.
-- **Live limits.** 5-hour session, weekly, weekly Opus, Codex primary/secondary windows, Gemini model quotas, Copilot premium requests, with reset countdowns and history charts.
-- **Notifications.** Nearly exhausted, limit reached, limit reset, and "use it or lose it" when lots of a weekly or monthly limit (Claude, Codex, Copilot) is about to reset unused. Gemini's daily quotas get no such reminder.
-- **Recommendations.** Pick a task type (coding, long refactor, quick question, research, review) and get the best account to use right now.
+- **Start work.** The home screen asks what you are working on (coding, a long refactor, a quick question, research, a review), suggests an account with the reason, and lists the other options. Open it in a workspace pane, an external terminal, or resume your last chat.
+- **Autopilot.** Give it a Claude Code task and a folder and walk away. When the account runs out mid-task, the same conversation moves to the account with the most left and carries on. It waits for a reset when every account is out, and your computer is kept awake during a run. A "Fable 5.2 only" mode keeps the run on that model and moves accounts when the model's own weekly allowance (half of the weekly limit) runs out. It starts Claude Code with permission prompts skipped by default; untick that if you would rather it ask.
+- **Live limits.** 5-hour session, weekly, weekly Opus, weekly Fable, Codex primary/secondary windows, Gemini model quotas, Copilot premium requests, with reset countdowns and history charts.
+- **Clear limits.** One "Limits: 5 hours | Week | Fable" switch is shared by Start work, Accounts and Terminals, so every figure says which limit it is. Accounts that are out drop to a quiet "Out for now" list with when they are back, and the Fable weekly limit is its own gauge.
+- **Plan renewal.** Each account shows when its plan renews or ends. The day is estimated from the plan's start date and labelled as an estimate, and auto-renew is your own note, because providers do not tell Relay either. You can set the real day by hand.
+- **Voice.** Claude Code's hold-to-talk voice mode is turned on in every Claude account Relay starts, so it works in Relay's terminals and a chat that moves to another account keeps it (a switch in Settings turns it off). On a Mac, a mic button dictates an Autopilot task.
+- **Notifications.** In the app and as system notifications: nearly exhausted, limit reached, limit reset, and "use it or lose it" when lots of a weekly or monthly limit (Claude, Codex, Copilot) is about to reset unused. Gemini's daily quotas get no such reminder.
 - **One-click launch.** Opens your terminal with the right account, or resumes your last session. Desktop apps too, where they support it.
 - **Launcher.** Press Ctrl/Cmd+K, type an account or screen name, press Enter. Keys `1` to `7` jump between screens.
 - **Permission modes.** Pick per tool how every CLI starts, on every account: ask as usual, accept edits, plan, or bypass permissions (Claude Code), auto or bypass (Codex), auto edit or YOLO (Gemini), allow all tools (Copilot).
 - **Sharing you control.** Per account, choose what to share with your main setup: skills, plugins, agents and commands, instructions, MCP servers, settings, chat history. Credentials are never shared.
 - **Shared knowledge.** Each tool gets one shared profile for skills, agents, instructions, plugins and settings, and every account links to it, so all your accounts work the same way. The Knowledge screen shows what is in it.
 - **Skills from skills.sh.** Browse featured skills or search the public skills.sh directory, read a skill's SKILL.md, and install it for Claude Code, Codex, Gemini CLI or Copilot in one step. It goes into each tool's shared folder, downloaded from the skill's GitHub repository at a single commit, and nothing already there is overwritten.
-- **Terminal grid.** Run up to nine AI CLIs side by side in one window, each pane on its own account with its own meter. When one hits its limit, continue the same chat on another account in one click. Keep several sessions, each with its own layout, in a collapsible list beside the grid; hidden sessions keep running.
+- **Terminal grid.** Run up to nine AI CLIs side by side in one window, each pane on its own account with a meter for the limit you pick. When one hits its limit, continue the same chat on another account in one click. Keep several sessions, each with its own layout, in a collapsible list beside the grid; hidden sessions keep running.
 - **Move to a new computer.** Export your setup (accounts, skills, preferences) to a `.relay` file (older `.agenthub` files still import) and import it on Windows, macOS or Linux. Sign-ins are optional and encrypted with a passphrase you choose. Import only adds: nothing already on the computer is replaced.
 - **Tray menu** for quick launches without opening the window. Relay can start at login, hidden in the tray.
 
@@ -43,9 +47,11 @@ See [docs/PLAN.md](docs/PLAN.md) for what has shipped and what is next.
 
 | Terminal grid: one account per pane | Hit a limit, continue on another account |
 |---|---|
-| ![Four AI CLIs running side by side, each on its own account with its own usage meter](docs/screenshots/terminals.webp) | ![A pane at its limit with a menu to continue the session on another Claude account](docs/screenshots/continue.webp) |
+| ![Six AI CLIs running side by side, each on its own account with a meter for the limit you pick](docs/screenshots/terminals.webp) | ![A pane at its limit with a menu to continue the session on another Claude account](docs/screenshots/continue.webp) |
+| **Autopilot: the chat moved when an account ran out** | **Accounts: one Limits switch, plan renewal** |
+| ![The Autopilot card mid-run: the chat moved from H2 Max to Work Max 20x, with the route so far and an activity log](docs/screenshots/autopilot.webp) | ![The Accounts screen with the Limits switch set to Fable, each account's weekly Fable allowance, and the plan renewal estimate](docs/screenshots/limits.webp) |
 | **Accounts: every limit and reset time** | **Skills from skills.sh** |
-| ![The Accounts screen listing each account's 5-hour, weekly and Opus limits](docs/screenshots/accounts.webp) | ![The Skills screen with a list of skills beside a formatted SKILL.md](docs/screenshots/skills.webp) |
+| ![The Accounts screen listing each account's 5-hour, weekly, Opus and Fable limits](docs/screenshots/accounts.webp) | ![The Skills screen with a list of skills beside a formatted SKILL.md](docs/screenshots/skills.webp) |
 
 The screenshots use the built-in demo data, not real accounts.
 
@@ -63,7 +69,7 @@ More are planned: Cursor, Antigravity, Kiro, Amp, OpenRouter.
 ## Privacy
 
 - No servers, no telemetry, no account with us.
-- With **live usage** on, Relay reads each account's own login token from your disk and sends it only to that provider's own servers: its usage endpoint, its account profile when usage is refused, and its sign-in renewal. Turn it off in Settings to use local session logs only.
+- With **live usage** on, Relay reads each account's own login token from your disk and sends it only to that provider's own servers: its usage endpoint, its account profile (when usage is refused, and to read the plan's start date and status), and its sign-in renewal. Turn it off in Settings to use local session logs only.
 - Relay never copies or links credential files between accounts.
 
 ## Install

@@ -6,19 +6,23 @@ import { api } from '@/api'
 import { modKey } from '@/lib/platform'
 import { useStore } from '@/store'
 import { PROVIDER_META, PROVIDER_ORDER } from '@/lib/providers'
-import { isBlocked, isSignedOut, statusLabel } from '@/lib/grid'
+import { statusLabel } from '@/lib/grid'
 import { liveSnoozes, useSnoozes } from '@/lib/snooze'
-import { bindingWindow, computeAlerts, leftOf, longWindow, unusedAtResets, wastedValue, type Alert } from '@/lib/quota'
+import { computeAlerts, longWindow, unusedAtResets, wastedValue, type Alert } from '@/lib/quota'
 import { creditsText, formatAgo, formatCountdown, formatMoney, formatPct, plural, resetText, windowName } from '@/lib/format'
 import { WindowGauge } from '@/components/Meter'
-import { windowsToShow } from '@/lib/windows'
+import { lowLimits, shortLabel, viewWindow, windowsTip, VIEW_NAME, type LimitView } from '@/lib/limitView'
+import { LimitSwitch } from '@/components/LimitSwitch'
+import { useLimitSwitch } from '@/terminals/limitView'
 import { SubscriptionBadge } from '@/components/SubscriptionBadge'
+import { subscriptionFor } from '@/lib/subscription'
 import { AccountDot, ProviderMark, Segmented, SectionTitle } from '@/components/ui'
 import { PrimaryLaunch } from '@/components/PrimaryLaunch'
 import { UsageOverTime } from '@/charts/UsageOverTime'
 import { MostUsed, type ActivityMetric } from '@/charts/MostUsed'
 import { Page } from '@/components/Page'
 import { AutopilotCard } from '@/autopilot/AutopilotCard'
+import { splitFleet, outText, type Resting } from './overview/availability'
 import { FirstRun } from './overview/FirstRun'
 import { Advisor } from './overview/Advisor'
 import { ContinueWork } from './overview/ContinueWork'
@@ -57,7 +61,11 @@ export function Overview() {
     if (!settings) return []
     // Sign-in reminders the user put off stay hidden until the account's status changes.
     const off = liveSnoozes(snoozed, accounts)
-    return computeAlerts(accounts, usage, settings, now).filter((al) => !(al.kind === 'needs-login' && off[al.accountId]))
+    // An account that is out already waits under "Out for now": its limits are not an alert on top of that.
+    const out = new Set(splitFleet(accounts, usage).resting.filter((r) => r.kind === 'out').map((r) => r.account.id))
+    return computeAlerts(accounts, usage, settings, now).filter(
+      (al) => !(al.kind === 'needs-login' && off[al.accountId]) && !(out.has(al.accountId) && ['limit-reached', 'nearly-exhausted', 'use-it-or-lose-it'].includes(al.kind))
+    )
   }, [accounts, usage, settings, now, snoozed])
 
   if (accounts.length === 0) {
@@ -255,21 +263,25 @@ function Alerts({ alerts }: { alerts: Alert[] }) {
   )
 }
 
-/** Every account at a glance, grouped by tool so the same windows line up in columns. */
-function Board() {
+/** Every account at a glance, grouped by tool. Accounts that can be used come first; those that are out wait below, quietly. */
+export function Board() {
   const accounts = useStore((s) => s.accounts)
   const usage = useStore((s) => s.usage)
   const now = useStore((s) => s.now)
   const setAddOpen = useStore((s) => s.setAddOpen)
+  const { view, views, setView } = useLimitSwitch(accounts)
   const groups = PROVIDER_ORDER.map((p) => ({ p, list: accounts.filter((a) => a.providerId === p) })).filter((g) => g.list.length)
 
   return (
     <section aria-labelledby="board-title">
       <SectionTitle
         aside={
-          <button className="btn btn-ghost btn-sm" onClick={() => setAddOpen(true)}>
-            <Plus size={14} /> Add account
-          </button>
+          <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
+            <LimitSwitch view={view} views={views} onChange={setView} subject="account" />
+            <button className="btn btn-ghost btn-sm" onClick={() => setAddOpen(true)}>
+              <Plus size={14} /> Add account
+            </button>
+          </div>
         }
       >
         <span id="board-title" tabIndex={-1}>
@@ -277,61 +289,138 @@ function Board() {
         </span>
       </SectionTitle>
       <div className="overflow-hidden rounded-lg border border-rivet">
-        {groups.map(({ p, list }, gi) => (
-          <div key={p} role="group" aria-label={PROVIDER_META[p].product}>
-            <div className={clsx('flex h-8 items-center gap-2 border-b border-rivet bg-deck px-4 text-xs text-muted', gi > 0 && 'border-t')}>
-              <ProviderMark id={p} size={14} />
-              <span className="font-medium text-ink">{PROVIDER_META[p].product}</span>
+        {groups.map(({ p, list }, gi) => {
+          const { ready, resting } = splitFleet(list, usage)
+          return (
+            <div key={p} role="group" aria-label={PROVIDER_META[p].product}>
+              <div className={clsx('flex h-8 items-center gap-2 border-b border-rivet bg-deck px-4 text-xs text-muted', gi > 0 && 'border-t')}>
+                <ProviderMark id={p} size={14} />
+                <span className="font-medium text-ink">{PROVIDER_META[p].product}</span>
+              </div>
+              {ready.length > 0 && (
+                <ul className="divide-y divide-rivet">
+                  {ready.map((a) => (
+                    <BoardRow key={a.id} a={a} snap={usage[a.id]} now={now} provider={p} view={view} />
+                  ))}
+                </ul>
+              )}
+              {resting.length > 0 && (
+                <>
+                  <p className={clsx('flex h-7 items-center bg-well px-4 text-xs text-faint', ready.length > 0 && 'border-t border-rivet')}>
+                    Out for now · {resting.length}
+                  </p>
+                  <ul className="divide-y divide-rivet border-t border-rivet">
+                    {resting.map((r) => (
+                      <RestingRow key={r.account.id} r={r} now={now} provider={p} />
+                    ))}
+                  </ul>
+                </>
+              )}
             </div>
-            <ul className="divide-y divide-rivet">
-              {list.map((a) => (
-                <BoardRow key={a.id} a={a} snap={usage[a.id]} now={now} provider={p} />
-              ))}
-            </ul>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </section>
   )
 }
 
-function BoardRow({ a, snap, now, provider }: { a: Account; snap?: UsageSnapshot; now: number; provider: ProviderId }) {
-  const { launch, go } = useStore.getState()
+/** The account's name and what it is, as one button to its details. */
+function AccountName({ a, provider, snap, now, dim }: { a: Account; provider: ProviderId; snap?: UsageSnapshot; now: number; dim?: boolean }) {
+  const go = useStore((s) => s.go)
+  return (
+    <button className="flex min-w-0 items-center gap-2.5 text-left" onClick={() => go('accounts', a.id)} data-tip="Show details">
+      <span className={clsx('flex', dim && 'opacity-40')}>
+        <AccountDot account={a} />
+      </span>
+      <span className="min-w-0">
+        <span className={clsx('block truncate font-semibold', dim && 'text-muted')}>{a.label}</span>
+        {!dim && (
+          <>
+            <span className="flex items-center gap-1 truncate text-xs text-muted">
+              <ProviderMark id={provider} size={11} />
+              {statusLabel(a) ?? (snap?.stale ? `Checked ${formatAgo(snap.fetchedAt, now)}` : a.plan && !a.label.includes(a.plan) ? a.plan : PROVIDER_META[provider].short)}
+            </span>
+            <SubscriptionBadge account={a} now={now} className="mt-0.5" />
+          </>
+        )}
+      </span>
+    </button>
+  )
+}
+
+/** An account that cannot be used now, on one quiet line: why, and when it is back. */
+function RestingRow({ r, now, provider }: { r: Resting; now: number; provider: ProviderId }) {
+  const { launch } = useStore.getState()
+  const prov = useStore((s) => s.providers.find((p) => p.id === r.account.providerId))
+  const a = r.account
+  const why =
+    r.kind === 'out'
+      ? outText(r.window, now)
+      : r.kind === 'signed-out'
+        ? (a.statusMessage ?? 'Signed out. Sign in to see this account’s limits.')
+        : (a.statusMessage ?? `This account can't use ${PROVIDER_META[provider].product}.`)
+  return (
+    <li className="flex min-h-10 items-center gap-4 px-4 py-1.5 text-muted hover:bg-deck focus-within:bg-deck">
+      <div className="w-[10.5rem] shrink-0 min-[1180px]:w-[15rem]">
+        <AccountName a={a} provider={provider} now={now} dim />
+      </div>
+      <p className="min-w-0 flex-1 truncate text-xs" title={why}>
+        {why}
+      </p>
+      {/* A plan about to end matters even while the account is out; a calm renewal stays in the details. */}
+      {subscriptionFor(a, now).urgency !== 'calm' && <SubscriptionBadge account={a} now={now} className="shrink-0" />}
+      <div className="flex w-[92px] shrink-0 justify-end">
+        {r.kind === 'signed-out' ? (
+          <button className="btn btn-sm w-[92px]" onClick={() => launch(a.id, 'login')}>
+            <LogIn size={13} /> Sign in
+          </button>
+        ) : r.kind === 'out' ? (
+          <PrimaryLaunch account={a} prov={prov} className="btn btn-ghost btn-sm w-[92px]" short atLimit />
+        ) : null}
+      </div>
+    </li>
+  )
+}
+
+/** The one limit the switch is on, named; other limits that are low are marked, the rest are a hover away. */
+function LimitCell({ snap, now, view, refreshing }: { snap: UsageSnapshot; now: number; view: LimitView; refreshing: boolean }) {
+  const w = viewWindow(snap, view)
+  const low = lowLimits(snap, w).slice(0, 2)
+  return (
+    <div className="flex min-w-0 items-center gap-x-4" data-tip={windowsTip(snap, now)}>
+      <div className="min-w-0 flex-1 basis-0 max-w-[22rem]">
+        {w ? (
+          <WindowGauge w={w} now={now} compact name={shortLabel(w)} stale={snap.stale} refreshing={refreshing} />
+        ) : (
+          <p className="text-xs text-muted">No {VIEW_NAME[view]}</p>
+        )}
+      </div>
+      {low.length > 0 && (
+        <p className="flex shrink-0 flex-col text-xs font-medium text-low">
+          {low.map((l) => (
+            <span key={l.w.id} className="whitespace-nowrap">
+              {l.text}
+            </span>
+          ))}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function BoardRow({ a, snap, now, provider, view }: { a: Account; snap?: UsageSnapshot; now: number; provider: ProviderId; view: LimitView }) {
   const prov = useStore((s) => s.providers.find((p) => p.id === a.providerId))
   const refreshing = useStore((s) => s.refreshingIds.includes(a.id))
-  const signedOut = isSignedOut(a)
-  const blocked = isBlocked(a)
-  const bind = bindingWindow(snap)
-  const atLimit = bind ? leftOf(bind) <= 0.5 : false
   return (
     <li className="grid grid-cols-[10.5rem_minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 min-[1180px]:grid-cols-[15rem_minmax(0,1fr)_auto] min-[1180px]:gap-6 hover:bg-deck focus-within:bg-deck">
-      <button className="flex min-w-0 items-center gap-2.5 text-left" onClick={() => go('accounts', a.id)} data-tip="Show details">
-        <span className={clsx('flex', (signedOut || blocked) && 'opacity-40')}>
-          <AccountDot account={a} />
-        </span>
-        <span className="min-w-0">
-          <span className={clsx('block truncate font-semibold', (signedOut || blocked) && 'text-muted')}>{a.label}</span>
-          <span className="flex items-center gap-1 truncate text-xs text-muted">
-            <ProviderMark id={provider} size={11} />
-            {statusLabel(a) ?? (snap?.stale ? `Checked ${formatAgo(snap.fetchedAt, now)}` : a.plan && !a.label.includes(a.plan) ? a.plan : PROVIDER_META[provider].short)}
-          </span>
-          <SubscriptionBadge account={a} now={now} className="mt-0.5" />
-        </span>
-      </button>
+      <AccountName a={a} provider={provider} snap={snap} now={now} />
       <div className="min-w-0">
-        {signedOut ? (
-          <p className="flex items-center gap-2 text-muted">
-            <LogIn size={14} className="shrink-0" aria-hidden />
-            <span className="min-w-0">{a.statusMessage ?? 'Sign in to see this account’s limits.'}</span>
-          </p>
-        ) : blocked ? (
-          <p className="text-muted">{a.statusMessage ?? `This account can't use ${PROVIDER_META[provider].product}.`}</p>
-        ) : snap && snap.windows.length ? (
-          <div className="grid grid-cols-3 gap-4 min-[1180px]:gap-6">
-            {windowsToShow(snap.windows, 3).map((w) => (
-              <WindowGauge key={w.id} w={w} now={now} compact stale={snap.stale} refreshing={refreshing} />
-            ))}
-            {snap.credits && snap.windows.length < 3 && <div className="self-center text-xs text-muted">{creditsText(snap.credits)}</div>}
+        {snap && snap.windows.length ? (
+          <div className="flex items-center gap-4">
+            <div className="min-w-0 flex-1">
+              <LimitCell snap={snap} now={now} view={view} refreshing={refreshing} />
+            </div>
+            {snap.credits && snap.windows.length < 3 && <div className="shrink-0 self-center text-xs text-muted">{creditsText(snap.credits)}</div>}
           </div>
         ) : (
           <p className="text-muted">
@@ -341,13 +430,7 @@ function BoardRow({ a, snap, now, provider }: { a: Account; snap?: UsageSnapshot
         )}
       </div>
       <div className="flex justify-end">
-        {signedOut ? (
-          <button className="btn btn-sm w-[92px]" onClick={() => launch(a.id, 'login')}>
-            <LogIn size={13} /> Sign in
-          </button>
-        ) : blocked ? null : (
-          <PrimaryLaunch account={a} prov={prov} className="btn btn-sm w-[92px]" short atLimit={atLimit} />
-        )}
+        <PrimaryLaunch account={a} prov={prov} className="btn btn-sm w-[92px]" short />
       </div>
     </li>
   )

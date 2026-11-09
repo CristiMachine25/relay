@@ -103,3 +103,11 @@ export function windowsTip(snap: UsageSnapshot | undefined, now: number): string
     })
     .join('\n')
 }
+
+/** The limits other than the one on screen with under 20% left, tightest first, each with its words ("Week 8% left"). */
+export function lowLimits(snap: UsageSnapshot | undefined, shown: Pick<UsageWindow, 'id'> | undefined): { w: UsageWindow; text: string }[] {
+  return (snap?.windows ?? [])
+    .filter((w) => w.id !== shown?.id && leftOf(w) < 20)
+    .sort((a, b) => leftOf(a) - leftOf(b))
+    .map((w) => ({ w, text: leftOf(w) <= 0.5 ? `${shortLabel(w)} limit reached` : `${shortLabel(w)} ${formatPct(leftOf(w))} left` }))
+}

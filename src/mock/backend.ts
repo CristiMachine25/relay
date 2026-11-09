@@ -371,6 +371,10 @@ export function createMockApi(platform: Platform): RelayApi {
       async markRead(id) {
         await wait(60)
         for (const n of db.notifications) if (id === 'all' || n.id === id) n.read = true
+      },
+      async test() {
+        await wait(60)
+        return 'sent'
       }
     },
     settings: {

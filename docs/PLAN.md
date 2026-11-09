@@ -77,7 +77,8 @@ src-tauri/src/
   awake.rs                Keep the computer awake during an Autopilot run (caffeinate / systemd-inhibit / SetThreadExecutionState)
   voice.rs                Turn Claude Code voice mode on in each Claude home; start macOS dictation (NSApp startDictation:)
   usage.rs                Poll loop, history, activity cache
-  notify.rs               Rules: nearly exhausted, limit hit, reset, use-it-or-lose-it
+  notify.rs               Rules: nearly exhausted, limit hit, reset, use-it-or-lose-it; system banners via the notification plugin
+  notify_macos.rs         macOS banners through UNUserNotificationCenter (the plugin's legacy API is filed but never shown on current macOS); needs the .app bundle
   recommend.rs            Score accounts for "what should I use now"
   util.rs                 Small cross-platform helpers
   providers/{claude,codex,gemini,copilot}.rs, common.rs

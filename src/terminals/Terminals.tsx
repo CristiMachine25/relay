@@ -1,17 +1,17 @@
 import { useEffect } from 'react'
 import clsx from 'clsx'
-import { Gauge, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { api } from '@/api'
 import { useStore } from '@/store'
 import { LAYOUTS, LAYOUT_IDS, type Dir, type LayoutId } from '@/lib/grid'
 import { modKey } from '@/lib/platform'
-import type { LimitView } from '@/lib/limitView'
 import { restyleAll } from './registry'
 import { useGrid } from './store'
 import { useLimitView, useLimitViews } from './limitView'
 import { Pane } from './Pane'
 import { SessionsPanel } from './Sessions'
 import { onRadioArrows } from '@/components/ui'
+import { LimitSwitch as LimitSwitchView } from '@/components/LimitSwitch'
 
 /** Tiny picture of a layout preset, drawn from the same rects the grid uses. */
 function LayoutIcon({ id }: { id: LayoutId }) {
@@ -29,42 +29,11 @@ function LayoutIcon({ id }: { id: LayoutId }) {
   )
 }
 
-const LIMIT_OPTIONS: Record<LimitView, { label: string; tip: string }> = {
-  five_hour: { label: '5 hours', tip: "Show each pane's 5-hour limit" },
-  seven_day: { label: 'Week', tip: "Show each pane's weekly limit" },
-  seven_day_fable: { label: 'Fable', tip: "Show each pane's weekly Fable limit — half of the weekly one" }
-}
-
-/** Chooses which limit every pane's header shows, so two panes never show different limits unannounced. */
+/** The shared limit switch, offering the limits the grid's panes report. */
 export function LimitSwitch() {
   const { view, views } = useLimitViews()
   const setView = useLimitView((s) => s.setView)
-  return (
-    <div className="ml-auto flex shrink-0 items-center gap-1.5">
-      <span id="limit-switch-label" className="flex items-center gap-1 text-xs text-muted">
-        <Gauge size={13} aria-hidden />
-        Limits
-      </span>
-      <div className="inline-flex rounded border border-rivet bg-deck p-0.5" role="radiogroup" aria-labelledby="limit-switch-label" onKeyDown={onRadioArrows}>
-        {views.map((v) => (
-          <button
-            key={v}
-            role="radio"
-            aria-checked={view === v}
-            tabIndex={view === v ? 0 : -1}
-            data-tip={LIMIT_OPTIONS[v].tip}
-            onClick={() => setView(v)}
-            className={clsx(
-              'flex h-7 items-center whitespace-nowrap rounded-[4px] px-2 text-xs transition-colors',
-              view === v ? 'bg-raised font-semibold text-hop' : 'text-faint hover:text-ink'
-            )}
-          >
-            {LIMIT_OPTIONS[v].label}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
+  return <LimitSwitchView view={view} views={views} onChange={setView} subject="pane" className="ml-auto" />
 }
 
 const ARROWS: Record<string, Dir> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' }

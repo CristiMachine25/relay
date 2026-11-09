@@ -1,5 +1,8 @@
-import type { Account, UsageSnapshot } from '@shared/types'
+import type { Account, UsageSnapshot, UsageWindow } from '@shared/types'
 import { bindingWindow, isModelWindow, leftOf } from '@/lib/quota'
+import { atLimit, isBlocked, isSignedOut } from '@/lib/grid'
+import { backText, spentWindow } from '@/lib/windows'
+import { limitName } from '@/lib/limitView'
 
 export function nextExhaustedReset(accounts: Account[], usage: Record<string, UsageSnapshot>, now: number) {
   let next: { account: Account; at: string } | undefined
@@ -18,4 +21,38 @@ export function isLastKnownUsage(snapshot: UsageSnapshot | undefined, now: numbe
   if (snapshot.stale) return true
   const general = snapshot.windows.filter((window) => !isModelWindow(window))
   return (general.length ? general : snapshot.windows).some((window) => !!window.resetsAt && Date.parse(window.resetsAt) <= now)
+}
+
+export interface Resting {
+  account: Account
+  kind: 'out' | 'signed-out' | 'blocked'
+  /** For an account that is out: the limit that stopped it, the one that comes back last. */
+  window?: UsageWindow
+}
+
+/**
+ * The accounts that can be used now, in the order given, and those that cannot: out through a limit (back soonest
+ * first), then signed out or blocked. "Out" is the same as everywhere else (grid's atLimit), whatever limit view is on.
+ */
+export function splitFleet(accounts: Account[], usage: Record<string, UsageSnapshot>): { ready: Account[]; resting: Resting[] } {
+  const ready: Account[] = []
+  const out: Resting[] = []
+  const stuck: Resting[] = []
+  for (const account of accounts) {
+    if (isSignedOut(account)) stuck.push({ account, kind: 'signed-out' })
+    else if (isBlocked(account)) stuck.push({ account, kind: 'blocked' })
+    else if (atLimit(usage[account.id])) out.push({ account, kind: 'out', window: spentWindow(usage[account.id]!.windows) })
+    else ready.push(account)
+  }
+  const back = (r: Resting) => (r.window?.resetsAt ? Date.parse(r.window.resetsAt) : Infinity)
+  // Infinity - Infinity is NaN, which would leave the order to chance.
+  out.sort((a, b) => (back(a) === back(b) ? 0 : back(a) < back(b) ? -1 : 1))
+  return { ready, resting: [...out, ...stuck] }
+}
+
+/** What an account that is out says: "Weekly limit reached · back Sat 1:00 PM". */
+export function outText(window: UsageWindow | undefined, now: number): string {
+  const name = window ? limitName(window) : 'limit'
+  const back = backText(window?.resetsAt, now)
+  return `${name[0]!.toUpperCase()}${name.slice(1)} reached${back ? ` · ${back}` : ''}`
 }

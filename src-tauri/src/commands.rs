@@ -485,6 +485,11 @@ pub async fn notifications_list(state: St<'_>) -> Res<Vec<AppNotification>> {
 }
 
 #[tauri::command]
+pub async fn notifications_test(app: AppHandle) -> Res<crate::notify::NotificationTest> {
+    Ok(crate::notify::send_test(&app).await)
+}
+
+#[tauri::command]
 pub async fn notifications_mark_read(state: St<'_>, id: String) -> Res<()> {
     {
         let mut list = state.notifications.write().await;
@@ -661,9 +666,10 @@ pub async fn skills_remove(state: St<'_>, id: String, provider_id: ProviderId) -
     tokio::task::spawn_blocking(move || skills::remove_from(&shared, adapter.as_ref(), &r)).await.map_err(|e| e.to_string())?.map_err(err)
 }
 
-/// Only skills.sh and GitHub pages, over https.
+/// Only skills.sh and GitHub pages, over https, and the system's notification settings pane.
 fn openable(url: &str) -> bool {
-    reqwest::Url::parse(url).is_ok_and(|u| u.scheme() == "https" && matches!(u.host_str(), Some("skills.sh" | "github.com")))
+    url == "x-apple.systempreferences:com.apple.Notifications-Settings.extension"
+        || reqwest::Url::parse(url).is_ok_and(|u| u.scheme() == "https" && matches!(u.host_str(), Some("skills.sh" | "github.com")))
 }
 
 /// Open a skill's page in the browser.
@@ -870,9 +876,16 @@ mod tests {
             "javascript:alert(1)",
             "github.com/x",
             "",
+            "x-apple.systempreferences:com.apple.preference.security",
+            "x-apple.systempreferences:com.apple.Notifications-Settings.extension?x",
         ] {
             assert!(!openable(no), "{no}");
         }
+    }
+
+    #[test]
+    fn opens_the_notification_settings_pane() {
+        assert!(openable("x-apple.systempreferences:com.apple.Notifications-Settings.extension"));
     }
 
     #[test]

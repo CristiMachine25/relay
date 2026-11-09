@@ -223,18 +223,17 @@
   }
 }
 .toast-in {
-  animation: toast-in 240ms var(--ease-out);
+  animation: toast-in 180ms var(--ease-out);
 }
 
-/* A screen fades in as you switch to it. Opacity and a small shift only, so terminals measure their real size. */
+/* A screen fades in as you switch to it: opacity only and short, so its content shows in the first frame. */
 @keyframes screen-in {
   from {
     opacity: 0;
-    transform: translateY(6px);
   }
 }
 .screen-in {
-  animation: screen-in 260ms var(--ease-out);
+  animation: screen-in 100ms var(--ease-out);
 }
 
 /* Dialogs and the command palette: the backdrop fades while the panel grows out of it. */
@@ -244,7 +243,7 @@
   }
 }
 .backdrop-in {
-  animation: backdrop-in 180ms ease-out;
+  animation: backdrop-in 120ms ease-out;
 }
 @keyframes dialog-in {
   from {
@@ -253,7 +252,7 @@
   }
 }
 .dialog-in {
-  animation: dialog-in 220ms var(--ease-out);
+  animation: dialog-in 140ms var(--ease-out);
 }
 
 /* A small icon swapping in, such as the check after a refresh. */
@@ -264,12 +263,12 @@
   }
 }
 .pop-in {
-  animation: pop-in 260ms var(--ease-out);
+  animation: pop-in 180ms var(--ease-out);
 }
 
 /* The sidebar slides between its widths; labels fade back in as it opens (an element shown again restarts its animation). */
 .sidebar {
-  transition: width 240ms var(--ease-out);
+  transition: width 160ms var(--ease-out);
 }
 @keyframes label-in {
   from {
@@ -277,12 +276,12 @@
   }
 }
 .sidebar-label {
-  animation: label-in 200ms 80ms ease-out both;
+  animation: label-in 120ms 60ms ease-out both;
 }
 
 /* Opening a disclosure eases its content in instead of snapping. */
 details[open] > :not(summary) {
-  animation: screen-in 240ms var(--ease-out);
+  animation: screen-in 150ms var(--ease-out);
 }
 summary {
   transition: color 150ms var(--ease-out);

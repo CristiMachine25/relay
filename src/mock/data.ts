@@ -193,6 +193,31 @@ function seeds(now: number): Seed[] {
     },
     {
       account: {
+        id: 'acc-side',
+        providerId: 'claude',
+        label: 'Side project Pro',
+        email: 'sam.side2@example.com',
+        plan: 'Pro',
+        dir: '.claude-side',
+        color: '#7B61FF',
+        tags: ['coding'],
+        status: 'ok',
+        launchCount: 27,
+        lastLaunchedAgo: 2 * DAY,
+        monthlyCost: 20,
+        subscription: subscriptionStarted(now, 9, 'active')
+      },
+      windows: [
+        { id: 'five_hour', label: '5-hour session', usedPercent: 0, windowMinutes: 300 },
+        { id: 'seven_day', label: 'Weekly limit', usedPercent: 100, windowMinutes: 10080, resetsIn: 3 * DAY + 4 * HOUR },
+        { id: 'seven_day_fable', label: 'Weekly Fable', usedPercent: 100, windowMinutes: 10080, shareOfWeekly: 50, resetsIn: 3 * DAY + 4 * HOUR }
+      ],
+      typicalPeak: 99,
+      intensity: 0.2,
+      models: ['claude-sonnet-4-6']
+    },
+    {
+      account: {
         id: 'acc-h2',
         providerId: 'claude',
         label: 'H2 Max',
@@ -216,6 +241,56 @@ function seeds(now: number): Seed[] {
       typicalPeak: 45,
       intensity: 0.45,
       models: ['claude-opus-4-6', 'claude-sonnet-4-6']
+    },
+    {
+      account: {
+        id: 'acc-research',
+        providerId: 'claude',
+        label: 'Research Pro',
+        email: 'sam.research@example.com',
+        plan: 'Pro',
+        dir: '.claude-research',
+        color: '#0E9AA7',
+        tags: ['research'],
+        status: 'ok',
+        launchCount: 19,
+        lastLaunchedAgo: 9 * HOUR,
+        monthlyCost: 20,
+        subscription: subscriptionStarted(now, 19, 'active')
+      },
+      windows: [
+        { id: 'five_hour', label: '5-hour session', usedPercent: 31, windowMinutes: 300, resetsIn: 1 * HOUR + 50 * MIN },
+        { id: 'seven_day', label: 'Weekly limit', usedPercent: 100, windowMinutes: 10080, resetsIn: 5 * DAY + 9 * HOUR },
+        { id: 'seven_day_fable', label: 'Weekly Fable', usedPercent: 100, windowMinutes: 10080, shareOfWeekly: 50, resetsIn: 5 * DAY + 9 * HOUR }
+      ],
+      typicalPeak: 98,
+      intensity: 0.25,
+      models: ['claude-sonnet-4-6']
+    },
+    {
+      account: {
+        id: 'acc-night',
+        providerId: 'claude',
+        label: 'Night shift Pro',
+        email: 'sam.night@example.com',
+        plan: 'Pro',
+        dir: '.claude-night',
+        color: '#B8860B',
+        tags: ['review'],
+        status: 'ok',
+        launchCount: 33,
+        lastLaunchedAgo: 3 * HOUR,
+        monthlyCost: 20,
+        subscription: subscriptionStarted(now, 25, 'active')
+      },
+      windows: [
+        { id: 'five_hour', label: '5-hour session', usedPercent: 100, windowMinutes: 300, resetsIn: 2 * HOUR + 5 * MIN },
+        { id: 'seven_day', label: 'Weekly limit', usedPercent: 62, windowMinutes: 10080, resetsIn: 4 * DAY + 2 * HOUR },
+        { id: 'seven_day_fable', label: 'Weekly Fable', usedPercent: 48, windowMinutes: 10080, shareOfWeekly: 50, resetsIn: 4 * DAY + 2 * HOUR }
+      ],
+      typicalPeak: 70,
+      intensity: 0.3,
+      models: ['claude-sonnet-4-6']
     },
     {
       account: {
