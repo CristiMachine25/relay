@@ -39,7 +39,7 @@ Every CLI supports pointing at an alternate home. Relay creates one home per acc
 
 | Provider | CLI | Isolation | Credentials | Usage source |
 |---|---|---|---|---|
-| Claude | `claude` | `CLAUDE_CONFIG_DIR` | `<home>/.credentials.json` (Win/Linux), Keychain `Claude Code-credentials[-<hash>]` (macOS) | `GET api.anthropic.com/api/oauth/usage` (5-hour, weekly, weekly-Opus/Sonnet) + `projects/**/*.jsonl` |
+| Claude | `claude` | `CLAUDE_CONFIG_DIR` | `<home>/.credentials.json` (Win/Linux), Keychain `Claude Code-credentials[-<hash>]` (macOS) | `GET api.anthropic.com/api/oauth/usage` (5-hour, weekly, weekly-Opus/Sonnet, and a model's own weekly allowance such as Weekly Fable, half of the weekly limit) + `projects/**/*.jsonl`; plan start date and status from `GET api.anthropic.com/api/oauth/profile`, else `.claude.json` |
 | Codex (ChatGPT) | `codex` | `CODEX_HOME` | `<home>/auth.json` (force `cli_auth_credentials_store="file"`) | `GET chatgpt.com/backend-api/wham/usage` (primary/secondary windows) + `sessions/**/*.jsonl` rate_limits |
 | Gemini | `gemini` | `GEMINI_CLI_HOME` or HOME override | `~/.gemini/oauth_creds.json` | `POST cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota` |
 | Copilot | `copilot` | `COPILOT_HOME` / XDG override | GitHub token | `GET api.github.com/copilot_internal/user` (premium requests) |
@@ -110,7 +110,7 @@ site/                     Landing page, deployed to GitHub Pages
 ## Privacy and safety rules
 
 - Everything is local. No telemetry, no server.
-- Tokens are read only to call that provider's own usage endpoint, only when "live usage" is on (default on, can be turned off for local-logs-only mode). When Claude first refuses usage for an account, a call to its profile endpoint (same token) says why, e.g. a canceled subscription; it is repeated only while the reason is unknown.
+- Tokens are read only to call that provider's own usage endpoint, only when "live usage" is on (default on, can be turned off for local-logs-only mode). When Claude first refuses usage for an account, a call to its profile endpoint (same token) says why, e.g. a canceled subscription; it is repeated only while the reason is unknown. The same call, after a usage check that worked, also reads the plan's start date and status, at most about twice a day per account. No endpoint a CLI sign-in can reach gives the next billing date or the auto-renew setting, so the renewal day shown is an estimate (the monthly anniversary of the start date) unless the user sets it, and auto-renew is only the user's own note. Codex's dates come from the sign-in token already on disk.
 - Never write to another tool's credential file except an atomic token refresh that keeps the file valid for the CLI. A login kept in the macOS Keychain is never written: when it expires, the CLI renews it itself (Claude: `claude mcp list`, which makes no model request), so the CLI's own renewal lock is respected.
 - Uninstall leaves every CLI home intact.
 - Export follows links to skills kept elsewhere, but never into an account or tool folder, so a setup file carries sign-ins only when the user includes them (encrypted).
