@@ -90,11 +90,11 @@ export function WindowGauge({
     <div className={clsx('min-w-0', stale && '[&_[role=meter]]:opacity-60')} aria-busy={refreshing || undefined}>
       <div className="mb-1 flex items-baseline justify-between gap-2">
         <span className="truncate text-xs text-muted" data-tip={share ? `${w.label}: ${share}` : w.label}>
-          <span className={clsx(!secondary && 'font-medium')}>{w.label}</span>
+          <span className={clsx(!secondary && 'font-medium')}>{compact ? w.label.replace(/ (session|limit)$/i, '') : w.label}</span>
           {share && !compact && <span> · {share}</span>}
         </span>
         <span className={clsx('shrink-0 whitespace-nowrap text-xs font-semibold tabular-nums', reached ? 'text-empty' : 'text-ink')}>
-          {reached ? 'Limit reached' : `${formatPct(left)} left`}
+          {reached ? (compact ? 'Used up' : 'Limit reached') : `${formatPct(left)} left`}
         </span>
       </div>
       <Meter left={left} label={`${w.label}`} cells={compact ? 20 : 25} size={compact || secondary ? 'xs' : 'sm'} className={refreshing ? 'is-refreshing' : undefined} />
