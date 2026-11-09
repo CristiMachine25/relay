@@ -40,6 +40,13 @@ const snap = (accountId: string, used: number, resetsInMin = 90): UsageSnapshot 
   windows: [{ id: 'five_hour', label: '5-hour session', usedPercent: used, resetsAt: new Date(NOW + resetsInMin * 60_000).toISOString(), windowMinutes: 300 }]
 })
 
+/** The same with the Fable window, by percent of its allowance used. */
+const fable = (accountId: string, used: number, fableUsed: number, resetsInMin = 3000): UsageSnapshot => {
+  const s = snap(accountId, used)
+  const w = { id: 'seven_day_fable', label: 'Weekly Fable', usedPercent: fableUsed, resetsAt: new Date(NOW + resetsInMin * 60_000).toISOString(), windowMinutes: 10080, shareOfWeekly: 50 }
+  return { ...s, windows: [...s.windows, w] }
+}
+
 const claude = { id: 'claude', name: 'Claude Code', defaultHome: '/Users/sam/.claude' } as ProviderInfo
 const work = account('w', 'Work')
 const home = account('h', 'Home')
@@ -95,11 +102,60 @@ describe('AutopilotCard', () => {
     expect(html).toMatch(/<button type="submit" class="btn btn-primary" disabled=""/)
   })
 
+  describe('the model', () => {
+    const checked = (html: string) => html.match(/role="radio" aria-checked="true"[^>]*>([^<]*)</)?.[1]
+
+    it('stays on Fable by default once an account reports its Fable allowance, and explains the trade-off', () => {
+      const html = render({ accounts: [work, home], usage: { w: fable('w', 70, 10), h: fable('h', 20, 38) } })
+      expect(html).toMatch(/role="radiogroup" aria-labelledby="[^"]+"/)
+      expect(checked(html)).toBe('Fable 5.2 only')
+      expect(html).toContain('Fable may use half of each account')
+      expect(html).toContain('instead of carrying on with another model')
+    })
+
+    it("keeps the account's default model when no account reports a Fable allowance", () => {
+      const html = render({ accounts: [work, home], usage: { w: snap('w', 70), h: snap('h', 20) } })
+      expect(checked(html)).toBe('Account default')
+      expect(html).toContain('Start on Home · 80% left</button>')
+    })
+
+    it('remembers the last choice', () => {
+      const saved = new Map([['relay.autopilot.model', 'default']])
+      vi.stubGlobal('localStorage', { getItem: (k: string) => saved.get(k) ?? null, setItem: () => {}, removeItem: () => {} })
+      try {
+        expect(checked(render({ accounts: [work], usage: { w: fable('w', 20, 0) } }))).toBe('Account default')
+      } finally {
+        vi.unstubAllGlobals()
+      }
+    })
+
+    it('ranks and labels the accounts by the Fable they have left, and says when one is out of it', () => {
+      const out = account('o', 'Out')
+      const old = account('x', 'Older check')
+      const html = render({ accounts: [work, home, out, old], usage: { w: fable('w', 70, 10), h: fable('h', 20, 38), o: fable('o', 0, 100), x: snap('x', 0) } })
+      // Home's Fable (62% left) beats Work's 5-hour session (30% left).
+      expect(html).toContain('Start on Home · Fable 62% left</button>')
+      expect(html.indexOf('>Home<')).toBeLessThan(html.indexOf('>Work<'))
+      expect(html).toContain('>30% left<')
+      // No Fable window: last in line, but not left out.
+      expect(html.indexOf('>Work<')).toBeLessThan(html.indexOf('>Older check<'))
+      expect(html).toContain('Fable unknown')
+      expect(html).toMatch(/aria-label="Not available now"(?:(?!<\/ul>).)*Out(?:(?!<\/ul>).)*Out of Fable until /)
+    })
+
+    it('says no account has Fable left when every one is out of it', () => {
+      const html = render({ accounts: [work, home], usage: { w: fable('w', 0, 100, 600), h: fable('h', 0, 100, 3000) } })
+      expect(html).toContain('No Claude account has Fable left right now')
+      expect(html).toContain('Work is back first, in 10h.')
+    })
+  })
+
   const run = (extra: Partial<NonNullable<PilotState['run']>> = {}): NonNullable<PilotState['run']> => ({
     id: 'r1',
     task: 'Refactor the billing module and make the tests pass',
     cwd: '/Users/sam/code/shop',
     skipPermissions: true,
+    model: 'default',
     providerId: 'claude',
     accountId: 'w',
     paneUid: 'p1',
@@ -125,6 +181,14 @@ describe('AutopilotCard', () => {
     expect(html.indexOf('Entry 0')).toBeLessThan(html.indexOf('Entry 1'))
     expect(html).not.toContain('Entry 5')
     expect(html).toContain('Show all 7')
+  })
+
+  it('shows a run that stays on Fable, and how much Fable it has left', () => {
+    const html = render({ accounts: [work, home], usage: { w: fable('w', 10, 55), h: fable('h', 0, 80) } }, { phase: 'running', run: run({ model: 'fable' }), log })
+    expect(html).toContain('Fable 5.2 only')
+    expect(html).toContain('45%</strong>')
+    expect(html).toContain('left of weekly Fable')
+    expect(html).toContain('· Fable 20% left')
   })
 
   it('shows the route a run took and who is next', () => {
