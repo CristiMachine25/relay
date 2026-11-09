@@ -115,6 +115,8 @@ function ListRow({ a, snap, view, now, on }: { a: Account; snap?: UsageSnapshot;
   const status = statusLabel(a)
   return (
     <button
+      // Select on press, like the sidebar: waiting for the release costs most of a click.
+      onMouseDown={(e) => e.button === 0 && go('accounts', a.id)}
       onClick={() => go('accounts', a.id)}
       aria-current={on ? 'true' : undefined}
       data-tip={snap?.windows.length ? windowsTip(snap, now) : undefined}
@@ -142,6 +144,8 @@ function RestingListRow({ r, now, on }: { r: Resting; now: number; on: boolean }
   const [limit = '', back] = (r.kind === 'out' ? outText(r.window, now) : (statusLabel(a) ?? '')).split(' · ')
   return (
     <button
+      // Select on press, like the sidebar: waiting for the release costs most of a click.
+      onMouseDown={(e) => e.button === 0 && go('accounts', a.id)}
       onClick={() => go('accounts', a.id)}
       aria-current={on ? 'true' : undefined}
       className={clsx('w-full rounded px-2 py-1.5 text-left text-muted', on ? 'bg-raised shadow-[inset_2px_0_0_rgb(var(--hop))]' : 'hover:bg-raised/60')}

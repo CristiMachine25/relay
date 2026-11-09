@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ArrowUpRight, Loader2, RefreshCw, RotateCcw, SquareTerminal } from 'lucide-react'
 import type { Account, ProviderId, Recommendation, UsageSnapshot } from '@shared/types'
 import { errorText } from '@/api'
+import { useShallow } from 'zustand/react/shallow'
 import { useStore } from '@/store'
 import { useGrid } from '@/terminals/store'
 import { PROVIDER_META, PROVIDER_ORDER, TASKS, primaryTarget, primaryVerb } from '@/lib/providers'
@@ -13,7 +14,21 @@ import { PrimaryLaunch } from '@/components/PrimaryLaunch'
 import { isLastKnownUsage, nextExhaustedReset } from './availability'
 
 export function Advisor() {
-  const { task, setTask, recs, recsLoading, recsError, accounts, usage, now, providers, launching } = useStore()
+  // Only these fields: an unrelated store change (a toast, a refresh flag) must not redraw the card.
+  const { task, setTask, recs, recsLoading, recsError, accounts, usage, now, providers, launching } = useStore(
+    useShallow((s) => ({
+      task: s.task,
+      setTask: s.setTask,
+      recs: s.recs,
+      recsLoading: s.recsLoading,
+      recsError: s.recsError,
+      accounts: s.accounts,
+      usage: s.usage,
+      now: s.now,
+      providers: s.providers,
+      launching: s.launching
+    }))
+  )
   const [provider, setProvider] = useState<ProviderId | 'all'>('all')
   const [starting, setStarting] = useState(false)
   const restored = useGrid((s) => s.restored)
