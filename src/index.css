@@ -187,6 +187,21 @@
 .cell {
   transition: background-color 450ms ease-out;
 }
+/* A meter whose numbers are being read again dims and breathes; it only dims when motion is reduced. */
+.is-refreshing {
+  opacity: 0.55;
+  animation: refresh-pulse 1.4s ease-in-out infinite;
+}
+@keyframes refresh-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .is-refreshing {
+    animation: none;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
