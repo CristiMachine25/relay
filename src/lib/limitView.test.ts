@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { UsageSnapshot, UsageWindow } from '@shared/types'
-import { hiddenLimit, limitName, nextView, offeredViews, parseLimitView, shortLabel, shownView, viewWindow, windowsTip } from './limitView'
+import { hiddenLimit, lowLimits, limitName, nextView, offeredViews, parseLimitView, shortLabel, shownView, viewWindow, windowsTip } from './limitView'
 
 const NOW = Date.parse('2026-11-09T12:00:00Z')
 const iso = (h: number) => new Date(NOW + h * 3_600_000).toISOString()
@@ -158,5 +158,30 @@ describe('hiddenLimit', () => {
   it('ignores a model window that ran out: the account still works', () => {
     const fableOut = snap([session, { ...week, usedPercent: 40 }, { id: 'seven_day_fable', label: 'Weekly Fable', usedPercent: 100, windowMinutes: 10080 }])
     expect(hiddenLimit(fableOut, session)).toBeUndefined()
+  })
+})
+
+describe('lowLimits', () => {
+  const week = (used: number) => ({ id: 'seven_day', label: 'Weekly', usedPercent: used, windowMinutes: 10080 })
+  const five = (used: number) => ({ id: 'five_hour', label: '5-hour session', usedPercent: used, windowMinutes: 300 })
+
+  it('names another limit with under 20% left, so the switch never hides a real constraint', () => {
+    const s = snap([five(30), week(92)])
+    expect(lowLimits(s, viewWindow(s, 'five_hour')).map((l) => l.text)).toEqual(['Week 8% left'])
+  })
+
+  it('says nothing about the limit on screen or about limits with plenty left', () => {
+    const s = snap([five(90), week(40)])
+    expect(lowLimits(s, viewWindow(s, 'five_hour'))).toEqual([])
+    expect(lowLimits(s, viewWindow(s, 'seven_day')).map((l) => l.text)).toEqual(['5h 10% left'])
+  })
+
+  it('says when a model limit has run out, and lists the tightest first', () => {
+    const s = snap([five(95), week(85), { id: 'seven_day_fable', label: 'Weekly Fable', usedPercent: 100, windowMinutes: 10080 }])
+    expect(lowLimits(s, viewWindow(s, 'five_hour')).map((l) => l.text)).toEqual(['Fable limit reached', 'Week 15% left'])
+  })
+
+  it('is empty for an account with no windows', () => {
+    expect(lowLimits(undefined, undefined)).toEqual([])
   })
 })
