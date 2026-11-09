@@ -2,11 +2,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AppSettings } from '@shared/types'
 
 const remove = vi.fn<(id: string, opts: { deleteHome: boolean }) => Promise<boolean>>()
+const refreshes: { id?: string; resolve: () => void; reject: (e: Error) => void }[] = []
 const sets: { resolve: (s: AppSettings) => void; reject: (e: Error) => void }[] = []
 vi.mock('./api', () => ({
   api: {
     accounts: { remove },
     recommend: async () => [],
+    usage: {
+      refresh: (id?: string) =>
+        new Promise((resolve, reject) => refreshes.push({ id, resolve: () => resolve({}), reject }))
+    },
     settings: { set: () => new Promise((resolve, reject) => sets.push({ resolve, reject })) }
   },
   errorText: (e: unknown) => (e instanceof Error ? e.message : String(e))
@@ -57,5 +62,44 @@ describe('saveSettings', () => {
     sets[0]!.reject(new Error('nope'))
     await save
     expect(useStore.getState().settings?.pollIntervalMinutes).toBe(5)
+  })
+})
+
+describe('refresh', () => {
+  beforeEach(() => {
+    refreshes.length = 0
+    useStore.setState({ toasts: [], refreshing: false, refreshingIds: [], accounts: [{ id: 'a' }, { id: 'b' }] as never })
+  })
+
+  it('marks only the account being checked, and clears it when the check ends', async () => {
+    const done = useStore.getState().refresh('a')
+    expect(useStore.getState().refreshing).toBe(true)
+    expect(useStore.getState().refreshingIds).toEqual(['a'])
+    refreshes[0]!.resolve()
+    await done
+    expect(useStore.getState().refreshing).toBe(false)
+    expect(useStore.getState().refreshingIds).toEqual([])
+  })
+
+  it('marks every account when all are checked, and clears them when the check fails', async () => {
+    const done = useStore.getState().refresh()
+    expect(useStore.getState().refreshingIds).toEqual(['a', 'b'])
+    refreshes[0]!.reject(new Error('offline'))
+    await done
+    expect(useStore.getState().refreshingIds).toEqual([])
+    expect(useStore.getState().refreshing).toBe(false)
+    expect(useStore.getState().toasts.at(-1)?.title).toBe("Couldn't refresh usage")
+  })
+
+  it('stays busy until the last of two overlapping checks ends', async () => {
+    const first = useStore.getState().refresh('a')
+    const second = useStore.getState().refresh('b')
+    refreshes[0]!.resolve()
+    await first
+    expect(useStore.getState().refreshing).toBe(true)
+    expect(useStore.getState().refreshingIds).toEqual(['b'])
+    refreshes[1]!.resolve()
+    await second
+    expect(useStore.getState().refreshing).toBe(false)
   })
 })
