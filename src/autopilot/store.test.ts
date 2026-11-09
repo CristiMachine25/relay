@@ -737,6 +737,34 @@ describe('staying on Fable', () => {
     expect(lastSpawn()).toMatchObject({ accountId: 'h3', extraArgs: [...fableArgs, taskArg(restartPrompt(TASK.task))] })
   })
 
+  it('starts on the account with the most left counting Fable, and says how much Fable that is', async () => {
+    // h2 has the most left in general but little Fable; h1 reports no Fable window, so it comes last.
+    setUsage({ h1: 0, h2: { used: 20, fable: 90 }, h3: { used: 10, fable: 30 } })
+    const { ap } = await boot()
+    await ap.getState().start(FABLE_TASK)
+    expect(ap.getState().run!.accountId).toBe('h3')
+    expect(ap.getState().log[0]!.text).toBe('Started on Claude H3 (Fable 70% left).')
+  })
+
+  it('moves on to the account with the most left counting Fable', async () => {
+    setUsage({ h1: { used: 70, fable: 20 }, h2: { used: 20, fable: 0 }, h3: { used: 50, fable: 90 } })
+    const { ap } = await boot()
+    await ap.getState().start(FABLE_TASK)
+    await vi.advanceTimersByTimeAsync(21_000)
+    setUsage({ h2: { used: 100, fable: 0 } })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(ap.getState().run!.accountId).toBe('h1')
+    expect(ap.getState().log[0]!.text).toMatch(/Continued on Claude H1 \(30% left\)\.$/)
+  })
+
+  it('does not start when no account has Fable left, though they have room in general', async () => {
+    setUsage({ h1: { used: 0, fable: 100 }, h2: { used: 0, fable: 100 }, h3: { used: 0, fable: 100 } })
+    const { ap } = await boot()
+    expect(await ap.getState().start(FABLE_TASK)).toBe(false)
+    expect(toast).toHaveBeenLastCalledWith(expect.objectContaining({ kind: 'error', title: 'No Claude account has Fable left right now' }))
+    expect(await ap.getState().start(TASK)).toBe(true)
+  })
+
   it("keeps the account's default model otherwise", async () => {
     const { ap } = await running()
     expect(ap.getState().run!.model).toBe('default')

@@ -11,7 +11,9 @@ import {
   CONTINUE_PROMPT,
   exhaustedUntil,
   limitHit,
+  limitingWindow,
   modelArgs,
+  modelWindow,
   nextAccount as pickNext,
   permissionArgs,
   pickAccount,
@@ -210,7 +212,8 @@ export const useAutopilot = create<AutopilotState>((set, get) => ({
     if (active(get().phase)) return fail('Autopilot is already running', 'Stop the current run first.')
     const task = input.task.trim()
     if (!task) return fail('Give Autopilot a task first')
-    if (!best()) return fail('No Claude account has room right now', "Autopilot needs a signed-in Claude account that isn't at its limit.")
+    const model = input.model ?? 'default'
+    if (!best(model)) return fail(...NO_ROOM[model])
 
     w = freshWatch()
     set({ phase: 'starting', run: null, log: [] })
@@ -223,9 +226,9 @@ export const useAutopilot = create<AutopilotState>((set, get) => ({
         await useStore.getState().updateAccount(x.id, { sharing: { ...x.sharing, history: true } }, { quiet: true })
       await useGrid.getState().restore()
       if (!starting()) return false
-      const first = best()
+      const first = best(model)
       if (!first) {
-        finish('No Claude account has room right now', true)
+        finish(NO_ROOM[model][0], true)
         return false
       }
 
@@ -241,7 +244,7 @@ export const useAutopilot = create<AutopilotState>((set, get) => ({
         task,
         cwd,
         skipPermissions: input.skipPermissions,
-        model: input.model ?? 'default',
+        model,
         providerId: 'claude',
         accountId: first.id,
         paneUid,
@@ -261,7 +264,7 @@ export const useAutopilot = create<AutopilotState>((set, get) => ({
       }
       spawned(tid)
       set({ phase: 'running' })
-      addLog('start', `Started on ${first.label}${leftText(first.id)}.`)
+      addLog('start', `Started on ${first.label}${leftText(first.id, model)}.`)
       return true
     } catch (e) {
       if (starting()) finish(`Couldn't start: ${errorText(e)}`, true)
@@ -320,17 +323,23 @@ function finish(reason: string, error: boolean) {
 
 const claudeHome = () => useStore.getState().providers.find((p) => p.id === 'claude')?.defaultHome
 
-const best = () => {
+const best = (model: RunModel) => {
   const s = useStore.getState()
-  return pickAccount(s.accounts, s.usage, { providerId: 'claude' })
+  return pickAccount(s.accounts, s.usage, { providerId: 'claude', modelWindow: modelWindow(model) })
+}
+
+const NO_ROOM: Record<RunModel, [string, string]> = {
+  default: ['No Claude account has room right now', "Autopilot needs a signed-in Claude account that isn't at its limit."],
+  fable: ['No Claude account has Fable left right now', "Autopilot needs a signed-in Claude account that isn't at its limit and hasn't used up its Fable allowance."]
 }
 
 const label = (id: string) => useStore.getState().accounts.find((a) => a.id === id)?.label ?? 'The account'
 
-/** " (82% left)" for an account with usage numbers, '' without. */
-function leftText(id: string): string {
-  const b = bindingWindow(useStore.getState().usage[id])
-  return b ? ` (${Math.round(leftOf(b))}% left)` : ''
+/** " (82% left)" for an account with usage numbers, '' without; " (Fable 71% left)" when Fable is what limits a Fable run. */
+function leftText(id: string, model: RunModel): string {
+  const mw = modelWindow(model)
+  const b = limitingWindow(useStore.getState().usage[id], mw)
+  return b ? ` (${b.id === mw ? 'Fable ' : ''}${Math.round(leftOf(b))}% left)` : ''
 }
 
 /** The run's flags, before the task or prompt argument. */
@@ -529,7 +538,7 @@ async function checkText() {
 /** The account to continue on: most left, not drained during this run, and able to open the chat's history. */
 function nextAccount(run: AutopilotRun): Account | undefined {
   const s = useStore.getState()
-  return pickNext(run, s.accounts, s.usage, { now: Date.now(), defaultHome: claudeHome(), platform: api.platform })
+  return pickNext(run, s.accounts, s.usage, { now: Date.now(), defaultHome: claudeHome(), platform: api.platform, modelWindow: modelWindow(run.model) })
 }
 
 /** The run's account ran out (`limit`) or its CLI stopped (`exit`): move the chat to the best account. */
@@ -643,7 +652,7 @@ async function relaunch(next: Account, describe: (left: string) => string, kind:
   }
   if (thrown) addLog('error', thrown)
   spawned(tid)
-  const text = describe(leftText(next.id)) + (conversationId ? '' : " It couldn't tell which chat to reopen, so it started the task over in a new chat.")
+  const text = describe(leftText(next.id, run.model)) + (conversationId ? '' : " It couldn't tell which chat to reopen, so it started the task over in a new chat.")
   const now = get().run!
   const legs = [...(now.legs ?? []), { accountId: next.id, at: Date.now() }].slice(-LEGS_MAX)
   set({ phase: 'running', run: { ...now, accountId: next.id, handoffs: run.handoffs + 1, legs, waitingUntil: undefined } })
