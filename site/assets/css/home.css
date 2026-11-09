@@ -489,6 +489,17 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+/* Phones: zoom into the left of the card (a 480x400 region of the 1600x1000 shot), as the sequence does. */
+@media (max-width: 639px) {
+  .ap-shots .crop {
+    aspect-ratio: 1.2;
+  }
+  .ap-shots .crop > img {
+    width: 333.33%;
+    left: var(--mx, var(--l));
+    top: var(--my, 0);
+  }
+}
 
 /* ---------- Features bento ---------- */
 .features {
