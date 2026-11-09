@@ -21,7 +21,8 @@ use std::time::Duration;
 use super::common::*;
 
 const USAGE_URL: &str = "https://api.anthropic.com/api/oauth/usage";
-/// Plan and subscription status; read only to explain why usage is blocked.
+/// Plan and subscription status: read to explain why usage is blocked, and about twice a day for the
+/// plan's start date and status.
 const PROFILE_URL: &str = "https://api.anthropic.com/api/oauth/profile";
 /// From Claude Code's bundled OAuth config (`TOKEN_URL`, `CLIENT_ID`).
 const TOKEN_URL: &str = "https://platform.claude.com/v1/oauth/token";
@@ -37,6 +38,8 @@ static REFRESH_LOCK: once_cell::sync::Lazy<tokio::sync::Mutex<()>> = once_cell::
 
 pub struct ClaudeAdapter {
     version: VersionCache,
+    /// Per home: when the profile was last asked (ms), and the plan its last good answer described.
+    profiles: std::sync::Mutex<HashMap<String, (i64, Option<Subscription>)>>,
 }
 
 /// Environment variables Claude Code sets for the processes it runs; meaningless for a fresh session.
@@ -55,7 +58,7 @@ const SESSION_MARKERS: &[&str] = &[
 
 impl ClaudeAdapter {
     pub fn new() -> Self {
-        Self { version: VersionCache::default() }
+        Self { version: VersionCache::default(), profiles: Default::default() }
     }
 
     fn is_default(&self, home: &Path) -> bool {
@@ -277,6 +280,33 @@ fn blocked_reason(profile: Option<&Value>) -> String {
 /// unknown reason is asked again.
 fn known_blocked_reason(account: &Account) -> Option<String> {
     (account.status == AccountStatus::Blocked).then(|| account.status_message.clone()).flatten().filter(|m| m != BLOCKED_UNKNOWN)
+}
+
+/// Ask the profile about the plan at most this often per account.
+const PROFILE_EVERY_MS: i64 = 12 * 60 * 60 * 1000;
+
+/// The plan's status and start date from a `/api/oauth/profile` answer. A CLI sign-in is told neither
+/// the next billing date nor whether the plan renews by itself.
+fn subscription_from_profile(profile: &Value, checked_at: &str) -> Option<Subscription> {
+    let org = profile.get("organization")?;
+    let status = str_field(org, "subscription_status").map(str::to_string);
+    let started_at = str_field(org, "subscription_created_at").map(normalize_iso);
+    (status.is_some() || started_at.is_some()).then(|| Subscription { status, started_at, ends_at: None, checked_at: checked_at.into() })
+}
+
+/// The start date Claude Code keeps in `.claude.json`, for when the profile hasn't been read. No
+/// status: that copy can be months old.
+fn subscription_from_cache(oauth_account: &Value, checked_at: &str) -> Option<Subscription> {
+    let started_at = str_field(oauth_account, "subscriptionCreatedAt").map(normalize_iso)?;
+    Some(Subscription { status: None, started_at: Some(started_at), ends_at: None, checked_at: checked_at.into() })
+}
+
+/// Ask the profile now unless it was asked in the last 12 hours, or the stored answer is that recent
+/// (so a restart doesn't ask again).
+fn profile_due(stored: Option<&Subscription>, asked_ms: Option<i64>, now_ms: i64) -> bool {
+    let recent = |ms: i64| now_ms - ms < PROFILE_EVERY_MS;
+    let stored_ms = stored.filter(|s| s.status.is_some()).and_then(|s| chrono::DateTime::parse_from_rfc3339(&s.checked_at).ok()).map(|d| d.timestamp_millis());
+    !asked_ms.is_some_and(recent) && !stored_ms.is_some_and(recent)
 }
 
 #[derive(Debug, PartialEq)]
@@ -892,6 +922,21 @@ impl ClaudeAdapter {
         }
     }
 
+    /// Note that the profile was asked for this home, and the plan it described. A failed read
+    /// (None) keeps the last good answer.
+    fn note_profile(&self, home: &Path, profile: Option<&Value>) {
+        let mut profiles = self.profiles.lock().unwrap();
+        let entry = profiles.entry(util::path_key(home)).or_default();
+        entry.0 = now_ms();
+        if let Some(s) = profile.and_then(|p| subscription_from_profile(p, &util::now_iso())) {
+            entry.1 = Some(s);
+        }
+    }
+
+    fn profile_asked_ms(&self, home: &Path) -> Option<i64> {
+        self.profiles.lock().unwrap().get(&util::path_key(home)).map(|p| p.0)
+    }
+
     async fn user_agent(&self) -> String {
         let (_, version) = self.version.get("claude").await;
         format!("claude-cli/{} (external, cli)", version.unwrap_or_else(|| "2.1.0".into()))
@@ -1200,6 +1245,11 @@ impl ProviderAdapter for ClaudeAdapter {
 
         match result {
             Ok(v) => {
+                // The same token reads the plan's start date and status, about twice a day.
+                if profile_due(account.subscription.as_ref(), self.profile_asked_ms(&home), now_ms()) {
+                    let profile = fetch_oauth_json(PROFILE_URL, &token, &ua).await.ok();
+                    self.note_profile(&home, profile.as_ref());
+                }
                 let (windows, credits) = parse_usage(&v);
                 let mut s = self.snapshot(account, UsageSource::Api, &ident);
                 if windows.is_empty() && credits.is_none() {
@@ -1218,7 +1268,11 @@ impl ProviderAdapter for ClaudeAdapter {
             Err(ApiError::OrgBlocked) => {
                 let reason = match known_blocked_reason(account) {
                     Some(r) => r,
-                    None => blocked_reason(fetch_oauth_json(PROFILE_URL, &token, &ua).await.ok().as_ref()),
+                    None => {
+                        let profile = fetch_oauth_json(PROFILE_URL, &token, &ua).await.ok();
+                        self.note_profile(&home, profile.as_ref());
+                        blocked_reason(profile.as_ref())
+                    }
                 };
                 self.no_data(account, &ident, FetchError::blocked(reason))
             }
@@ -1231,6 +1285,16 @@ impl ProviderAdapter for ClaudeAdapter {
             Err(ApiError::Network(e)) => self.no_data(account, &ident, FetchError::network(format!("Could not reach Claude's usage API ({e})."))),
             Err(ApiError::Parse) => self.no_data(account, &ident, FetchError::other("Claude's usage API returned an unexpected response.")),
         }
+    }
+
+    /// The profile's last good answer, else the start date cached in `.claude.json`.
+    fn subscription(&self, account: &Account) -> Option<Subscription> {
+        let home = Path::new(&account.home_dir);
+        if let Some(s) = self.profiles.lock().unwrap().get(&util::path_key(home)).and_then(|p| p.1.clone()) {
+            return Some(s);
+        }
+        let is_default = account.is_default_home || self.is_default(home);
+        subscription_from_cache(&read_oauth_account(home, is_default)?, &util::now_iso())
     }
 
     async fn scan_activity(&self, account: &Account, since_days: u32) -> Vec<DailyActivity> {
@@ -1470,6 +1534,71 @@ mod tests {
         assert_eq!(known_blocked_reason(&a).as_deref(), Some("This account's subscription was canceled."));
         a.status_message = Some(BLOCKED_UNKNOWN.into());
         assert_eq!(known_blocked_reason(&a), None);
+    }
+
+    /// As `/api/oauth/profile` answers for an active Pro account.
+    const PRO_PROFILE: &str = r#"{"organization":{"organization_type":"claude_pro","billing_type":"stripe_subscription",
+        "rate_limit_tier":"default_claude_ai","seat_tier":null,"has_extra_usage_enabled":false,"subscription_status":"active",
+        "subscription_created_at":"2026-10-16T19:56:37.909519Z","claude_code_trial_ends_at":null}}"#;
+
+    #[test]
+    fn subscription_from_the_profile_or_the_local_cache() {
+        let at = "2026-11-09T12:00:00+00:00";
+        let sub = |status: Option<&str>, started: Option<&str>| {
+            Some(Subscription { status: status.map(Into::into), started_at: started.map(Into::into), ends_at: None, checked_at: at.into() })
+        };
+        let pro: Value = serde_json::from_str(PRO_PROFILE).unwrap();
+        assert_eq!(subscription_from_profile(&pro, at), sub(Some("active"), Some("2026-10-16T19:56:37.909519+00:00")));
+        let canceled: Value = serde_json::from_str(CANCELED_PROFILE).unwrap();
+        assert_eq!(subscription_from_profile(&canceled, at), sub(Some("canceled"), None));
+        // Nothing about the plan: nothing to say.
+        assert_eq!(subscription_from_profile(&json!({"organization": {"organization_type": "claude_pro"}}), at), None);
+        assert_eq!(subscription_from_profile(&json!({"account": {}}), at), None);
+
+        let cached = json!({"emailAddress": "a@x.com", "billingType": "stripe_subscription", "subscriptionCreatedAt": "2026-10-16T19:56:37.909519Z"});
+        assert_eq!(subscription_from_cache(&cached, at), sub(None, Some("2026-10-16T19:56:37.909519+00:00")));
+        assert_eq!(subscription_from_cache(&json!({"emailAddress": "a@x.com", "subscriptionCreatedAt": ""}), at), None);
+    }
+
+    #[test]
+    fn the_profile_is_asked_about_twice_a_day() {
+        let now = chrono::DateTime::parse_from_rfc3339("2026-11-09T12:00:00Z").unwrap().timestamp_millis();
+        let hour = 60 * 60 * 1000;
+        let stored = |status: Option<&str>, hours_ago: i64| Subscription {
+            status: status.map(Into::into),
+            started_at: None,
+            ends_at: None,
+            checked_at: chrono::DateTime::from_timestamp_millis(now - hours_ago * hour).unwrap().to_rfc3339(),
+        };
+        assert!(profile_due(None, None, now));
+        assert!(!profile_due(None, Some(now - 11 * hour), now));
+        assert!(profile_due(None, Some(now - 13 * hour), now));
+        // A recent answer saved before a restart counts; a local-only one never does.
+        assert!(!profile_due(Some(&stored(Some("active"), 2)), None, now));
+        assert!(profile_due(Some(&stored(Some("active"), 13)), None, now));
+        assert!(profile_due(Some(&stored(None, 0)), None, now));
+    }
+
+    #[test]
+    fn the_adapter_keeps_the_last_good_profile_answer() {
+        let dir = tempfile::tempdir().unwrap();
+        let a = ClaudeAdapter::new();
+        let acc = Account { home_dir: dir.path().to_string_lossy().into(), ..crate::recommend::tests::account("a", "Pro") };
+        assert_eq!(a.subscription(&acc), None);
+        assert_eq!(a.profile_asked_ms(dir.path()), None);
+
+        std::fs::write(dir.path().join(".claude.json"), r#"{"oauthAccount":{"subscriptionCreatedAt":"2026-10-16T19:56:37Z"}}"#).unwrap();
+        let cached = a.subscription(&acc).unwrap();
+        assert_eq!((cached.status, cached.started_at.as_deref()), (None, Some("2026-10-16T19:56:37+00:00")));
+
+        let pro: Value = serde_json::from_str(PRO_PROFILE).unwrap();
+        a.note_profile(dir.path(), Some(&pro));
+        let read = a.subscription(&acc).unwrap();
+        assert_eq!(read.status.as_deref(), Some("active"));
+        assert!(a.profile_asked_ms(dir.path()).is_some());
+        // A failed read is noted as asked, and keeps what the last one said.
+        a.note_profile(dir.path(), None);
+        assert_eq!(a.subscription(&acc), Some(read));
     }
 
     #[test]
