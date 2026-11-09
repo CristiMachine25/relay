@@ -21,7 +21,8 @@ use std::time::Duration;
 use super::common::*;
 
 const USAGE_URL: &str = "https://api.anthropic.com/api/oauth/usage";
-/// Plan and subscription status; read only to explain why usage is blocked.
+/// Plan and subscription status: read to explain why usage is blocked, and about twice a day for the
+/// plan's start date and status.
 const PROFILE_URL: &str = "https://api.anthropic.com/api/oauth/profile";
 /// From Claude Code's bundled OAuth config (`TOKEN_URL`, `CLIENT_ID`).
 const TOKEN_URL: &str = "https://platform.claude.com/v1/oauth/token";
@@ -37,6 +38,8 @@ static REFRESH_LOCK: once_cell::sync::Lazy<tokio::sync::Mutex<()>> = once_cell::
 
 pub struct ClaudeAdapter {
     version: VersionCache,
+    /// Per home: when the profile was last asked (ms), and the plan its last good answer described.
+    profiles: std::sync::Mutex<HashMap<String, (i64, Option<Subscription>)>>,
 }
 
 /// Environment variables Claude Code sets for the processes it runs; meaningless for a fresh session.
@@ -55,7 +58,7 @@ const SESSION_MARKERS: &[&str] = &[
 
 impl ClaudeAdapter {
     pub fn new() -> Self {
-        Self { version: VersionCache::default() }
+        Self { version: VersionCache::default(), profiles: Default::default() }
     }
 
     fn is_default(&self, home: &Path) -> bool {
@@ -279,6 +282,33 @@ fn known_blocked_reason(account: &Account) -> Option<String> {
     (account.status == AccountStatus::Blocked).then(|| account.status_message.clone()).flatten().filter(|m| m != BLOCKED_UNKNOWN)
 }
 
+/// Ask the profile about the plan at most this often per account.
+const PROFILE_EVERY_MS: i64 = 12 * 60 * 60 * 1000;
+
+/// The plan's status and start date from a `/api/oauth/profile` answer. A CLI sign-in is told neither
+/// the next billing date nor whether the plan renews by itself.
+fn subscription_from_profile(profile: &Value, checked_at: &str) -> Option<Subscription> {
+    let org = profile.get("organization")?;
+    let status = str_field(org, "subscription_status").map(str::to_string);
+    let started_at = str_field(org, "subscription_created_at").map(normalize_iso);
+    (status.is_some() || started_at.is_some()).then(|| Subscription { status, started_at, ends_at: None, checked_at: checked_at.into() })
+}
+
+/// The start date Claude Code keeps in `.claude.json`, for when the profile hasn't been read. No
+/// status: that copy can be months old.
+fn subscription_from_cache(oauth_account: &Value, checked_at: &str) -> Option<Subscription> {
+    let started_at = str_field(oauth_account, "subscriptionCreatedAt").map(normalize_iso)?;
+    Some(Subscription { status: None, started_at: Some(started_at), ends_at: None, checked_at: checked_at.into() })
+}
+
+/// Ask the profile now unless it was asked in the last 12 hours, or the stored answer is that recent
+/// (so a restart doesn't ask again).
+fn profile_due(stored: Option<&Subscription>, asked_ms: Option<i64>, now_ms: i64) -> bool {
+    let recent = |ms: i64| now_ms - ms < PROFILE_EVERY_MS;
+    let stored_ms = stored.filter(|s| s.status.is_some()).and_then(|s| chrono::DateTime::parse_from_rfc3339(&s.checked_at).ok()).map(|d| d.timestamp_millis());
+    !asked_ms.is_some_and(recent) && !stored_ms.is_some_and(recent)
+}
+
 #[derive(Debug, PartialEq)]
 enum ApiError {
     Unauthorized,
@@ -329,7 +359,7 @@ fn parse_usage(v: &Value) -> (Vec<UsageWindow>, Option<Credits>) {
         ("seven_day_opus", "Weekly Opus", 10080),
         ("seven_day_sonnet", "Weekly Sonnet", 10080),
     ];
-    let windows = WINDOWS
+    let mut windows: Vec<UsageWindow> = WINDOWS
         .iter()
         .filter_map(|(key, label, minutes)| {
             let w = v.get(*key).filter(|w| w.is_object())?;
@@ -344,6 +374,11 @@ fn parse_usage(v: &Value) -> (Vec<UsageWindow>, Option<Credits>) {
             })
         })
         .collect();
+    for w in scoped_windows(v) {
+        if !windows.iter().any(|x| x.id == w.id) {
+            windows.push(w);
+        }
+    }
 
     // Amounts are in minor units (cents), as CodexBar's ClaudeUsageFetcher divides by 100.
     let credits = v.get("extra_usage").filter(|e| e.get("is_enabled").and_then(Value::as_bool) == Some(true)).and_then(|e| {
@@ -355,6 +390,35 @@ fn parse_usage(v: &Value) -> (Vec<UsageWindow>, Option<Credits>) {
         Some(Credits { used: used.unwrap_or(0.0) / 100.0, limit: limit.map(|l| l / 100.0), unit: str_field(e, "currency").unwrap_or("USD").to_string() })
     });
     (windows, credits)
+}
+
+/// Weekly limits that cap one model, from the `limits` list: "Fable" becomes `seven_day_fable`.
+/// `weekly_scoped_shares` says how much of the whole weekly limit each may use, by place in the list.
+fn scoped_windows(v: &Value) -> Vec<UsageWindow> {
+    let Some(limits) = v.get("limits").and_then(Value::as_array) else { return Vec::new() };
+    let shares = v.get("weekly_scoped_shares").and_then(Value::as_array);
+    let share = |index: usize| {
+        let s = shares?.iter().find(|s| num(s.get("limit_index")) == Some(index as f64))?;
+        num(s.get("allowance_percent_of_weekly"))
+    };
+    limits
+        .iter()
+        .enumerate()
+        .filter(|(_, l)| l.get("kind").and_then(Value::as_str) == Some("weekly_scoped"))
+        .filter_map(|(i, l)| {
+            let name = str_field(l.get("scope")?.get("model")?, "display_name")?;
+            let used = num(l.get("percent"))?;
+            let slug: String = name.to_ascii_lowercase().chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '_' }).collect();
+            Some(UsageWindow {
+                id: format!("seven_day_{slug}"),
+                label: format!("Weekly {name}"),
+                used_percent: used.max(0.0),
+                resets_at: str_field(l, "resets_at").map(normalize_iso),
+                window_minutes: Some(10080),
+                share_of_weekly: share(i),
+            })
+        })
+        .collect()
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -858,6 +922,21 @@ impl ClaudeAdapter {
         }
     }
 
+    /// Note that the profile was asked for this home, and the plan it described. A failed read
+    /// (None) keeps the last good answer.
+    fn note_profile(&self, home: &Path, profile: Option<&Value>) {
+        let mut profiles = self.profiles.lock().unwrap();
+        let entry = profiles.entry(util::path_key(home)).or_default();
+        entry.0 = now_ms();
+        if let Some(s) = profile.and_then(|p| subscription_from_profile(p, &util::now_iso())) {
+            entry.1 = Some(s);
+        }
+    }
+
+    fn profile_asked_ms(&self, home: &Path) -> Option<i64> {
+        self.profiles.lock().unwrap().get(&util::path_key(home)).map(|p| p.0)
+    }
+
     async fn user_agent(&self) -> String {
         let (_, version) = self.version.get("claude").await;
         format!("claude-cli/{} (external, cli)", version.unwrap_or_else(|| "2.1.0".into()))
@@ -1166,6 +1245,11 @@ impl ProviderAdapter for ClaudeAdapter {
 
         match result {
             Ok(v) => {
+                // The same token reads the plan's start date and status, about twice a day.
+                if profile_due(account.subscription.as_ref(), self.profile_asked_ms(&home), now_ms()) {
+                    let profile = fetch_oauth_json(PROFILE_URL, &token, &ua).await.ok();
+                    self.note_profile(&home, profile.as_ref());
+                }
                 let (windows, credits) = parse_usage(&v);
                 let mut s = self.snapshot(account, UsageSource::Api, &ident);
                 if windows.is_empty() && credits.is_none() {
@@ -1184,7 +1268,11 @@ impl ProviderAdapter for ClaudeAdapter {
             Err(ApiError::OrgBlocked) => {
                 let reason = match known_blocked_reason(account) {
                     Some(r) => r,
-                    None => blocked_reason(fetch_oauth_json(PROFILE_URL, &token, &ua).await.ok().as_ref()),
+                    None => {
+                        let profile = fetch_oauth_json(PROFILE_URL, &token, &ua).await.ok();
+                        self.note_profile(&home, profile.as_ref());
+                        blocked_reason(profile.as_ref())
+                    }
                 };
                 self.no_data(account, &ident, FetchError::blocked(reason))
             }
@@ -1197,6 +1285,16 @@ impl ProviderAdapter for ClaudeAdapter {
             Err(ApiError::Network(e)) => self.no_data(account, &ident, FetchError::network(format!("Could not reach Claude's usage API ({e})."))),
             Err(ApiError::Parse) => self.no_data(account, &ident, FetchError::other("Claude's usage API returned an unexpected response.")),
         }
+    }
+
+    /// The profile's last good answer, else the start date cached in `.claude.json`.
+    fn subscription(&self, account: &Account) -> Option<Subscription> {
+        let home = Path::new(&account.home_dir);
+        if let Some(s) = self.profiles.lock().unwrap().get(&util::path_key(home)).and_then(|p| p.1.clone()) {
+            return Some(s);
+        }
+        let is_default = account.is_default_home || self.is_default(home);
+        subscription_from_cache(&read_oauth_account(home, is_default)?, &util::now_iso())
     }
 
     async fn scan_activity(&self, account: &Account, since_days: u32) -> Vec<DailyActivity> {
@@ -1438,6 +1536,71 @@ mod tests {
         assert_eq!(known_blocked_reason(&a), None);
     }
 
+    /// As `/api/oauth/profile` answers for an active Pro account.
+    const PRO_PROFILE: &str = r#"{"organization":{"organization_type":"claude_pro","billing_type":"stripe_subscription",
+        "rate_limit_tier":"default_claude_ai","seat_tier":null,"has_extra_usage_enabled":false,"subscription_status":"active",
+        "subscription_created_at":"2026-10-16T19:56:37.909519Z","claude_code_trial_ends_at":null}}"#;
+
+    #[test]
+    fn subscription_from_the_profile_or_the_local_cache() {
+        let at = "2026-11-09T12:00:00+00:00";
+        let sub = |status: Option<&str>, started: Option<&str>| {
+            Some(Subscription { status: status.map(Into::into), started_at: started.map(Into::into), ends_at: None, checked_at: at.into() })
+        };
+        let pro: Value = serde_json::from_str(PRO_PROFILE).unwrap();
+        assert_eq!(subscription_from_profile(&pro, at), sub(Some("active"), Some("2026-10-16T19:56:37.909519+00:00")));
+        let canceled: Value = serde_json::from_str(CANCELED_PROFILE).unwrap();
+        assert_eq!(subscription_from_profile(&canceled, at), sub(Some("canceled"), None));
+        // Nothing about the plan: nothing to say.
+        assert_eq!(subscription_from_profile(&json!({"organization": {"organization_type": "claude_pro"}}), at), None);
+        assert_eq!(subscription_from_profile(&json!({"account": {}}), at), None);
+
+        let cached = json!({"emailAddress": "a@x.com", "billingType": "stripe_subscription", "subscriptionCreatedAt": "2026-10-16T19:56:37.909519Z"});
+        assert_eq!(subscription_from_cache(&cached, at), sub(None, Some("2026-10-16T19:56:37.909519+00:00")));
+        assert_eq!(subscription_from_cache(&json!({"emailAddress": "a@x.com", "subscriptionCreatedAt": ""}), at), None);
+    }
+
+    #[test]
+    fn the_profile_is_asked_about_twice_a_day() {
+        let now = chrono::DateTime::parse_from_rfc3339("2026-11-09T12:00:00Z").unwrap().timestamp_millis();
+        let hour = 60 * 60 * 1000;
+        let stored = |status: Option<&str>, hours_ago: i64| Subscription {
+            status: status.map(Into::into),
+            started_at: None,
+            ends_at: None,
+            checked_at: chrono::DateTime::from_timestamp_millis(now - hours_ago * hour).unwrap().to_rfc3339(),
+        };
+        assert!(profile_due(None, None, now));
+        assert!(!profile_due(None, Some(now - 11 * hour), now));
+        assert!(profile_due(None, Some(now - 13 * hour), now));
+        // A recent answer saved before a restart counts; a local-only one never does.
+        assert!(!profile_due(Some(&stored(Some("active"), 2)), None, now));
+        assert!(profile_due(Some(&stored(Some("active"), 13)), None, now));
+        assert!(profile_due(Some(&stored(None, 0)), None, now));
+    }
+
+    #[test]
+    fn the_adapter_keeps_the_last_good_profile_answer() {
+        let dir = tempfile::tempdir().unwrap();
+        let a = ClaudeAdapter::new();
+        let acc = Account { home_dir: dir.path().to_string_lossy().into(), ..crate::recommend::tests::account("a", "Pro") };
+        assert_eq!(a.subscription(&acc), None);
+        assert_eq!(a.profile_asked_ms(dir.path()), None);
+
+        std::fs::write(dir.path().join(".claude.json"), r#"{"oauthAccount":{"subscriptionCreatedAt":"2026-10-16T19:56:37Z"}}"#).unwrap();
+        let cached = a.subscription(&acc).unwrap();
+        assert_eq!((cached.status, cached.started_at.as_deref()), (None, Some("2026-10-16T19:56:37+00:00")));
+
+        let pro: Value = serde_json::from_str(PRO_PROFILE).unwrap();
+        a.note_profile(dir.path(), Some(&pro));
+        let read = a.subscription(&acc).unwrap();
+        assert_eq!(read.status.as_deref(), Some("active"));
+        assert!(a.profile_asked_ms(dir.path()).is_some());
+        // A failed read is noted as asked, and keeps what the last one said.
+        a.note_profile(dir.path(), None);
+        assert_eq!(a.subscription(&acc), Some(read));
+    }
+
     #[test]
     fn plan_labels() {
         assert_eq!(plan_label(Some("pro"), Some("default_claude_ai")).as_deref(), Some("Pro"));
@@ -1483,6 +1646,73 @@ mod tests {
         assert!((c.used - 12.34).abs() < 1e-9);
         assert_eq!(c.limit, Some(50.0));
         assert_eq!(c.unit, "USD");
+    }
+
+    /// As `/api/oauth/usage` answers for a Pro account since the Fable model has its own weekly allowance.
+    const USAGE_WITH_LIMITS: &str = r#"{"five_hour":{"utilization":10,"resets_at":"2026-11-09T23:10:00.912350+00:00"},
+        "seven_day":{"utilization":3,"resets_at":"2026-11-14T13:00:00.912370+00:00"},
+        "seven_day_opus":null,"seven_day_sonnet":null,
+        "limits":[
+          {"kind":"session","group":"session","percent":10,"severity":"normal","resets_at":"2026-11-09T23:10:00.912350+00:00","scope":null,"is_active":true},
+          {"kind":"weekly_all","group":"weekly","percent":3,"severity":"normal","resets_at":"2026-11-14T13:00:00.912370+00:00","scope":null,"is_active":false},
+          {"kind":"weekly_scoped","group":"weekly","percent":3,"severity":"normal","resets_at":"2026-11-14T12:59:59.912607+00:00",
+           "scope":{"model":{"id":null,"display_name":"Fable"},"surface":null},"is_active":false}],
+        "weekly_scoped_shares":[{"limit_index":2,"used_percent_of_weekly":2,"allowance_percent_of_weekly":50}]}"#;
+
+    #[test]
+    fn a_model_with_its_own_weekly_allowance_gets_a_window() {
+        let v: Value = serde_json::from_str(USAGE_WITH_LIMITS).unwrap();
+        let (w, _) = parse_usage(&v);
+        assert_eq!(w.iter().map(|w| w.id.as_str()).collect::<Vec<_>>(), ["five_hour", "seven_day", "seven_day_fable"]);
+        let fable = &w[2];
+        assert_eq!(fable.label, "Weekly Fable");
+        assert_eq!(fable.used_percent, 3.0);
+        assert_eq!(fable.window_minutes, Some(10080));
+        assert_eq!(fable.share_of_weekly, Some(50.0));
+        assert_eq!(fable.resets_at.as_deref(), Some("2026-11-14T12:59:59.912607+00:00"));
+        assert!(w[..2].iter().all(|w| w.share_of_weekly.is_none()));
+
+        // Without the list, the answer reads as it always did.
+        let mut old = v.clone();
+        old.as_object_mut().unwrap().retain(|k, _| k != "limits" && k != "weekly_scoped_shares");
+        assert_eq!(parse_usage(&old).0.iter().map(|w| w.id.as_str()).collect::<Vec<_>>(), ["five_hour", "seven_day"]);
+    }
+
+    #[test]
+    fn model_limits_that_cannot_be_read_are_skipped() {
+        let scoped =
+            |model: Value, percent: Value| json!({"kind": "weekly_scoped", "percent": percent, "resets_at": null, "scope": {"model": model, "surface": null}});
+        let ids = |v: &Value| parse_usage(v).0.into_iter().map(|w| (w.id, w.used_percent, w.share_of_weekly)).collect::<Vec<_>>();
+
+        // No model name, no number, another kind, not an object: none of them is an error.
+        let v = json!({"limits": [
+            scoped(json!({"id": "x", "display_name": null}), json!(5)),
+            scoped(json!({"display_name": "  "}), json!(5)),
+            scoped(Value::Null, json!(5)),
+            scoped(json!({"display_name": "Mythos"}), Value::Null),
+            {"kind": "weekly_scoped", "percent": 5, "scope": null},
+            {"kind": "monthly_scoped", "percent": 5, "scope": {"model": {"display_name": "Fable"}}},
+            "garbage",
+            scoped(json!({"display_name": "Fable 5.2"}), json!(-4)),
+        ], "weekly_scoped_shares": "garbage"});
+        assert_eq!(ids(&v), [("seven_day_fable_5_2".to_string(), 0.0, None)]);
+        assert!(parse_usage(&json!({"limits": {"kind": "weekly_scoped"}})).0.is_empty());
+
+        // The share belongs to the limit at that place in the list, and to no other.
+        let v = json!({"limits": [scoped(json!({"display_name": "Fable"}), json!(1)), scoped(json!({"display_name": "Opus"}), json!(2))],
+                       "weekly_scoped_shares": [{"limit_index": 1, "allowance_percent_of_weekly": 25}, {"limit_index": 7, "allowance_percent_of_weekly": 50}]});
+        assert_eq!(ids(&v), [("seven_day_fable".to_string(), 1.0, None), ("seven_day_opus".to_string(), 2.0, Some(25.0))]);
+    }
+
+    #[test]
+    fn a_window_is_never_listed_twice() {
+        let scoped = |name: &str, percent: f64| json!({"kind": "weekly_scoped", "percent": percent, "scope": {"model": {"display_name": name}}});
+        // The older top-level key wins over the same model in the list; a repeated model keeps its first entry.
+        let v = json!({"seven_day_opus": {"utilization": 40, "resets_at": null},
+                       "limits": [scoped("Opus", 99.0), scoped("Fable", 3.0), scoped("fable", 80.0)]});
+        let w = parse_usage(&v).0;
+        assert_eq!(w.iter().map(|w| (w.id.as_str(), w.used_percent)).collect::<Vec<_>>(), [("seven_day_opus", 40.0), ("seven_day_fable", 3.0)]);
+        assert_eq!(w[0].label, "Weekly Opus");
     }
 
     #[test]

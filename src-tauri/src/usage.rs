@@ -35,6 +35,7 @@ struct Fetched {
     account_id: String,
     snapshot: UsageSnapshot,
     identity: Option<Identity>,
+    subscription: Option<Subscription>,
 }
 
 /// Fetch usage for every account (or just `only`), merge, persist, notify. Returns the latest map.
@@ -56,7 +57,8 @@ pub async fn poll(app: &AppHandle, state: &AppState, only: Option<&str>) -> Hash
             } else {
                 None
             };
-            Fetched { account_id: account.id.clone(), snapshot, identity }
+            let subscription = adapter.subscription(&account);
+            Fetched { account_id: account.id.clone(), snapshot, identity, subscription }
         });
     }
     let mut fetched = Vec::new();
@@ -201,7 +203,25 @@ fn apply_fetch(a: &mut Account, f: &Fetched, snap: &UsageSnapshot) -> bool {
     if plan.is_some() {
         changed |= set_if_changed(&mut a.plan, plan);
     }
-    changed
+    changed | apply_subscription(a, f.subscription.clone())
+}
+
+/// Store what the adapter says about the plan; true when that changed. Nothing said keeps the stored
+/// value, and a local-only read (no status) never replaces a profile answer. The same answer only
+/// moves `checked_at`, which is no reason to save or tell the UI.
+fn apply_subscription(a: &mut Account, new: Option<Subscription>) -> bool {
+    let Some(new) = new else { return false };
+    match &mut a.subscription {
+        Some(old) if new.status.is_none() && old.status.is_some() => false,
+        Some(old) if (&old.status, &old.started_at, &old.ends_at) == (&new.status, &new.started_at, &new.ends_at) => {
+            old.checked_at = new.checked_at;
+            false
+        }
+        slot => {
+            *slot = Some(new);
+            true
+        }
+    }
 }
 
 fn set_if_changed<T: PartialEq>(slot: &mut T, value: T) -> bool {
@@ -327,7 +347,7 @@ mod tests {
         assert!(m.windows.is_empty());
         assert!(m.credits.is_none());
         assert_eq!(m.stale, None);
-        let f = Fetched { account_id: "a".into(), snapshot: fetched, identity: Some(Identity { logged_in: true, ..Identity::default() }) };
+        let f = Fetched { account_id: "a".into(), snapshot: fetched, identity: Some(Identity { logged_in: true, ..Identity::default() }), subscription: None };
         let mut a = account("a", "Max");
         apply_fetch(&mut a, &f, &m);
         assert_eq!(a.status, AccountStatus::Blocked);
@@ -343,7 +363,12 @@ mod tests {
         let mut notes = 0;
         for fetched in fetches {
             let merged = merge_snapshot(latest.as_ref(), fetched.clone());
-            let f = Fetched { account_id: a.id.clone(), snapshot: fetched, identity: Some(Identity { logged_in: true, ..Identity::default() }) };
+            let f = Fetched {
+                account_id: a.id.clone(),
+                snapshot: fetched,
+                identity: Some(Identity { logged_in: true, ..Identity::default() }),
+                subscription: None,
+            };
             apply_fetch(a, &f, &merged);
             check(a, &merged);
             let new = HashMap::from([(a.id.clone(), merged.clone())]);
@@ -453,10 +478,36 @@ mod tests {
         let good = snap("a", vec![window("five_hour", 40.0, Some(2), 300, now)]);
         let fetched = failed(FetchError::network("Could not reach Claude's usage API (timed out)."));
         let merged = merge_snapshot(Some(&good), fetched.clone());
-        let f = Fetched { account_id: "a".into(), snapshot: fetched, identity: None };
+        let f = Fetched { account_id: "a".into(), snapshot: fetched, identity: None, subscription: None };
         let mut a = account("a", "pro");
         apply_fetch(&mut a, &f, &merged);
         assert_eq!(a.status, AccountStatus::Ok);
         assert_eq!(a.status_message.as_deref(), Some("Could not reach Claude's usage API (timed out)."));
+    }
+
+    #[test]
+    fn a_plan_answer_is_stored_once_and_never_lost() {
+        let sub = |status: Option<&str>, started: &str, at: &str| {
+            Some(Subscription { status: status.map(Into::into), started_at: Some(started.into()), ends_at: None, checked_at: at.into() })
+        };
+        let mut a = account("a", "Pro");
+        assert!(!apply_subscription(&mut a, None));
+        assert!(apply_subscription(&mut a, sub(None, "2026-10-16", "t1")), "the local start date when nothing is known");
+        assert!(!apply_subscription(&mut a, sub(None, "2026-10-16", "t2")));
+        assert!(apply_subscription(&mut a, sub(Some("active"), "2026-10-16", "t3")));
+        // The same answer again only notes when it was checked; a local read or none never undoes it.
+        assert!(!apply_subscription(&mut a, sub(Some("active"), "2026-10-16", "t4")));
+        assert_eq!(a.subscription, sub(Some("active"), "2026-10-16", "t4"));
+        assert!(!apply_subscription(&mut a, sub(None, "2026-09-01", "t5")));
+        assert!(!apply_subscription(&mut a, None));
+        assert_eq!(a.subscription, sub(Some("active"), "2026-10-16", "t4"));
+        assert!(apply_subscription(&mut a, sub(Some("canceled"), "2026-10-16", "t6")));
+        assert_eq!(a.subscription.as_ref().and_then(|s| s.status.as_deref()), Some("canceled"));
+
+        // It reaches the account through a fetch, and a failed fetch keeps it.
+        let f = Fetched { account_id: "a".into(), snapshot: failed(FetchError::network("down")), identity: None, subscription: None };
+        let merged = f.snapshot.clone();
+        apply_fetch(&mut a, &f, &merged);
+        assert_eq!(a.subscription, sub(Some("canceled"), "2026-10-16", "t6"));
     }
 }

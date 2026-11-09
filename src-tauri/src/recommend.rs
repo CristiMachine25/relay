@@ -12,7 +12,7 @@ const RESET_SOON_HOURS: i64 = 24;
 /// Same rule as `isModelWindow` in src/lib/quota.ts.
 pub fn is_model_window(w: &UsageWindow) -> bool {
     let id = w.id.to_ascii_lowercase();
-    ["opus", "sonnet", "haiku"].iter().any(|m| id.contains(m))
+    ["opus", "sonnet", "haiku", "fable", "mythos"].iter().any(|m| id.contains(m))
 }
 
 /// The window with the least headroom (highest usedPercent): the one that limits the account.
@@ -423,6 +423,38 @@ pub(crate) mod tests {
         let s = snap("a", vec![sonnet]);
         assert_eq!(tightest(&s).map(|w| w.id.as_str()), Some("seven_day_sonnet"));
         assert_eq!(left_percent(&s), Some(0.0));
+    }
+
+    /// Same rule as `isModelWindow` in src/lib/quota.ts: the Fable model's weekly allowance is half of the
+    /// weekly limit, so it runs out first, and the account still works on other models.
+    #[test]
+    fn a_fable_window_is_a_model_window() {
+        let now = Utc::now();
+        let model = |id: &str, used: f64| UsageWindow {
+            id: id.into(),
+            label: "Weekly Fable".into(),
+            share_of_weekly: Some(50.0),
+            ..window("seven_day", used, Some(30), 10080, now)
+        };
+        for id in ["seven_day_fable", "seven_day_fable_5_2", "seven_day_mythos", "seven_day_opus", "seven_day_sonnet", "seven_day_haiku"] {
+            assert!(is_model_window(&model(id, 0.0)), "{id}");
+        }
+        for id in ["five_hour", "seven_day", "seven_day_oauth_apps"] {
+            assert!(!is_model_window(&model(id, 0.0)), "{id}");
+        }
+
+        let s =
+            snap("a", vec![window("five_hour", 20.0, Some(2), 300, now), window("seven_day", 30.0, Some(100), 10080, now), model("seven_day_fable", 100.0)]);
+        assert_eq!(tightest(&s).map(|w| w.id.as_str()), Some("seven_day"));
+        assert_eq!(left_percent(&s), Some(70.0));
+        let r = score_account(&account("a", "Pro"), TaskType::Any, Some(&s), now);
+        assert!(r.score > 10.0 && !r.reason.contains("limit reached"), "{r:?}");
+
+        // Unused and about to reset, it is no reason to pick the account.
+        let general = window("seven_day", 50.0, Some(100), 10080, now);
+        let plain = score_account(&account("a", "Pro"), TaskType::Any, Some(&snap("a", vec![general.clone()])), now);
+        let idle = UsageWindow { resets_at: Some((now + chrono::Duration::hours(2)).to_rfc3339()), ..model("seven_day_fable", 0.0) };
+        assert_eq!(score_account(&account("a", "Pro"), TaskType::Any, Some(&snap("a", vec![general, idle])), now).score, plain.score);
     }
 
     #[test]

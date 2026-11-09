@@ -414,6 +414,32 @@ mod tests {
         assert!(run(&HashMap::new(), &new, &accts, &mut NotifyState::default(), now).is_empty());
     }
 
+    /// The Fable model's weekly window (half of the weekly limit) gets exactly what Weekly Opus gets: a limit
+    /// note that suggests an account with Fable left, and no "use it or lose it" while it goes unused.
+    #[test]
+    fn fable_window_notifies_like_opus() {
+        let now = Utc::now();
+        let accts = vec![account("a", "Pro"), account("b", "Pro")];
+        let fable = |used: f64, hours: i64| UsageWindow {
+            id: "seven_day_fable".into(),
+            label: "Weekly Fable".into(),
+            share_of_weekly: Some(50.0),
+            ..window("seven_day", used, Some(hours), 10080, now)
+        };
+        let new = HashMap::from([
+            ("a".to_string(), snap("a", vec![window("seven_day", 20.0, Some(30), 10080, now), fable(100.0, 30)])),
+            ("b".to_string(), snap("b", vec![window("seven_day", 50.0, Some(30), 10080, now), fable(40.0, 30)])),
+        ]);
+        let notes = evaluate(&HashMap::new(), &new, &accts, &settings(), &mut NotifyState::default(), now);
+        let kinds: Vec<_> = notes.iter().map(|n| n.kind).collect();
+        assert_eq!(kinds, vec![NotificationKind::LimitReached, NotificationKind::SwitchSuggested]);
+        assert!(notes[0].body.ends_with(" b has 60% of Weekly Fable left."), "{}", notes[0].body);
+        assert!(notes[1].body.starts_with("a hit its Weekly Fable limit. b has 60% of Weekly Fable left. "), "{}", notes[1].body);
+
+        let idle = HashMap::from([("a".to_string(), snap("a", vec![window("seven_day", 20.0, Some(100), 10080, now), fable(5.0, 10)]))]);
+        assert!(run(&HashMap::new(), &idle, &accts[..1], &mut NotifyState::default(), now).is_empty());
+    }
+
     /// A blocked account is told once, never asked to sign in, and never offered as the switch.
     #[test]
     fn blocked_account_notifies_once_and_is_no_alternative() {
