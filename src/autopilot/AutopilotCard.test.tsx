@@ -100,6 +100,7 @@ describe('AutopilotCard', () => {
     task: 'Refactor the billing module and make the tests pass',
     cwd: '/Users/sam/code/shop',
     skipPermissions: true,
+    model: 'default',
     providerId: 'claude',
     accountId: 'w',
     paneUid: 'p1',

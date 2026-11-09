@@ -7,7 +7,19 @@ import { api, errorText } from '@/api'
 import { useStore } from '@/store'
 import { useGrid } from '@/terminals/store'
 import { markEnd, tailText } from '@/terminals/registry'
-import { CONTINUE_PROMPT, exhaustedUntil, limitHit, nextAccount as pickNext, permissionArgs, pickAccount, restartPrompt, soonestReset, taskArg } from '@/lib/autopilot'
+import {
+  CONTINUE_PROMPT,
+  exhaustedUntil,
+  limitHit,
+  modelArgs,
+  nextAccount as pickNext,
+  permissionArgs,
+  pickAccount,
+  restartPrompt,
+  soonestReset,
+  taskArg,
+  type RunModel
+} from '@/lib/autopilot'
 import { atLimit, historyToTurnOn, isBlocked, isSignedOut } from '@/lib/grid'
 import { bindingWindow, leftOf } from '@/lib/quota'
 
@@ -27,6 +39,8 @@ export interface AutopilotRun {
   task: string
   cwd?: string
   skipPermissions: boolean
+  /** The model every start of the run asks for. Runs saved before this load as 'default'. */
+  model: RunModel
   providerId: 'claude'
   /** The account the run's terminal is on now. */
   accountId: string
@@ -55,6 +69,8 @@ export interface AutopilotStartInput {
   task: string
   cwd?: string
   skipPermissions: boolean
+  /** The account's default model when not given. */
+  model?: RunModel
 }
 
 interface AutopilotState {
@@ -225,6 +241,7 @@ export const useAutopilot = create<AutopilotState>((set, get) => ({
         task,
         cwd,
         skipPermissions: input.skipPermissions,
+        model: input.model ?? 'default',
         providerId: 'claude',
         accountId: first.id,
         paneUid,
@@ -235,7 +252,7 @@ export const useAutopilot = create<AutopilotState>((set, get) => ({
         exhausted: {}
       }
       set({ run })
-      await useGrid.getState().start(0, { accountId: first.id, target: 'cli', cwd, extraArgs: [...permissionArgs(input.skipPermissions), taskArg(task)] })
+      await useGrid.getState().start(0, { accountId: first.id, target: 'cli', cwd, extraArgs: [...launchArgs(run), taskArg(task)] })
       if (!starting() || get().run?.id !== run.id) return false
       const tid = paneOf(paneUid)?.pane.terminalId
       if (!tid) {
@@ -315,6 +332,9 @@ function leftText(id: string): string {
   const b = bindingWindow(useStore.getState().usage[id])
   return b ? ` (${Math.round(leftOf(b))}% left)` : ''
 }
+
+/** The run's flags, before the task or prompt argument. */
+const launchArgs = (run: AutopilotRun) => [...permissionArgs(run.skipPermissions), ...modelArgs(run.model)]
 
 /** The pane the run owns, wherever it is, or null when no session has it. */
 function paneOf(uid: string) {
@@ -601,7 +621,7 @@ async function relaunch(next: Account, describe: (left: string) => string, kind:
     const at = paneOf(run.paneUid)
     if (!at?.pane.accountId) return finish(PANE_CLOSED, true)
     // By the pane's id, in whichever session holds it: the user may be working in another one.
-    const perms = permissionArgs(run.skipPermissions)
+    const perms = launchArgs(run)
     const g = useGrid.getState()
     if (conversationId) await g.continuePane(run.paneUid, next.id, { resumeSession: conversationId, extraArgs: [...perms, CONTINUE_PROMPT] })
     else await g.startPane(run.paneUid, { accountId: next.id, target: 'cli', cwd: at.pane.cwd ?? run.cwd, extraArgs: [...perms, taskArg(restartPrompt(run.task))] })
@@ -639,7 +659,7 @@ function load(): Pick<AutopilotState, 'phase' | 'run' | 'log'> | null {
     const saved = d.run && typeof d.run.paneUid === 'string' && typeof d.run.accountId === 'string' ? d.run : null
     // A damaged route only loses the route, not the run.
     const legs = Array.isArray(saved?.legs) ? saved.legs.filter((l) => typeof l?.accountId === 'string' && typeof l.at === 'number') : undefined
-    const run = saved && { ...saved, legs }
+    const run = saved && { ...saved, legs, model: saved.model === 'fable' ? ('fable' as const) : ('default' as const) }
     return { phase: d.phase as AutopilotPhase, run, log: Array.isArray(d.log) ? d.log.slice(0, LOG_MAX) : [] }
   } catch {
     return null

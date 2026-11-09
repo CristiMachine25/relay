@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Account, TerminalInfo, TerminalSpawnRequest, UsageSnapshot } from '@shared/types'
-import { CONTINUE_PROMPT, restartPrompt, taskArg } from '@/lib/autopilot'
+import { CONTINUE_PROMPT, FABLE, restartPrompt, taskArg } from '@/lib/autopilot'
 
 // A fake backend: spawns answer at once, kills report the exit like the real backend does.
 const fake = vi.hoisted(() => {
@@ -65,7 +65,7 @@ const rows = (id: string) => (fake.state.screens[id] ? fake.state.screens[id].sp
 const main = vi.hoisted(() => {
   type Listener = (s: Record<string, unknown>, prev: Record<string, unknown>) => void
   const listeners = new Set<Listener>()
-  const server: Record<string, { used: number; resetsAt?: string; stale?: boolean }> = {}
+  const server: Record<string, { used: number; resetsAt?: string; stale?: boolean; fable?: number; fableResetsAt?: string }> = {}
   let state: Record<string, unknown> = {}
   const setState = (patch: Record<string, unknown>) => {
     const prev = state
@@ -99,13 +99,20 @@ const { api } = await import('@/api')
 const NOW = Date.parse('2026-11-04T10:00:00Z')
 const HOUR = 3_600_000
 
-const snap = (accountId: string, used: number, resetsAt?: string, stale?: boolean): UsageSnapshot => ({
+type Usage = { used: number; resetsAt?: string; stale?: boolean; fable?: number; fableResetsAt?: string }
+const snap = (accountId: string, u: Usage): UsageSnapshot => ({
   accountId,
   providerId: 'claude',
   fetchedAt: new Date().toISOString(),
   source: 'api',
-  stale,
-  windows: [{ id: 'five_hour', label: '5-hour', usedPercent: used, resetsAt, windowMinutes: 300 }]
+  stale: u.stale,
+  windows: [
+    { id: 'five_hour', label: '5-hour', usedPercent: u.used, resetsAt: u.resetsAt, windowMinutes: 300 },
+    // The Fable window, when the test gives one: half the weekly limit.
+    ...(u.fable === undefined
+      ? []
+      : [{ id: 'seven_day_fable', label: 'Weekly Fable', usedPercent: u.fable, resetsAt: u.fableResetsAt, windowMinutes: 10080, shareOfWeekly: 50 }])
+  ]
 })
 
 const account = (id: string, label: string, extra: Partial<Account> = {}): Account =>
@@ -121,11 +128,11 @@ const account = (id: string, label: string, extra: Partial<Account> = {}): Accou
   }) as Account
 
 /** Sets what the backend's usage reports, now and on the next refresh. */
-function setUsage(used: Record<string, number | { used: number; resetsAt?: string; stale?: boolean }>) {
+function setUsage(used: Record<string, number | Usage>) {
   for (const [id, u] of Object.entries(used)) main.server[id] = typeof u === 'number' ? { used: u } : u
   main.setState({ usage: serverUsage() })
 }
-const serverUsage = () => Object.fromEntries(Object.entries(main.server).map(([id, u]) => [id, snap(id, u.used, u.resetsAt, u.stale)]))
+const serverUsage = () => Object.fromEntries(Object.entries(main.server).map(([id, u]) => [id, snap(id, u)]))
 
 const refresh = vi.fn(async (_id?: string) => main.setState({ usage: serverUsage() }))
 const toast = vi.fn()
@@ -699,6 +706,44 @@ describe('stopping', () => {
   })
 })
 
+describe('staying on Fable', () => {
+  const FABLE_TASK = { ...TASK, model: 'fable' as const }
+  const fableArgs = ['--permission-mode', 'bypassPermissions', '--model', FABLE.id]
+
+  it('asks the CLI for Fable when it starts the task', async () => {
+    const { ap } = await boot()
+    await ap.getState().start(FABLE_TASK)
+    expect(ap.getState().run).toMatchObject({ model: 'fable' })
+    expect(lastSpawn()).toMatchObject({ accountId: 'h2', extraArgs: [...fableArgs, 'Fix the flaky test'] })
+  })
+
+  it('asks for Fable again on the next account, resuming the chat or starting over', async () => {
+    const { ap } = await boot()
+    await ap.getState().start(FABLE_TASK)
+    await vi.advanceTimersByTimeAsync(21_000)
+    setUsage({ h2: 100 })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(lastSpawn()).toMatchObject({ accountId: 'h3', resume: true, resumeSession: 'conv-1', extraArgs: [...fableArgs, CONTINUE_PROMPT] })
+
+    vi.mocked(api.terminals.session).mockResolvedValue(null)
+    ap.getState().stop()
+    ap.getState().dismiss()
+    setUsage({ h2: 20 })
+    await ap.getState().start(FABLE_TASK)
+    await vi.advanceTimersByTimeAsync(21_000)
+    setUsage({ h2: 100 })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(lastSpawn().resumeSession).toBeUndefined()
+    expect(lastSpawn()).toMatchObject({ accountId: 'h3', extraArgs: [...fableArgs, taskArg(restartPrompt(TASK.task))] })
+  })
+
+  it("keeps the account's default model otherwise", async () => {
+    const { ap } = await running()
+    expect(ap.getState().run!.model).toBe('default')
+    expect(lastSpawn().extraArgs).not.toContain('--model')
+  })
+})
+
 describe('across restarts', () => {
   it('saves the run and picks it up again while its terminal is still running', async () => {
     const first = await running()
@@ -724,6 +769,19 @@ describe('across restarts', () => {
     fake.state.screens.t1 += "\nYou've hit your limit"
     await vi.advanceTimersByTimeAsync(15_000)
     expect(ap.getState().run!.accountId).toBe('h3')
+  })
+
+  it('loads a run saved before it had a model as one on the default model', async () => {
+    await running()
+    const saved = JSON.parse(storage.get('relay.autopilot')!)
+    delete saved.run.model
+    storage.set('relay.autopilot', JSON.stringify(saved))
+    quitApp()
+
+    const { ap } = await boot()
+    await ap.getState().init()
+    expect(ap.getState().phase).toBe('running')
+    expect(ap.getState().run!.model).toBe('default')
   })
 
   it('drops damaged route entries from a saved run but keeps the run', async () => {
