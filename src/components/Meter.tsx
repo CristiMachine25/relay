@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 import type { UsageWindow } from '@shared/types'
-import { leftOf, levelFor, levelWord, litCells, type Level } from '@/lib/quota'
+import { isModelWindow, leftOf, levelFor, levelWord, litCells, type Level } from '@/lib/quota'
+import { shareText } from '@/lib/windows'
 import { formatPct, resetText } from '@/lib/format'
 
 const LEVEL_BG: Record<Level, string> = {
@@ -61,40 +62,49 @@ export function Meter({
   )
 }
 
-/** One window: name, meter, "36% left", reset countdown. */
+/**
+ * One window: name, meter, "36% left", reset countdown. A window that caps one model reads as secondary: a thinner
+ * strip, and when the provider says its share, the share in words ("half of the weekly limit").
+ */
 export function WindowGauge({
   w,
   now,
   compact = false,
-  stale = false
+  stale = false,
+  refreshing = false
 }: {
   w: UsageWindow
   now: number
   compact?: boolean
   stale?: boolean | null
+  /** The numbers are being read again: the strip dims and breathes until they arrive. */
+  refreshing?: boolean
 }) {
   const left = leftOf(w)
   const level = levelFor(left)
   const reset = resetText(w.resetsAt, now)
   const reached = left <= 0.5
+  const share = shareText(w.shareOfWeekly)
+  const secondary = isModelWindow(w)
   return (
-    <div className={clsx('min-w-0', stale && '[&_[role=meter]]:opacity-60')}>
-      <div className="flex items-baseline justify-between gap-2 mb-1">
-        <span className="text-xs text-muted truncate" data-tip={w.label}>
-          {w.label}
+    <div className={clsx('min-w-0', stale && '[&_[role=meter]]:opacity-60')} aria-busy={refreshing || undefined}>
+      <div className="mb-1 flex items-baseline justify-between gap-2">
+        <span className="truncate text-xs text-muted" data-tip={share ? `${w.label}: ${share}` : w.label}>
+          <span className={clsx(!secondary && 'font-medium')}>{w.label}</span>
+          {share && !compact && <span> · {share}</span>}
         </span>
         <span className={clsx('shrink-0 whitespace-nowrap text-xs font-semibold tabular-nums', reached ? 'text-empty' : 'text-ink')}>
           {reached ? 'Limit reached' : `${formatPct(left)} left`}
         </span>
       </div>
-      <Meter left={left} label={`${w.label}`} cells={compact ? 20 : 25} size={compact ? 'xs' : 'sm'} />
+      <Meter left={left} label={`${w.label}`} cells={compact ? 20 : 25} size={compact || secondary ? 'xs' : 'sm'} className={refreshing ? 'is-refreshing' : undefined} />
       {!compact && (
-        <div className="mt-1 flex justify-between text-xs text-muted">
-          <span className={clsx(level === 'full' ? 'text-muted' : LEVEL_TEXT[level])}>{levelWord(left)}</span>
+        <div className="mt-1 flex justify-between gap-2 text-xs text-muted">
+          <span className={clsx(level === 'full' || reached ? 'text-muted' : LEVEL_TEXT[level])}>{reached ? 'Waiting for the reset' : levelWord(left)}</span>
           <span className="tabular-nums">{reset ?? 'No reset scheduled'}</span>
         </div>
       )}
-      {compact && <div className="mt-0.5 text-[11px] leading-4 text-muted tabular-nums truncate">{reset ?? 'Not started'}</div>}
+      {compact && <div className="mt-0.5 truncate text-[11px] leading-4 text-muted tabular-nums">{reset ?? 'Not started'}</div>}
     </div>
   )
 }
