@@ -1,13 +1,13 @@
 import { Fragment, useEffect, useId, useState } from 'react'
 import clsx from 'clsx'
 import { AppWindow, Ban, Info, FolderOpen, FolderSearch, LogIn, Pencil, Play, Plus, RefreshCw, RotateCcw, Search, SquareTerminal, Trash2 } from 'lucide-react'
-import type { Account, DailyActivity, UsageWindow, SharingOptions, TaskType, UsageHistoryPoint } from '@shared/types'
+import type { Account, DailyActivity, UsageSnapshot, UsageWindow, SharingOptions, TaskType, UsageHistoryPoint } from '@shared/types'
 import { api, errorText } from '@/api'
 import { useStore } from '@/store'
 import { useGrid } from '@/terminals/store'
 import { ACCOUNT_COLORS, ACCOUNT_COLOR_NAMES, PROVIDER_META, PROVIDER_ORDER, SHARING_ITEMS, TASKS, launchVerb } from '@/lib/providers'
 import { isBlocked, isSignedOut, statusLabel } from '@/lib/grid'
-import { bindingWindow, leftOf } from '@/lib/quota'
+import { leftOf } from '@/lib/quota'
 import { PLANS, findPlan, planLabel } from '@/lib/plans'
 import { useDrafts } from '@/lib/drafts'
 import { canDeleteHome, isMainFolder, profilesDir } from '@/lib/profiles'
@@ -18,7 +18,10 @@ import { CopyButton } from '@/components/Toasts'
 import { DailyTokens, WindowHistory } from '@/charts/AccountCharts'
 import { Page, Toolbar } from '@/components/Page'
 import { idleBehind, sortWindows, spentWindow } from '@/lib/windows'
-import { limitName } from '@/lib/limitView'
+import { limitName, lowLimits, shortLabel, viewWindow, windowsTip, VIEW_NAME, type LimitView } from '@/lib/limitView'
+import { LimitSwitch } from '@/components/LimitSwitch'
+import { useLimitSwitch } from '@/terminals/limitView'
+import { outText, splitFleet, type Resting } from './overview/availability'
 import { SubscriptionBadge } from '@/components/SubscriptionBadge'
 import { SubscriptionSection } from '@/components/SubscriptionSection'
 
@@ -27,10 +30,10 @@ export function Accounts() {
   const usage = useStore((s) => s.usage)
   const now = useStore((s) => s.now)
   const selectedId = useStore((s) => s.selectedId)
-  const go = useStore((s) => s.go)
   const setAddOpen = useStore((s) => s.setAddOpen)
 
   const selected = accounts.find((a) => a.id === selectedId) ?? accounts[0]
+  const { view, views, setView } = useLimitSwitch(accounts)
 
   if (!accounts.length)
     return (
@@ -59,41 +62,39 @@ export function Accounts() {
             <Plus size={14} /> Add
           </button>
         </div>
+        <div className="shrink-0 border-b border-rivet px-2 py-2">
+          <LimitSwitch view={view} views={views} onChange={setView} subject="account" className="justify-between" />
+        </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4 pt-1">
           <Drafts />
           {PROVIDER_ORDER.map((p) => {
             const list = accounts.filter((a) => a.providerId === p)
             if (!list.length) return null
+            const { ready, resting } = splitFleet(list, usage)
             return (
               <div key={p} className="mb-3">
                 <div className="flex items-center gap-2 px-2 pb-1 pt-2 text-xs text-muted">
                   <ProviderMark id={p} size={14} /> {PROVIDER_META[p].product}
                 </div>
                 <ul>
-                  {list.map((a) => {
-                    const b = bindingWindow(usage[a.id])
-                    const left = b ? leftOf(b) : null
-                    const on = a.id === selected?.id
-                    const status = statusLabel(a)
-                    return (
-                      <li key={a.id}>
-                        <button
-                          onClick={() => go('accounts', a.id)}
-                          aria-current={on ? 'true' : undefined}
-                          className={clsx('w-full rounded px-2 py-2 text-left', on ? 'bg-raised shadow-[inset_2px_0_0_rgb(var(--hop))]' : 'hover:bg-raised/60')}
-                        >
-                          <span className="flex items-center gap-2">
-                            <AccountDot account={a} size={8} />
-                            <span className={clsx('flex-1 truncate', on && 'font-semibold')}>{a.label}</span>
-                            <span className="text-xs tabular-nums text-muted">{status ?? (left === null ? '' : left <= 0.5 ? 'Limit reached' : formatPct(left))}</span>
-                          </span>
-                          {left !== null && !status && <Meter left={left} cells={20} size="xs" label={`${a.label} quota left`} className="mt-1.5 pl-4" />}
-                          <SubscriptionBadge account={a} now={now} className="mt-1 pl-4" />
-                        </button>
-                      </li>
-                    )
-                  })}
+                  {ready.map((a) => (
+                    <li key={a.id}>
+                      <ListRow a={a} snap={usage[a.id]} view={view} now={now} on={a.id === selected?.id} />
+                    </li>
+                  ))}
                 </ul>
+                {resting.length > 0 && (
+                  <>
+                    <p className="px-2 pb-0.5 pt-2 text-xs text-faint">Out for now · {resting.length}</p>
+                    <ul>
+                      {resting.map((r) => (
+                        <li key={r.account.id}>
+                          <RestingListRow r={r} now={now} on={r.account.id === selected?.id} />
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
               </div>
             )
           })}
@@ -101,6 +102,56 @@ export function Accounts() {
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">{selected && <AccountDetail key={selected.id} account={selected} />}</div>
     </div>
+  )
+}
+
+/** A usable account in the list: the limit the switch is on, named, with a mark for another limit that is running low. */
+function ListRow({ a, snap, view, now, on }: { a: Account; snap?: UsageSnapshot; view: LimitView; now: number; on: boolean }) {
+  const go = useStore((s) => s.go)
+  const w = viewWindow(snap, view)
+  const left = w ? leftOf(w) : null
+  const low = lowLimits(snap, w).slice(0, 2)
+  const status = statusLabel(a)
+  return (
+    <button
+      onClick={() => go('accounts', a.id)}
+      aria-current={on ? 'true' : undefined}
+      data-tip={snap?.windows.length ? windowsTip(snap, now) : undefined}
+      className={clsx('w-full rounded px-2 py-2 text-left', on ? 'bg-raised shadow-[inset_2px_0_0_rgb(var(--hop))]' : 'hover:bg-raised/60')}
+    >
+      <span className="flex items-center gap-2">
+        <AccountDot account={a} size={8} />
+        <span className={clsx('flex-1 truncate', on && 'font-semibold')}>{a.label}</span>
+        <span className="shrink-0 text-xs tabular-nums text-muted">
+          {status ?? (w && left !== null ? `${shortLabel(w)} ${formatPct(left)} left` : snap?.windows.length ? `No ${VIEW_NAME[view]}` : '')}
+        </span>
+      </span>
+      {w && left !== null && !status && <Meter left={left} cells={20} size="xs" label={`${a.label} ${limitName(w)} left`} className="mt-1.5 pl-4" />}
+      {low.length > 0 && <span className="mt-1 block pl-4 text-xs font-medium text-low">{low.map((l) => l.text).join(' · ')}</span>}
+      <SubscriptionBadge account={a} now={now} className="mt-1 pl-4" />
+    </button>
+  )
+}
+
+/** An account that cannot be used now: its name, then why and when it is back, dimmed. */
+function RestingListRow({ r, now, on }: { r: Resting; now: number; on: boolean }) {
+  const go = useStore((s) => s.go)
+  const a = r.account
+  const why = r.kind === 'out' ? outText(r.window, now) : (statusLabel(a) ?? '')
+  return (
+    <button
+      onClick={() => go('accounts', a.id)}
+      aria-current={on ? 'true' : undefined}
+      className={clsx('w-full rounded px-2 py-1.5 text-left text-muted', on ? 'bg-raised shadow-[inset_2px_0_0_rgb(var(--hop))]' : 'hover:bg-raised/60')}
+    >
+      <span className="flex items-center gap-2">
+        <span className="flex opacity-40">
+          <AccountDot account={a} size={8} />
+        </span>
+        <span className={clsx('flex-1 truncate', on && 'font-semibold')}>{a.label}</span>
+      </span>
+      <span className="block truncate pl-4 text-xs">{why}</span>
+    </button>
   )
 }
 
