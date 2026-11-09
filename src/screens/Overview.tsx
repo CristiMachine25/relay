@@ -60,7 +60,11 @@ export function Overview() {
     if (!settings) return []
     // Sign-in reminders the user put off stay hidden until the account's status changes.
     const off = liveSnoozes(snoozed, accounts)
-    return computeAlerts(accounts, usage, settings, now).filter((al) => !(al.kind === 'needs-login' && off[al.accountId]))
+    // An account that is out already waits under "Out for now": its limits are not an alert on top of that.
+    const out = new Set(splitFleet(accounts, usage).resting.filter((r) => r.kind === 'out').map((r) => r.account.id))
+    return computeAlerts(accounts, usage, settings, now).filter(
+      (al) => !(al.kind === 'needs-login' && off[al.accountId]) && !(out.has(al.accountId) && ['limit-reached', 'nearly-exhausted', 'use-it-or-lose-it'].includes(al.kind))
+    )
   }, [accounts, usage, settings, now, snoozed])
 
   if (accounts.length === 0) {

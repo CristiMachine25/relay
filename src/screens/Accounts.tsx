@@ -55,7 +55,7 @@ export function Accounts() {
 
   return (
     <div className="flex h-full min-h-0">
-      <aside aria-label="Accounts" className="flex w-[272px] shrink-0 flex-col border-r border-rivet bg-well max-[999px]:w-[230px]">
+      <aside aria-label="Accounts" className="flex w-[272px] shrink-0 flex-col border-r border-rivet bg-well max-[999px]:w-[252px]">
         <div data-tauri-drag-region="deep" className="flex h-14 shrink-0 items-center justify-between border-b border-rivet pl-4 pr-3">
           <h1 className="font-sans text-lg font-semibold">Accounts</h1>
           <button className="btn btn-sm" onClick={() => setAddOpen(true)}>
@@ -137,7 +137,8 @@ function ListRow({ a, snap, view, now, on }: { a: Account; snap?: UsageSnapshot;
 function RestingListRow({ r, now, on }: { r: Resting; now: number; on: boolean }) {
   const go = useStore((s) => s.go)
   const a = r.account
-  const why = r.kind === 'out' ? outText(r.window, now) : (statusLabel(a) ?? '')
+  // "Weekly limit reached · back Fri 4:06 AM": the return time goes beside the name, where a narrow list still has room.
+  const [limit = '', back] = (r.kind === 'out' ? outText(r.window, now) : (statusLabel(a) ?? '')).split(' · ')
   return (
     <button
       onClick={() => go('accounts', a.id)}
@@ -149,8 +150,9 @@ function RestingListRow({ r, now, on }: { r: Resting; now: number; on: boolean }
           <AccountDot account={a} size={8} />
         </span>
         <span className={clsx('flex-1 truncate', on && 'font-semibold')}>{a.label}</span>
+        {back && <span className="shrink-0 whitespace-nowrap text-xs tabular-nums">{back}</span>}
       </span>
-      <span className="block truncate pl-4 text-xs">{why}</span>
+      <span className="block pl-4 text-xs">{limit}</span>
     </button>
   )
 }
