@@ -51,6 +51,7 @@ describe('small formatters', () => {
   })
   it('windowName keeps model names capitalised', () => {
     expect(windowName('Weekly Opus')).toBe('weekly Opus')
+    expect(windowName('Weekly Fable')).toBe('weekly Fable')
     expect(windowName('5-hour session')).toBe('5-hour session')
     expect(windowName('Gemini Pro daily')).toBe('Gemini Pro daily')
   })

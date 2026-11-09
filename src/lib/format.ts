@@ -90,7 +90,7 @@ export function formatPct(n: number): string {
   return `${Math.round(n)}%`
 }
 
-const PROPER = new Set(['Opus', 'Sonnet', 'Haiku', 'Gemini', 'Pro', 'Flash', 'Claude', 'Codex', 'Copilot', 'GPT'])
+const PROPER = new Set(['Opus', 'Sonnet', 'Haiku', 'Fable', 'Mythos', 'Gemini', 'Pro', 'Flash', 'Claude', 'Codex', 'Copilot', 'GPT'])
 
 /** A window label for use mid-sentence: "Weekly Opus" -> "weekly Opus", "Gemini Pro daily" stays. */
 export function windowName(label: string): string {
