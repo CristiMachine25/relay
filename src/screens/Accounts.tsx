@@ -23,6 +23,7 @@ import { LimitSwitch } from '@/components/LimitSwitch'
 import { useLimitSwitch } from '@/terminals/limitView'
 import { outText, splitFleet, type Resting } from './overview/availability'
 import { SubscriptionBadge } from '@/components/SubscriptionBadge'
+import { subscriptionFor } from '@/lib/subscription'
 import { SubscriptionSection } from '@/components/SubscriptionSection'
 
 export function Accounts() {
@@ -153,6 +154,8 @@ function RestingListRow({ r, now, on }: { r: Resting; now: number; on: boolean }
         {back && <span className="shrink-0 whitespace-nowrap text-xs tabular-nums">{back}</span>}
       </span>
       <span className="block pl-4 text-xs">{limit}</span>
+      {/* A plan about to end matters even while the account is out; a calm renewal stays in the details. */}
+      {subscriptionFor(a, now).urgency !== 'calm' && <SubscriptionBadge account={a} now={now} className="mt-0.5 pl-4" />}
     </button>
   )
 }

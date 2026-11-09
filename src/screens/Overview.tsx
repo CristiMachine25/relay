@@ -15,6 +15,7 @@ import { lowLimits, shortLabel, viewWindow, windowsTip, VIEW_NAME, type LimitVie
 import { LimitSwitch } from '@/components/LimitSwitch'
 import { useLimitSwitch } from '@/terminals/limitView'
 import { SubscriptionBadge } from '@/components/SubscriptionBadge'
+import { subscriptionFor } from '@/lib/subscription'
 import { AccountDot, ProviderMark, Segmented, SectionTitle } from '@/components/ui'
 import { PrimaryLaunch } from '@/components/PrimaryLaunch'
 import { UsageOverTime } from '@/charts/UsageOverTime'
@@ -366,6 +367,8 @@ function RestingRow({ r, now, provider }: { r: Resting; now: number; provider: P
       <p className="min-w-0 flex-1 truncate text-xs" title={why}>
         {why}
       </p>
+      {/* A plan about to end matters even while the account is out; a calm renewal stays in the details. */}
+      {subscriptionFor(a, now).urgency !== 'calm' && <SubscriptionBadge account={a} now={now} className="shrink-0" />}
       <div className="flex w-[92px] shrink-0 justify-end">
         {r.kind === 'signed-out' ? (
           <button className="btn btn-sm w-[92px]" onClick={() => launch(a.id, 'login')}>

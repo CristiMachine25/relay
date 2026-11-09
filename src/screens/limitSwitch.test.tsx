@@ -95,6 +95,17 @@ describe('the account board on Start work', () => {
     expect(html.indexOf('Tired One')).toBeLessThan(html.indexOf('Spent One'))
   })
 
+  it('still says a plan is about to end on an account that is out, and leaves a calm renewal to the details', () => {
+    const started = new Date(NOW - 20 * 86_400_000).toISOString()
+    const ending = { ...accounts[0]!, subscription: { startedAt: started, checkedAt: at(0) }, renewsOn: '2026-11-10', autoRenew: false }
+    const calm = { ...accounts[3]!, subscription: { startedAt: started, checkedAt: at(0) }, autoRenew: true }
+    seed('five_hour')
+    Object.assign(useStore.getInitialState(), { accounts: [ending, accounts[1]!, accounts[2]!, calm, accounts[4]!] })
+    const html = renderToStaticMarkup(<Board />)
+    expect(rowOf(html, 'Spent One')).toContain('Ends ')
+    expect(rowOf(html, 'Tired One')).not.toContain('Renews ')
+  })
+
   it('keeps Sign in for a signed-out account and gives an account that is out no primary button', () => {
     const html = board()
     expect(rowOf(html, 'Gone One')).toContain('Sign in')
