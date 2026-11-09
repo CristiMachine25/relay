@@ -628,7 +628,23 @@
       </details>
       <details>
         <summary>How does &ldquo;continue on another account&rdquo; work?</summary>
-        <div class="faq-a"><p>When a pane in the terminal grid hits its limit, it offers the account of the same tool that is the best pick right now, or you choose another from the list. One click ends the session and resumes it on that account, in the same folder.</p><p>The chat itself carries over only when chat history sharing is on for both accounts. If it isn&rsquo;t, the pane offers to turn it on.</p></div>
+        <div class="faq-a"><p>When a pane in the terminal grid hits its limit, it offers the account of the same tool that is the best pick right now, or you choose another from the list. One click ends the session and resumes it on that account, in the same folder.</p><p>The chat itself carries over only when chat history sharing is on for both accounts. If it isn&rsquo;t, the pane offers to turn it on. <a href="#autopilot">Autopilot</a> does the same move for you.</p></div>
+      </details>
+      <details>
+        <summary>What is Autopilot, and is it safe to leave running?</summary>
+        <div class="faq-a"><p>Autopilot runs a Claude Code task without you. You give it a task and a folder, and it starts on the account with the most left. When that account runs out, the same chat resumes on the next account in its order. If every account is out, it waits until one is expected to have room. Your computer is kept awake while a run is active. It works with Claude Code accounts only.</p><p>By default it starts Claude Code with permission prompts skipped, so it never sits waiting for a click. That lets it run any command and change any file in the folder you chose. Untick &ldquo;Don&rsquo;t stop for permission prompts&rdquo; if you would rather it ask, and expect it to pause until you answer.</p></div>
+      </details>
+      <details>
+        <summary>What does &ldquo;Fable 5.2 only&rdquo; do?</summary>
+        <div class="faq-a"><p>Fable may use only half of an account&rsquo;s weekly limit, so it runs out sooner than the account does. In this Autopilot mode the run stays on Fable 5.2 and moves to the next account when that allowance runs out. Without it, the CLI carries on with another model on the same account. Relay shows the Fable weekly limit as its own gauge, and as one choice of the Limits switch.</p></div>
+      </details>
+      <details>
+        <summary>Does Relay know when my plan renews?</summary>
+        <div class="faq-a"><p>Only roughly. Providers don&rsquo;t tell Relay the billing day or whether auto-renew is on. Relay estimates the renewal day from the day the plan started and marks it as an estimate. You can set the real day and your own auto-renew note on each account. A canceled plan is shown as ending.</p></div>
+      </details>
+      <details>
+        <summary>Does voice work?</summary>
+        <div class="faq-a"><p>Claude Code&rsquo;s hold-to-talk voice mode is turned on in every Claude account Relay starts, so it works in Relay&rsquo;s terminals, and a chat that moves to another account keeps it. Switch it off in Settings if you would rather choose per account. On a Mac, the mic button on the Autopilot task box starts the system&rsquo;s dictation.</p></div>
       </details>
       <details>
         <summary>How accurate are the numbers?</summary>
