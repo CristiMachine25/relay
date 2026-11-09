@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { useStore } from '@/store'
+import type { UsageSnapshot } from '@shared/types'
 import { nextView, offeredViews, parseLimitView, shownView, type LimitView } from '@/lib/limitView'
 import { useGrid } from './store'
 
@@ -35,11 +36,16 @@ export const useLimitView = create<LimitViewState>((set, get) => ({
   cycle: (offered) => get().setView(nextView(shownView(get().view, offered), offered))
 }))
 
+/** The view in effect and the views on offer, given the usage of the accounts a screen lists. */
+export function useLimitViewFor(snaps: (UsageSnapshot | undefined)[]): { view: LimitView; views: LimitView[] } {
+  const saved = useLimitView((s) => s.view)
+  const views = offeredViews(snaps)
+  return { view: shownView(saved, views), views }
+}
+
 /** The view in effect and the views on offer, given the accounts in the grid's panes. */
 export function useLimitViews(): { view: LimitView; views: LimitView[] } {
-  const saved = useLimitView((s) => s.view)
   const panes = useGrid((s) => s.ws.panes)
   const usage = useStore((s) => s.usage)
-  const views = offeredViews(panes.map((p) => (p.accountId ? usage[p.accountId] : undefined)))
-  return { view: shownView(saved, views), views }
+  return useLimitViewFor(panes.map((p) => (p.accountId ? usage[p.accountId] : undefined)))
 }
