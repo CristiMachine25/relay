@@ -11,6 +11,7 @@ import { liveSnoozes, useSnoozes } from '@/lib/snooze'
 import { bindingWindow, computeAlerts, leftOf, longWindow, unusedAtResets, wastedValue, type Alert } from '@/lib/quota'
 import { creditsText, formatAgo, formatCountdown, formatMoney, formatPct, plural, resetText, windowName } from '@/lib/format'
 import { WindowGauge } from '@/components/Meter'
+import { windowsToShow } from '@/lib/windows'
 import { SubscriptionBadge } from '@/components/SubscriptionBadge'
 import { AccountDot, ProviderMark, Segmented, SectionTitle } from '@/components/ui'
 import { PrimaryLaunch } from '@/components/PrimaryLaunch'
@@ -297,12 +298,13 @@ function Board() {
 function BoardRow({ a, snap, now, provider }: { a: Account; snap?: UsageSnapshot; now: number; provider: ProviderId }) {
   const { launch, go } = useStore.getState()
   const prov = useStore((s) => s.providers.find((p) => p.id === a.providerId))
+  const refreshing = useStore((s) => s.refreshingIds.includes(a.id))
   const signedOut = isSignedOut(a)
   const blocked = isBlocked(a)
   const bind = bindingWindow(snap)
   const atLimit = bind ? leftOf(bind) <= 0.5 : false
   return (
-    <li className="grid grid-cols-[9rem_minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 min-[1180px]:grid-cols-[15rem_minmax(0,1fr)_auto] min-[1180px]:gap-6 hover:bg-deck focus-within:bg-deck">
+    <li className="grid grid-cols-[10.5rem_minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 min-[1180px]:grid-cols-[15rem_minmax(0,1fr)_auto] min-[1180px]:gap-6 hover:bg-deck focus-within:bg-deck">
       <button className="flex min-w-0 items-center gap-2.5 text-left" onClick={() => go('accounts', a.id)} data-tip="Show details">
         <span className={clsx('flex', (signedOut || blocked) && 'opacity-40')}>
           <AccountDot account={a} />
@@ -326,8 +328,8 @@ function BoardRow({ a, snap, now, provider }: { a: Account; snap?: UsageSnapshot
           <p className="text-muted">{a.statusMessage ?? `This account can't use ${PROVIDER_META[provider].product}.`}</p>
         ) : snap && snap.windows.length ? (
           <div className="grid grid-cols-3 gap-4 min-[1180px]:gap-6">
-            {snap.windows.slice(0, 3).map((w) => (
-              <WindowGauge key={w.id} w={w} now={now} compact stale={snap.stale} />
+            {windowsToShow(snap.windows, 3).map((w) => (
+              <WindowGauge key={w.id} w={w} now={now} compact stale={snap.stale} refreshing={refreshing} />
             ))}
             {snap.credits && snap.windows.length < 3 && <div className="self-center text-xs text-muted">{creditsText(snap.credits)}</div>}
           </div>

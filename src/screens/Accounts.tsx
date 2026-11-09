@@ -17,6 +17,7 @@ import { AccountDot, Dialog, EmptyState, ProviderMark, Segmented, SectionTitle, 
 import { CopyButton } from '@/components/Toasts'
 import { DailyTokens, WindowHistory } from '@/charts/AccountCharts'
 import { Page, Toolbar } from '@/components/Page'
+import { sortWindows } from '@/lib/windows'
 import { SubscriptionBadge } from '@/components/SubscriptionBadge'
 import { SubscriptionSection } from '@/components/SubscriptionSection'
 
@@ -106,6 +107,7 @@ function AccountDetail({ account: a }: { account: Account }) {
   const snap = useStore((s) => s.usage[a.id])
   const providers = useStore((s) => s.providers)
   const now = useStore((s) => s.now)
+  const refreshingThis = useStore((s) => s.refreshingIds.includes(a.id))
   const launching = useStore((s) => s.launching)
   const { launch, refresh, updateAccount } = useStore.getState()
   const prov = providers.find((p) => p.id === a.providerId)
@@ -202,8 +204,8 @@ function AccountDetail({ account: a }: { account: Account }) {
                 <Info size={16} className="shrink-0 text-muted" />
                 <p className="flex-1 text-muted">{snap.error ?? `These numbers are from ${formatAgo(snap.fetchedAt, now)}.`}</p>
                 {snap.stale && (
-                  <button className="btn btn-sm" onClick={() => refresh(a.id)}>
-                    <RefreshCw size={13} /> Check again
+                  <button className="btn btn-sm" onClick={() => refresh(a.id)} disabled={refreshingThis}>
+                    <RefreshCw size={13} className={clsx(refreshingThis && 'animate-spin')} /> {refreshingThis ? 'Checking…' : 'Check again'}
                   </button>
                 )}
               </div>
@@ -261,11 +263,26 @@ function AccountDetail({ account: a }: { account: Account }) {
           </header>
 
           <section>
-            <SectionTitle aside={snap && <span className="text-xs text-muted">Checked {formatAgo(snap.fetchedAt, now)}</span>}>Limits</SectionTitle>
+            <SectionTitle
+              aside={
+                snap && (
+                  <span className="flex items-center gap-2 text-xs text-muted">
+                    <span className="tabular-nums">{snap.stale ? `Last good reading ${formatAgo(snap.fetchedAt, now)}` : `Updated ${formatAgo(snap.fetchedAt, now)}`}</span>
+                    {canLaunch && (
+                      <button className="btn btn-ghost btn-sm" onClick={() => refresh(a.id)} disabled={refreshingThis} aria-label="Refresh this account's limits" data-tip="Check this account's limits now">
+                        <RefreshCw size={13} className={clsx(refreshingThis && 'animate-spin')} aria-hidden /> {refreshingThis ? 'Checking…' : 'Refresh'}
+                      </button>
+                    )}
+                  </span>
+                )
+              }
+            >
+              Limits
+            </SectionTitle>
             {snap && snap.windows.length ? (
               <div className="grid grid-cols-1 gap-x-8 gap-y-5 min-[1100px]:grid-cols-2">
-                {snap.windows.map((w) => (
-                  <WindowGauge key={w.id} w={w} now={now} stale={snap.stale} />
+                {sortWindows(snap.windows).map((w) => (
+                  <WindowGauge key={w.id} w={w} now={now} stale={snap.stale} refreshing={refreshingThis} />
                 ))}
                 {snap.credits && <p className="self-end text-muted">{creditsText(snap.credits)}.</p>}
               </div>
