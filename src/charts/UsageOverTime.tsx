@@ -1,5 +1,4 @@
-import { useMemo } from 'react'
-import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { useMemo, useState } from 'react'
 import type { Account, UsageHistoryPoint, UsageSnapshot, UsageWindow } from '@shared/types'
 import { USE_IT_MIN_WINDOW_MINUTES, longWindow } from '@/lib/quota'
 import { formatDay, windowName } from '@/lib/format'
@@ -61,36 +60,7 @@ export function UsageOverTime({
                 <span className="block truncate">{a.label}</span>
                 <span className="block truncate text-[11px] leading-4 text-muted">{windowName(w.label)}</span>
               </span>
-              <div className="h-9 border-b border-rivet">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={data} margin={{ top: 2, right: 0, bottom: 0, left: 0 }} accessibilityLayer={false}>
-                    <XAxis dataKey="t" type="number" domain={[start, end]} hide />
-                    <YAxis domain={[0, 100]} hide />
-                    <Tooltip
-                      cursor={{ stroke: c.axis, strokeWidth: 1 }}
-                      allowEscapeViewBox={{ y: true }}
-                      content={({ active, payload }) =>
-                        active && payload?.length ? (
-                          <div className="rounded border border-rivet bg-deck px-2.5 py-1.5 text-xs shadow-lg">
-                            <span className="text-muted">{tipTime.format(Number(payload[0]!.payload.t))}: </span>
-                            <span className="tabular-nums">{Math.round(Number(payload[0]!.value))}% used</span>
-                          </div>
-                        ) : null
-                      }
-                    />
-                    <Area
-                      type="linear"
-                      dataKey="v"
-                      stroke={a.color}
-                      strokeWidth={1.5}
-                      fill={a.color}
-                      fillOpacity={c.theme === 'dark' ? 0.22 : 0.16}
-                      isAnimationActive={false}
-                      activeDot={{ r: 3.5, strokeWidth: 2, stroke: c.surface }}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
+              <Strip data={data} start={start} end={end} color={a.color} fillOpacity={c.theme === 'dark' ? 0.22 : 0.16} cursor={c.axis} ring={c.surface} />
               <span className="text-right text-xs tabular-nums text-muted" data-tip="Used now">
                 {Math.round(last)}%<span className="sr-only"> used now</span>
               </span>
@@ -107,6 +77,54 @@ export function UsageOverTime({
         </span>
         <span className="text-right">Now</span>
       </div>
+    </div>
+  )
+}
+
+/**
+ * One account's strip: a plain SVG area, since a chart library instance per account made Start work slow to show.
+ * Hovering shows the nearest point's time and value, like the other charts' tooltips.
+ */
+function Strip({ data, start, end, color, fillOpacity, cursor, ring }: { data: { t: number; v: number }[]; start: number; end: number; color: string; fillOpacity: number; cursor: string; ring: string }) {
+  const [hover, setHover] = useState<number | null>(null)
+  const x = (t: number) => ((t - start) / (end - start)) * 100
+  // Two points of headroom at the top, as the chart had.
+  const y = (v: number) => 2 + (1 - v / 100) * 34
+  const line = data.map((p) => `${x(p.t).toFixed(2)},${y(p.v).toFixed(2)}`).join(' L')
+  const area = `M${x(data[0]!.t).toFixed(2)},36 L${line} L${x(data[data.length - 1]!.t).toFixed(2)},36 Z`
+  const p = hover === null ? null : data[hover]!
+  return (
+    <div
+      className="relative h-9 border-b border-rivet"
+      onMouseMove={(e) => {
+        const r = e.currentTarget.getBoundingClientRect()
+        const t = start + ((e.clientX - r.left) / r.width) * (end - start)
+        let best = 0
+        for (let i = 1; i < data.length; i++) if (Math.abs(data[i]!.t - t) < Math.abs(data[best]!.t - t)) best = i
+        setHover(best)
+      }}
+      onMouseLeave={() => setHover(null)}
+    >
+      <svg className="absolute inset-0 h-full w-full overflow-visible" viewBox="0 0 100 36" preserveAspectRatio="none" aria-hidden>
+        <path d={area} fill={color} fillOpacity={fillOpacity} />
+        <path d={`M${line}`} fill="none" stroke={color} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+        {p && <line x1={x(p.t)} x2={x(p.t)} y1={0} y2={36} stroke={cursor} strokeWidth={1} vectorEffect="non-scaling-stroke" />}
+      </svg>
+      {p && (
+        <>
+          <span
+            className="pointer-events-none absolute h-[7px] w-[7px] -translate-x-1/2 -translate-y-1/2 rounded-full"
+            style={{ left: `${x(p.t)}%`, top: `${(y(p.v) / 36) * 100}%`, background: color, boxShadow: `0 0 0 2px ${ring}` }}
+          />
+          <div
+            className="pointer-events-none absolute bottom-full z-10 mb-1 whitespace-nowrap rounded border border-rivet bg-deck px-2.5 py-1.5 text-xs shadow-lg"
+            style={{ left: `${x(p.t)}%`, transform: `translateX(${x(p.t) > 70 ? '-100%' : '0'})` }}
+          >
+            <span className="text-muted">{tipTime.format(p.t)}: </span>
+            <span className="tabular-nums">{Math.round(p.v)}% used</span>
+          </div>
+        </>
+      )}
     </div>
   )
 }
