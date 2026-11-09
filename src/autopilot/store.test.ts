@@ -830,6 +830,28 @@ describe('staying on Fable', () => {
     expect(ap.getState().log[0]!.text).toMatch(/^Claude H2 ran out of Fable\./)
   })
 
+  it('waits for the soonest Fable reset when every account is out of Fable, then resumes', async () => {
+    resetMain([H2, H3])
+    setUsage({ h2: { used: 20, fable: 40 }, h3: { used: 30, fable: 100, fableResetsAt: fableReset } })
+    const { ap } = await onFable()
+    const soon = new Date(Date.now() + 26 * HOUR).toISOString()
+    setUsage({ h2: { used: 20, fable: 100, fableResetsAt: soon } })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(ap.getState().phase).toBe('waiting')
+    expect(ap.getState().run!.waitingUntil).toBe(Date.parse(soon))
+    expect(ap.getState().log[0]).toMatchObject({
+      kind: 'waiting',
+      text: "Every account is out of Fable for now. Waiting for Claude H2's weekly Fable limit to reset in 1d 2h."
+    })
+
+    main.server.h2 = { used: 20, fable: 0 }
+    await vi.advanceTimersByTimeAsync(Date.parse(soon) - Date.now() + 61_000)
+    expect(ap.getState().phase).toBe('running')
+    expect(ap.getState().run!.accountId).toBe('h2')
+    expect(ap.getState().log[0]).toMatchObject({ kind: 'resumed' })
+    expect(lastSpawn()).toMatchObject({ accountId: 'h2', extraArgs: [...fableArgs, CONTINUE_PROMPT] })
+  })
+
   it('ignores Fable running out on a run on the default model', async () => {
     setUsage({ h2: { used: 20, fable: 40 } })
     const { ap } = await running()

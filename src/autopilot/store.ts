@@ -16,15 +16,16 @@ import {
   modelArgs,
   modelWindow,
   nextAccount as pickNext,
+  nextBack,
   permissionArgs,
   pickAccount,
   restartPrompt,
-  soonestReset,
   taskArg,
   type RunModel
 } from '@/lib/autopilot'
 import { atLimit, historyToTurnOn, isBlocked, isSignedOut } from '@/lib/grid'
 import { bindingWindow, leftOf } from '@/lib/quota'
+import { formatCountdown } from '@/lib/format'
 
 export type AutopilotPhase = 'idle' | 'starting' | 'running' | 'handing-off' | 'waiting' | 'stopped'
 
@@ -619,15 +620,25 @@ async function wake(refresh: boolean) {
 function wait() {
   const run = get().run!
   const s = useStore.getState()
-  const until = soonestReset(
+  const mw = modelWindow(run.model)
+  const back = nextBack(
     s.accounts.filter((a) => a.providerId === 'claude'),
     s.usage,
     run.exhausted,
-    Date.now()
+    Date.now(),
+    mw
   )
+  const until = back?.at
   const changed = get().phase !== 'waiting' || run.waitingUntil !== until
   set({ phase: 'waiting', run: { ...run, waitingUntil: until } })
-  if (changed) addLog('waiting', until ? `No account has room. Waiting until ${clock(until)}.` : 'No account has room. Checking again every 10 minutes.')
+  if (changed) {
+    const text = !back
+      ? 'No account has room. Checking again every 10 minutes.'
+      : back.window && back.window.id === mw
+        ? `Every account is out of Fable for now. Waiting for ${back.account.label}'s weekly Fable limit to reset in ${formatCountdown(new Date(back.at).toISOString())}.`
+        : `No account has room. Waiting until ${clock(back.at)}.`
+    addLog('waiting', text)
+  }
   scheduleWake(until)
 }
 
