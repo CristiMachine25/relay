@@ -462,6 +462,19 @@ html:not(.js) .site-nav::before {
   text-decoration: none;
   color: var(--ink);
 }
+/* The drawn Relay wordmark from the app: monoline strokes, with the R's leg in the accent color. */
+.brand .wordmark {
+  width: auto;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.brand .wordmark .leg {
+  stroke: var(--accent-a);
+}
 .brand img {
   width: 28px;
   height: 28px;
