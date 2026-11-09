@@ -290,6 +290,17 @@ summary {
 .pane-body {
   container-type: size;
 }
+/* A warning beside the meter takes the place of the status text, then of Restart and Resume, before the buttons are pushed out. */
+@container (max-width: 700px) {
+  .pane-warn ~ .pane-status {
+    display: none;
+  }
+}
+@container (max-width: 620px) {
+  .pane-warn ~ div .pane-restart {
+    display: none;
+  }
+}
 @container (max-width: 560px) {
   .pane-reset {
     display: none;
