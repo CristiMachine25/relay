@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
-import { AlertTriangle, Ban, ChevronDown, Clock, LogIn, Plus, RefreshCw, Search, WifiOff } from 'lucide-react'
+import { AlertTriangle, Ban, CalendarX, ChevronDown, Clock, LogIn, Plus, RefreshCw, Search, WifiOff } from 'lucide-react'
 import type { Account, DailyActivity, ProviderId, UsageHistoryPoint, UsageSnapshot } from '@shared/types'
 import { api } from '@/api'
 import { modKey } from '@/lib/platform'
@@ -15,7 +15,7 @@ import { lowLimits, shortLabel, viewWindow, windowsTip, VIEW_NAME, type LimitVie
 import { LimitSwitch } from '@/components/LimitSwitch'
 import { useLimitSwitch } from '@/terminals/limitView'
 import { SubscriptionBadge } from '@/components/SubscriptionBadge'
-import { subscriptionFor } from '@/lib/subscription'
+import { endingSoon, subscriptionFor } from '@/lib/subscription'
 import { AccountDot, ProviderMark, Segmented, SectionTitle } from '@/components/ui'
 import { PrimaryLaunch } from '@/components/PrimaryLaunch'
 import { UsageOverTime } from '@/charts/UsageOverTime'
@@ -30,8 +30,6 @@ import { ContinueWork } from './overview/ContinueWork'
 export function Overview() {
   const accounts = useStore((s) => s.accounts)
   const usage = useStore((s) => s.usage)
-  const settings = useStore((s) => s.settings)
-  const now = useStore((s) => s.now)
   const setAddOpen = useStore((s) => s.setAddOpen)
   const setPalette = useStore((s) => s.setPalette)
 
@@ -55,18 +53,6 @@ export function Overview() {
       live = false
     }
   }, [accountKey])
-
-  const snoozed = useSnoozes((s) => s.snoozed)
-  const alerts = useMemo(() => {
-    if (!settings) return []
-    // Sign-in reminders the user put off stay hidden until the account's status changes.
-    const off = liveSnoozes(snoozed, accounts)
-    // An account that is out already waits under "Out for now": its limits are not an alert on top of that.
-    const out = new Set(splitFleet(accounts, usage).resting.filter((r) => r.kind === 'out').map((r) => r.account.id))
-    return computeAlerts(accounts, usage, settings, now).filter(
-      (al) => !(al.kind === 'needs-login' && off[al.accountId]) && !(out.has(al.accountId) && ['limit-reached', 'nearly-exhausted', 'use-it-or-lose-it'].includes(al.kind))
-    )
-  }, [accounts, usage, settings, now, snoozed])
 
   if (accounts.length === 0) {
     return (
@@ -96,7 +82,7 @@ export function Overview() {
       <ContinueWork />
       <Advisor />
       <AutopilotCard />
-      {alerts.length > 0 && <Alerts alerts={alerts} />}
+      <LiveAlerts />
       <Board />
       <details className="group rounded-lg border border-rivet bg-deck p-5">
         <summary className="cursor-pointer font-semibold">Usage history <span className="ml-2 text-xs font-normal text-muted">Explore patterns and unused quota</span></summary>
@@ -175,6 +161,26 @@ const ALERT_ICON = {
   'needs-login': LogIn,
   blocked: Ban,
   stale: WifiOff
+}
+
+/** The alerts read the clock themselves, so a tick redraws them and not the whole screen. */
+function LiveAlerts() {
+  const accounts = useStore((s) => s.accounts)
+  const usage = useStore((s) => s.usage)
+  const settings = useStore((s) => s.settings)
+  const now = useStore((s) => s.now)
+  const snoozed = useSnoozes((s) => s.snoozed)
+  const alerts = useMemo(() => {
+    if (!settings) return []
+    // Sign-in reminders the user put off stay hidden until the account's status changes.
+    const off = liveSnoozes(snoozed, accounts)
+    // An account that is out already waits under "Out for now": its limits are not an alert on top of that.
+    const out = new Set(splitFleet(accounts, usage).resting.filter((r) => r.kind === 'out').map((r) => r.account.id))
+    return computeAlerts(accounts, usage, settings, now).filter(
+      (al) => !(al.kind === 'needs-login' && off[al.accountId]) && !(out.has(al.accountId) && ['limit-reached', 'nearly-exhausted', 'use-it-or-lose-it'].includes(al.kind))
+    )
+  }, [accounts, usage, settings, now, snoozed])
+  return alerts.length > 0 ? <Alerts alerts={alerts} /> : null
 }
 
 function Alerts({ alerts }: { alerts: Alert[] }) {
@@ -288,6 +294,7 @@ export function Board() {
           All accounts
         </span>
       </SectionTitle>
+      <EndingSoon accounts={accounts} now={now} />
       <div className="overflow-hidden rounded-lg border border-rivet">
         {groups.map(({ p, list }, gi) => {
           const { ready, resting } = splitFleet(list, usage)
@@ -325,6 +332,26 @@ export function Board() {
 }
 
 /** The account's name and what it is, as one button to its details. */
+/** Plans with auto-renew off that stop within a week, on one line above the board. Each name opens its account. */
+function EndingSoon({ accounts, now }: { accounts: Account[]; now: number }) {
+  const ending = endingSoon(accounts, now)
+  if (ending.length === 0) return null
+  return (
+    <p className="mb-3 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-low">
+      <CalendarX size={13} className="shrink-0" aria-hidden />
+      <span>
+        {plural(ending.length, 'plan')} {ending.length === 1 ? 'ends' : 'end'} in the next 7 days:
+      </span>
+      {ending.map(({ account, when }, i) => (
+        <button key={account.id} className="underline-offset-2 hover:underline" onClick={() => useStore.getState().go('accounts', account.id)}>
+          {account.label} {when}
+          {i < ending.length - 1 ? ',' : ''}
+        </button>
+      ))}
+    </p>
+  )
+}
+
 function AccountName({ a, provider, snap, now, dim }: { a: Account; provider: ProviderId; snap?: UsageSnapshot; now: number; dim?: boolean }) {
   const go = useStore((s) => s.go)
   return (
