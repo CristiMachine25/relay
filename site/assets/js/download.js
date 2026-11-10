@@ -2,14 +2,14 @@
  * Load it as a plain (non-deferred) script at the end of <body>, before motion.js, so
  * the label is set before first paint. Markup inside a [data-download] block:
  *   [data-dl-label]   the button text ("Download Relay" -> "Download for macOS")
- *   [data-dl-note]    version line ("v0.2.1 for Windows, macOS and Linux.")
+ *   [data-dl-note]    version line ("v0.3.0 for Windows, macOS and Linux.")
  *   [data-dl-others]  filled with links to the other two platforms
  * Without JS, or on an unknown OS, the generic text in the HTML stays.
  */
 (function () {
   "use strict";
   var RELEASES = "https://github.com/CristiMachine25/relay/releases/latest";
-  var VERSION = "v0.2.1";
+  var VERSION = "v0.3.0";
   var ua = navigator.userAgent || "";
   var p = ((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "").toLowerCase();
   var os = null;
@@ -20,7 +20,7 @@
   if (!os) return;
 
   var names = { windows: "Windows", macos: "macOS", linux: "Linux" };
-  var files = { windows: ".exe or .msi", macos: ".dmg for Apple Silicon and Intel", linux: ".AppImage or .deb" };
+  var files = { windows: ".exe", macos: ".dmg for Apple Silicon and Intel", linux: ".AppImage or .deb" };
 
   function link(text) {
     var a = document.createElement("a");
