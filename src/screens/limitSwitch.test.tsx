@@ -106,6 +106,17 @@ describe('the account board on Start work', () => {
     expect(rowOf(html, 'Tired One')).not.toContain('Renews ')
   })
 
+  it('says above the board which plans end within a week, and nothing when none do', () => {
+    expect(board()).not.toContain('in the next 7 days')
+    seed('five_hour')
+    const ending = { ...accounts[1]!, renewsOn: '2026-11-10', autoRenew: false }
+    const later = { ...accounts[2]!, renewsOn: '2026-11-14', autoRenew: false }
+    Object.assign(useStore.getInitialState(), { accounts: [accounts[0]!, later, ending, accounts[3]!, accounts[4]!] })
+    const html = renderToStaticMarkup(<Board />).replaceAll('<!-- -->', '')
+    expect(html).toContain('2 plans end in the next 7 days:')
+    expect(html).toMatch(/Fine One tomorrow,<\/button>.*Low One Nov 14<\/button>/)
+  })
+
   it('keeps Sign in for a signed-out account and gives an account that is out no primary button', () => {
     const html = board()
     expect(rowOf(html, 'Gone One')).toContain('Sign in')
