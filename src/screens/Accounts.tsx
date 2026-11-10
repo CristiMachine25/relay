@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useId, useState } from 'react'
+import { Fragment, useEffect, useId, useReducer, useState } from 'react'
 import clsx from 'clsx'
 import { AppWindow, Ban, Info, FolderOpen, FolderSearch, LogIn, Pencil, Play, Plus, RefreshCw, RotateCcw, Search, SquareTerminal, Trash2 } from 'lucide-react'
 import type { Account, DailyActivity, UsageSnapshot, UsageWindow, SharingOptions, TaskType, UsageHistoryPoint } from '@shared/types'
@@ -164,6 +164,10 @@ function RestingListRow({ r, now, on }: { r: Resting; now: number; on: boolean }
   )
 }
 
+/** The history and activity last loaded for an account and range, kept for the life of the window. */
+const detailCache = new Map<string, { history: UsageHistoryPoint[]; activity: DailyActivity[] }>()
+const NOTHING_LOADED = { history: [] as UsageHistoryPoint[], activity: [] as DailyActivity[] }
+
 function AccountDetail({ account: a }: { account: Account }) {
   const snap = useStore((s) => s.usage[a.id])
   const providers = useStore((s) => s.providers)
@@ -183,25 +187,25 @@ function AccountDetail({ account: a }: { account: Account }) {
   const spent = snap ? spentWindow(snap.windows) : undefined
 
   const [range, setRange] = useState<'7' | '30'>('7')
-  const [history, setHistory] = useState<UsageHistoryPoint[]>([])
-  const [activity, setActivity] = useState<DailyActivity[]>([])
   const [editing, setEditing] = useState(false)
   const [removing, setRemoving] = useState(false)
 
+  // What was loaded last time shows at once when you come back to an account; the fresh read replaces it.
+  const key = `${a.id}:${range}`
+  const [, redraw] = useReducer((n: number) => n + 1, 0)
+  const { history, activity } = detailCache.get(key) ?? NOTHING_LOADED
   useEffect(() => {
     let live = true
     Promise.all([api.usage.history(a.id, Number(range)), api.usage.activity(a.id, Number(range))])
-      .then(([h, act]) => {
-        if (live) {
-          setHistory(h)
-          setActivity(act)
-        }
+      .then(([history, activity]) => {
+        detailCache.set(key, { history, activity })
+        if (live) redraw()
       })
       .catch(() => {})
     return () => {
       live = false
     }
-  }, [a.id, range])
+  }, [a.id, range, key])
 
   const totals = activity.reduce(
     (t, d) => ({ tokens: t.tokens + d.inputTokens + d.outputTokens, messages: t.messages + d.messages, sessions: t.sessions + d.sessions }),
