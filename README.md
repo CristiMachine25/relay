@@ -14,7 +14,7 @@ Runs on **Windows, macOS and Linux**. Free and open source (MIT). Everything sta
 </picture>
 
 > [!WARNING]
-> **Early software, expect bugs.** Relay is a young open-source project (v0.2) built and tested by one person. It almost certainly has bugs, and the usage numbers come from provider endpoints that can change or break without notice. Treat what it shows as a guide, not a guarantee. The installers are **not code-signed**, so Windows and macOS will warn you the first time you open it (see [Install](#install)). It is provided as is, with no warranty: see [Disclaimer](#disclaimer).
+> **Early software, expect bugs.** Relay is a young open-source project (v0.3) built and tested by one person. It almost certainly has bugs, and the usage numbers come from provider endpoints that can change or break without notice. Treat what it shows as a guide, not a guarantee. The installers are **not code-signed**, so Windows and macOS will warn you the first time you open it (see [Install](#install)). It is provided as is, with no warranty: see [Disclaimer](#disclaimer).
 
 ## Why
 
@@ -78,7 +78,7 @@ Download the file for your system from [Releases](https://github.com/CristiMachi
 
 | System | File |
 |---|---|
-| Windows 10/11 | `Relay_<version>_x64-setup.exe` (or the `.msi`) |
+| Windows 10/11 | `Relay_<version>_x64-setup.exe` |
 | macOS, Apple Silicon (M1 and later) | `Relay_<version>_aarch64.dmg` |
 | macOS, Intel | `Relay_<version>_amd64.dmg` |
 | Linux | `.AppImage` (any distro), `.deb` (Debian, Ubuntu) or `.rpm` (Fedora) |
