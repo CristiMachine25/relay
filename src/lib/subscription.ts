@@ -125,6 +125,15 @@ export function subscriptionText(s: SubscriptionInfo): string | null {
   return `${what} ${when}${s.estimated ? ' (est.)' : ''}`
 }
 
+/** Plans that stop by themselves within a week, soonest first, each with its day in words: "tomorrow", "Nov 14". */
+export function endingSoon<A extends Sub>(accounts: A[], now: number = Date.now()): { account: A; when: string }[] {
+  return accounts
+    .map((account) => ({ account, s: subscriptionFor(account, now) }))
+    .filter(({ s }) => s.state === 'ends' && s.urgency !== 'calm')
+    .sort((a, b) => (a.s.daysLeft ?? 0) - (b.s.daysLeft ?? 0))
+    .map(({ account, s }) => ({ account, when: s.daysLeft === 0 ? 'today' : s.daysLeft === 1 ? 'tomorrow' : dateText(s) }))
+}
+
 /** What goes with the short line: "in 7 days, auto-renew off". */
 export function subscriptionDetail(s: SubscriptionInfo): string {
   if (s.state === 'none') return 'No subscription details yet'

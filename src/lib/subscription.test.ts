@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Account, Subscription } from '@shared/types'
-import { subscriptionDetail, subscriptionFor, subscriptionNote, subscriptionText, subscriptionTip } from './subscription'
+import { endingSoon, subscriptionDetail, subscriptionFor, subscriptionNote, subscriptionText, subscriptionTip } from './subscription'
 
 // Local times throughout: the billing day is the day the user sees on their own calendar.
 const at = (y: number, m: number, d: number, h = 12) => new Date(y, m - 1, d, h).getTime()
@@ -150,5 +150,21 @@ describe('wording', () => {
     )
     expect(subscriptionTip(of({ renewsOn: '2026-11-10', autoRenew: true }))).toBe('Renews tomorrow, Nov 10.')
     expect(subscriptionTip(of({}))).toBeNull()
+  })
+})
+
+describe('plans ending within a week', () => {
+  it('lists only plans that stop by themselves in the next 7 days, soonest first, with the day in words', () => {
+    const accounts = [
+      { id: 'later', renewsOn: '2026-11-16', autoRenew: false },
+      { id: 'renews', renewsOn: '2026-11-10', autoRenew: true },
+      { id: 'tomorrow', renewsOn: '2026-11-10', autoRenew: false },
+      { id: 'unsaid', renewsOn: '2026-11-11' },
+      { id: 'today', renewsOn: '2026-11-09', autoRenew: false },
+      { id: 'far', renewsOn: '2026-11-17', autoRenew: false },
+      { id: 'over', renewsOn: '2026-11-07', autoRenew: false }
+    ]
+    expect(endingSoon(accounts, NOW).map((e) => `${e.account.id} ${e.when}`)).toEqual(['today today', 'tomorrow tomorrow', 'later Nov 16'])
+    expect(endingSoon([], NOW)).toEqual([])
   })
 })
