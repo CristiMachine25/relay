@@ -15,10 +15,13 @@ export function stripAnsi(text: string): string {
 
 // What the CLI prints once the account's usage is gone (wording from the CLI itself and the browser mock).
 const DRAINED = [
-  /you've hit your (?:usage )?limit/,
+  /you've hit your (?:usage |5-hour |session |weekly )?limit/,
   /usage limit reached/,
   /new messages wait for your usage limit to reset/,
-  /\/upgrade to increase your usage limit/
+  /\/upgrade to increase your usage limit/,
+  // The menu the CLI opens by itself and waits at. It names no limit, and it can be all there is to read: when a
+  // helper agent ran the account out while the chat was idle, the chat itself printed no limit message.
+  /what do you want to do\?[^?]{0,200}(?:wait for limit to reset|continue automatically)/
 ]
 // "Opus weekly limit reached" only caps one model: the account still works, so it is not a drain.
 const WINDOW_REACHED = /(\S+ )?(?:5-hour|session|weekly) limit reached/g
@@ -39,7 +42,7 @@ export function limitHit(text: string): boolean {
 const normalize = (text: string) => stripAnsi(text).replace(/’/g, "'").replace(/\s+/g, ' ').toLowerCase()
 
 // What the CLI prints when Fable's own allowance is gone; it then carries on with another model.
-const FABLE_DRAINED = /you've reached your fable limit|fable (?:weekly )?limit reached/
+const FABLE_DRAINED = /you've (?:reached|hit) your fable limit|fable (?:weekly )?limit reached/
 
 /** True when screen text shows the CLI ran out of Fable (it carries on with another model unless stopped). */
 export function fableLimitHit(text: string): boolean {

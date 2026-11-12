@@ -57,6 +57,10 @@ describe('limitHit', () => {
     "You've hit your limit · resets in 2h",
     'You’ve hit your limit · resets 3pm (Europe/Bucharest)',
     "You've hit your usage limit",
+    "You've hit your 5-hour limit · resets 5:30am (Europe/Bucharest)",
+    "You've hit your session limit · resets 5:30am",
+    'You’ve hit your weekly limit · resets Mon 9am',
+    'Usage limit reached · continuing automatically at 5:30am · esc to cancel',
     'Claude AI usage limit reached|1730000000',
     '5-hour limit reached ∙ resets 3pm',
     'Session limit reached ∙ resets 3pm',
@@ -76,8 +80,36 @@ describe('limitHit', () => {
     expect(limitHit("⎿ You've hit your\n limit · resets in 2h")).toBe(true)
   })
 
+  // The menu the CLI opens by itself when the limit stops it, as CLI 2.1.323 draws it.
+  const MENU = [
+    '────────────────────────────────────────',
+    '  What do you want to do?',
+    '',
+    '  ❯ 1. Stop and wait for limit to reset',
+    '    2. Don’t continue automatically',
+    '    3. Switch to usage credits',
+    '    4. Upgrade your plan',
+    '',
+    '  Enter to confirm · Esc to cancel'
+  ].join('\n')
+
+  it('sees the menu that asks what to do about the limit, with no limit message on screen', () => {
+    expect(limitHit(MENU)).toBe(true)
+    expect(limitHit('  What do you want to do?\n\n  ❯ 1. Wait here, then continue automatically at 5:30am\n    2. Upgrade your plan\n\n  Enter to confirm · Esc to cancel')).toBe(true)
+    expect(limitHit('  What do you want to do?\n\n    1. Adjust monthly spend limit\n  ❯ 2. Wait for limit to reset\n    3. Upgrade to Max or Ultra for higher session limits every month')).toBe(true)
+  })
+
+  it('leaves other menus with the same title alone', () => {
+    expect(limitHit('Your Claude Code trial has ended.\n  What do you want to do?\n\n  ❯ 1. Upgrade your plan\n    2. Exit\n\n  Enter to confirm · Esc to cancel')).toBe(false)
+    expect(limitHit('What do you want to do? Tell me and I will wait for your answer.')).toBe(false)
+  })
+
   it.each([
     "You've hit your Opus limit · resets Mon 9am",
+    "You've hit your Sonnet limit · resets Mon 9am",
+    "You've hit your Fable limit · resets Mon 9am",
+    "You've hit your fast limit · resets in 2h",
+    "You've hit your monthly spend limit. See Usage in Settings",
     "You've reached your Fable limit.",
     'Fable limit reached · continuing on Sonnet 5',
     'Fable weekly limit reached ∙ resets Mon 9am',
@@ -97,6 +129,7 @@ describe('fableLimitHit', () => {
   it.each([
     "You've reached your Fable limit.",
     'You’ve reached your Fable limit.',
+    "You've hit your Fable limit · resets Mon 9am",
     'Fable limit reached · continuing on Sonnet 5',
     'Fable weekly limit reached ∙ resets Mon 9am',
     "\x1b[33m⎿\x1b[0m You've reached your\n Fable limit."
