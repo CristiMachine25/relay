@@ -21,6 +21,7 @@ import {
   pickAccount,
   restartPrompt,
   taskArg,
+  trustPromptKeys,
   type RunModel
 } from '@/lib/autopilot'
 import { atLimit, historyToTurnOn, isBlocked, isSignedOut } from '@/lib/grid'
@@ -29,7 +30,7 @@ import { formatCountdown } from '@/lib/format'
 
 export type AutopilotPhase = 'idle' | 'starting' | 'running' | 'handing-off' | 'waiting' | 'stopped'
 
-export type AutopilotLogKind = 'start' | 'handoff' | 'waiting' | 'resumed' | 'false-alarm' | 'exit' | 'stopped' | 'error'
+export type AutopilotLogKind = 'start' | 'trusted' | 'handoff' | 'waiting' | 'resumed' | 'false-alarm' | 'exit' | 'stopped' | 'error'
 
 export interface AutopilotLogEntry {
   /** Epoch ms. */
@@ -140,6 +141,8 @@ interface Watch {
   mark?: { readonly line: number }
   /** The terminal whose conversation is known. */
   knownFor?: string
+  /** The folder trust prompt as it stood when it last got a key, and when: one key per screen. */
+  trust?: { screen: string; at: number }
   /** No limit-text checks before this (after a false alarm). */
   mutedUntil: number
   /** The terminal a false alarm was logged for: once per terminal is enough. */
@@ -381,6 +384,7 @@ function spawned(terminalId: string) {
   w.quietOver = false
   w.mark = undefined
   w.knownFor = undefined
+  w.trust = undefined
   w.mutedUntil = 0
   w.falseAlarmFor = undefined
   w.exitSeen = undefined
@@ -437,7 +441,7 @@ function watch() {
     api.on('terminal-output', ({ id }) => {
       if (id !== w.terminalId || get().phase !== 'running') return
       clearTimeout(timers.debounce)
-      timers.debounce = setTimeout(() => void checkText(), TEXT_DEBOUNCE)
+      timers.debounce = setTimeout(checkScreen, TEXT_DEBOUNCE)
     }),
     useStore.subscribe((s, prev) => {
       if (s.accounts !== prev.accounts) onAccounts()
@@ -447,7 +451,7 @@ function watch() {
   ]
   timers.poll = setInterval(() => {
     if (w.quietOver && w.knownFor !== w.terminalId) void learnConversation(false)
-    void checkText()
+    checkScreen()
   }, TEXT_POLL)
   if (w.terminalId && !w.quietOver) armQuiet()
 }
@@ -519,6 +523,30 @@ const fresh = (snap: UsageSnapshot, since: number) => !snap.stale && !snap.error
 function drainOnScreen(text: string, model: RunModel): Drain | undefined {
   if (limitHit(text)) return 'limit'
   if (model === 'fable' && fableLimitHit(text)) return 'fable'
+}
+
+function checkScreen() {
+  answerTrust()
+  void checkText()
+}
+
+/**
+ * Says yes when the run's CLI asks whether to trust the folder, which it does on each account that hasn't opened
+ * the folder yet: the user chose the folder for this run and nobody is there to answer. Right after a spawn too,
+ * since the prompt comes before any replayed screen. One key per check (see `trustPromptKeys`).
+ */
+function answerTrust() {
+  const { phase, run } = get()
+  const id = w.terminalId
+  if (phase !== 'running' || !run || !id) return
+  const screen = tailText(id, 12)
+  const keys = trustPromptKeys(screen)
+  const now = Date.now()
+  // The next key waits for the CLI to redraw; a later check sends this one again in case it got lost.
+  if (!keys || (w.trust?.screen === screen && now - w.trust.at < TEXT_POLL)) return
+  w.trust = { screen, at: now }
+  void api.terminals.write(id, keys).catch(() => {})
+  if (keys === '\r') addLog('trusted', `Claude Code on ${label(run.accountId)} asked whether to trust ${run.cwd ?? 'your home folder'}. Answered yes.`)
 }
 
 /** Looks for the CLI's limit message on screen; the account's usage has the last word when it has numbers. */

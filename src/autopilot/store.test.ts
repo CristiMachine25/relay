@@ -27,6 +27,7 @@ vi.mock('@/api', () => ({
         fake.state.live.push(info)
         return info
       }),
+      write: vi.fn(async (_id: string, _data: string) => {}),
       kill: vi.fn(async (id: string) => {
         fake.state.live = fake.state.live.filter((t) => t.id !== id)
         fake.state.exit(id, null)
@@ -314,6 +315,67 @@ describe('starting a run', () => {
     expect(ap.getState().phase).toBe('stopped')
     expect(ap.getState().run!.error).toContain('claude not found')
     expect(api.system.keepAwake).toHaveBeenLastCalledWith(false)
+  })
+})
+
+describe('the folder trust prompt', () => {
+  const PROMPT = (cursor: 'no' | 'yes') =>
+    ` Accessing workspace:\n\n /work\n\n ${cursor === 'no' ? '❯' : ' '} No, exit\n ${cursor === 'yes' ? '❯' : ' '} Yes, I trust this folder\n\n Enter to confirm · Esc to cancel`
+
+  it('is answered with yes right after a start, without waiting for the quiet period: Down, then Enter', async () => {
+    const { ap } = await boot()
+    await ap.getState().start(TASK)
+    fake.state.screens.t1 = PROMPT('no')
+    emit('terminal-output', { id: 't1', data: 'x' })
+    await vi.advanceTimersByTimeAsync(1_100)
+    expect(vi.mocked(api.terminals.write).mock.calls).toEqual([['t1', '\x1b[B']])
+    fake.state.screens.t1 = PROMPT('yes')
+    emit('terminal-output', { id: 't1', data: 'x' })
+    await vi.advanceTimersByTimeAsync(1_100)
+    expect(vi.mocked(api.terminals.write).mock.calls).toEqual([
+      ['t1', '\x1b[B'],
+      ['t1', '\r']
+    ])
+    expect(ap.getState().phase).toBe('running')
+    expect(ap.getState().log[0]).toMatchObject({ kind: 'trusted' })
+    expect(ap.getState().log[0]!.text).toContain('/work')
+  })
+
+  it('is answered on the next account after a handoff too', async () => {
+    const { ap } = await running()
+    main.server.h2 = { used: 100 }
+    setUsage({ h2: 100 })
+    await vi.advanceTimersByTimeAsync(100)
+    expect(ap.getState().run!.accountId).toBe('h3')
+    fake.state.screens.t2 = PROMPT('yes')
+    emit('terminal-output', { id: 't2', data: 'x' })
+    await vi.advanceTimersByTimeAsync(1_100)
+    expect(api.terminals.write).toHaveBeenCalledWith('t2', '\r')
+  })
+
+  it('gets one key per screen: the same screen is not answered again until 15 seconds pass', async () => {
+    const { ap } = await boot()
+    await ap.getState().start(TASK)
+    fake.state.screens.t1 = PROMPT('no')
+    emit('terminal-output', { id: 't1', data: 'x' })
+    await vi.advanceTimersByTimeAsync(1_100)
+    emit('terminal-output', { id: 't1', data: 'x' })
+    await vi.advanceTimersByTimeAsync(1_100)
+    expect(api.terminals.write).toHaveBeenCalledTimes(1)
+    // A key that got lost is sent again by a later check.
+    await vi.advanceTimersByTimeAsync(30_000)
+    expect(vi.mocked(api.terminals.write).mock.calls.length).toBeGreaterThan(1)
+    expect(vi.mocked(api.terminals.write).mock.calls.every(([, keys]) => keys === '\x1b[B')).toBe(true)
+  })
+
+  it('leaves a terminal alone once the run is stopped', async () => {
+    const { ap } = await boot()
+    await ap.getState().start(TASK)
+    ap.getState().stop()
+    fake.state.screens.t1 = PROMPT('yes')
+    emit('terminal-output', { id: 't1', data: 'x' })
+    await vi.advanceTimersByTimeAsync(20_000)
+    expect(api.terminals.write).not.toHaveBeenCalled()
   })
 })
 

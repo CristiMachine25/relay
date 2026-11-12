@@ -46,6 +46,22 @@ export function fableLimitHit(text: string): boolean {
   return FABLE_DRAINED.test(normalize(text))
 }
 
+/**
+ * Keys that answer yes to the CLI's "Is this a project you trust?" prompt. The CLI shows it before anything else
+ * in a folder its account hasn't opened yet and waits there, which would hold a run nobody is watching. Enter once
+ * the cursor is on "Yes, I trust this folder", else Down to move it there (it starts on "No, exit"). Undefined
+ * unless the prompt is what the screen ends with: a chat that only mentions it is left alone.
+ */
+export function trustPromptKeys(screen: string): string | undefined {
+  const rows = screen
+    .split('\n')
+    .map((r) => r.trim())
+    .filter(Boolean)
+  if (!rows[rows.length - 1]?.startsWith('Enter to confirm')) return undefined
+  const yes = rows.slice(-4, -1).find((r) => /^(?:❯\s*)?Yes, I trust this folder$/.test(r))
+  return yes === undefined ? undefined : yes.startsWith('❯') ? '\r' : '\x1b[B'
+}
+
 /** The model a run can stay on: the CLI's id for it, its name, and the usage window that caps it. */
 export const FABLE = { id: 'claude-fable-5-2', name: 'Fable 5.2', window: 'seven_day_fable' } as const
 

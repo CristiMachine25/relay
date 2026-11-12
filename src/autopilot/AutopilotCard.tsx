@@ -318,6 +318,9 @@ function Draft({ claude }: { claude: Account[] }) {
             </span>
           </span>
         </label>
+        <p className="max-w-[80ch] text-xs text-muted">
+          When Claude Code asks whether it can trust the folder, Autopilot answers yes for you, on every account the run moves to. Pick a folder you trust.
+        </p>
         {best && toShare.length > 0 && (
           <p className="max-w-[80ch] text-xs text-muted">
             Starting turns on chat history sharing for {toShare.map((a) => a.label).join(', ')}, so the conversation can move between your Claude accounts.
@@ -399,6 +402,7 @@ function OrderRow({ n, account, snap, model }: { n: number; account: Account; sn
 
 const LOG_ICON: Record<AutopilotLogKind, LucideIcon> = {
   start: Play,
+  trusted: FolderOpen,
   handoff: ArrowRightLeft,
   waiting: Hourglass,
   resumed: RotateCcw,
