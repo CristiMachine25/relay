@@ -380,6 +380,20 @@ describe('the folder trust prompt', () => {
 })
 
 describe('moving to the next account', () => {
+  it("moves on when the CLI stops at its limit menu, which names no limit (a helper agent ran the account out)", async () => {
+    const { ap } = await running()
+    main.server.h2 = { used: 100, resetsAt: new Date(NOW + 2 * HOUR).toISOString() }
+    fake.state.screens.t1 =
+      'Waiting for 3 agents…\n  What do you want to do?\n\n  ❯ 1. Stop and wait for limit to reset\n    2. Don’t continue automatically\n    3. Switch to usage credits\n    4. Upgrade your plan\n\n  Enter to confirm · Esc to cancel'
+    emit('terminal-output', { id: 't1', data: 'x' })
+    await vi.advanceTimersByTimeAsync(1_100)
+    expect(refresh).toHaveBeenCalledWith('h2')
+    expect(ap.getState().phase).toBe('running')
+    expect(ap.getState().run!.accountId).toBe('h3')
+    expect(api.terminals.kill).toHaveBeenCalledWith('t1')
+    expect(api.terminals.write).not.toHaveBeenCalled()
+  })
+
   it('reacts to limit text on the terminal (debounced) and confirms it with a refresh', async () => {
     const { grid, ap } = await running()
     main.server.h2 = { used: 100, resetsAt: new Date(NOW + 2 * HOUR).toISOString() }
