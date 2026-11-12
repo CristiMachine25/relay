@@ -32,7 +32,7 @@ pub(crate) async fn apply_settings_patch(app: &AppHandle, state: &AppState, patc
         let new = merge_settings(&settings, &patch).map_err(|e| anyhow!(e))?;
         let wake = new.poll_interval_minutes != settings.poll_interval_minutes || new.live_usage != settings.live_usage;
         if new.notifications.enabled && !settings.notifications.enabled {
-            crate::notify::request_permission();
+            crate::notify::request_permission(app);
         }
         if new.launch_at_login != settings.launch_at_login {
             crate::set_autostart(app, new.launch_at_login)?;
