@@ -63,7 +63,7 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             notify_macos::init(app.handle());
             if state.settings.try_read().is_ok_and(|s| s.notifications.enabled) {
-                notify::request_permission();
+                notify::request_permission(app.handle());
             }
             if std::env::args().any(|a| a == MINIMIZED_ARG) {
                 if let Some(w) = app.get_webview_window(MAIN_WINDOW) {

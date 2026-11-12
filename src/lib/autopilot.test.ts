@@ -17,7 +17,8 @@ import {
   restartPrompt,
   soonestReset,
   stripAnsi,
-  taskArg
+  taskArg,
+  trustPromptKeys
 } from './autopilot'
 
 const acc = (id: string, extra: Partial<Account> = {}): Account => ({
@@ -109,6 +110,44 @@ describe('fableLimitHit', () => {
       expect(fableLimitHit(text)).toBe(false)
     }
   )
+})
+
+describe('trustPromptKeys', () => {
+  // What the CLI draws in a folder its account hasn't opened yet, as the terminal's screen reads.
+  const prompt = (cursor: 'no' | 'yes') =>
+    [
+      '────────────────────',
+      ' Accessing workspace:',
+      '',
+      ' /Users/me/project',
+      '',
+      " Quick safety check: Is this a project you created or one you trust? (Like your own code, a well-known open source project, or work from your team). If not, take a moment to review what's in this folder first.",
+      '',
+      " Claude Code'll be able to read, edit, and execute files here.",
+      '',
+      ' Security guide',
+      '',
+      ` ${cursor === 'no' ? '❯' : ' '} No, exit`,
+      ` ${cursor === 'yes' ? '❯' : ' '} Yes, I trust this folder`,
+      '',
+      ' Enter to confirm · Esc to cancel'
+    ].join('\n')
+
+  it('moves the cursor down from "No, exit", where it starts', () => {
+    expect(trustPromptKeys(prompt('no'))).toBe('\x1b[B')
+  })
+
+  it('confirms once the cursor is on "Yes, I trust this folder"', () => {
+    expect(trustPromptKeys(prompt('yes'))).toBe('\r')
+  })
+
+  it('answers nothing when the prompt is not what the screen ends with', () => {
+    expect(trustPromptKeys('')).toBeUndefined()
+    expect(trustPromptKeys('> fix the flaky test\n\n⏺ Working…')).toBeUndefined()
+    // A chat that talks about the prompt, or shows it further up, is not the prompt.
+    expect(trustPromptKeys(`${prompt('yes')}\n\n> what does "Yes, I trust this folder" do?`)).toBeUndefined()
+    expect(trustPromptKeys('The options are:\n❯ Yes, I trust this folder\nPress Enter.')).toBeUndefined()
+  })
 })
 
 describe('stripAnsi', () => {

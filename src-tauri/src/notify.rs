@@ -293,12 +293,46 @@ pub fn show_native(app: &AppHandle, title: &str, body: &str) {
 }
 
 /// Ask the system for permission to show banners, where it must be asked (macOS). It prompts the
-/// user only the first time.
-pub fn request_permission() {
+/// user only the first time: once it holds an answer it never asks again, so a "no" (given, or
+/// left over from an earlier version) would otherwise leave Relay silent without a word. Relay's
+/// own list says so instead.
+#[cfg_attr(not(target_os = "macos"), allow(unused_variables))]
+pub fn request_permission(app: &AppHandle) {
     #[cfg(target_os = "macos")]
     if crate::notify_macos::available() {
-        tauri::async_runtime::spawn(crate::notify_macos::authorize());
+        let app = app.clone();
+        tauri::async_runtime::spawn(async move {
+            if crate::notify_macos::authorize().await {
+                return;
+            }
+            let Some(state) = tauri::Manager::try_state::<std::sync::Arc<AppState>>(&app).map(|s| s.inner().clone()) else { return };
+            let Some(n) = blocked_note(&state.notifications.read().await, Utc::now()) else { return };
+            if let Err(e) = state.push_notifications(vec![n.clone()]).await {
+                log::warn!("saving notifications failed: {e:#}");
+            }
+            events::emit(&app, &events::Notification(&n));
+        });
     }
+}
+
+#[cfg(any(target_os = "macos", test))]
+const BLOCKED_TITLE: &str = "macOS is blocking Relay's notifications";
+
+/// The note for Relay's own list when macOS refuses its banners; none while the list still has one.
+#[cfg(any(target_os = "macos", test))]
+fn blocked_note(existing: &[AppNotification], now: DateTime<Utc>) -> Option<AppNotification> {
+    if existing.iter().any(|n| n.title == BLOCKED_TITLE) {
+        return None;
+    }
+    Some(AppNotification {
+        id: uuid::Uuid::new_v4().to_string(),
+        kind: NotificationKind::Info,
+        account_id: None,
+        title: BLOCKED_TITLE.into(),
+        body: "Alerts still appear in this list, but no banner will show. macOS asks only once, so it will not ask again: turn on Allow notifications for Relay in System Settings → Notifications.".into(),
+        created_at: now.to_rfc3339(),
+        read: false,
+    })
 }
 
 /// What the system did with a test notification.
@@ -338,6 +372,17 @@ mod tests {
 
     fn settings() -> NotificationSettings {
         AppSettings::default().notifications
+    }
+
+    #[test]
+    fn says_once_that_macos_blocks_banners() {
+        let now = Utc::now();
+        let first = blocked_note(&[], now).expect("a note when the list has none");
+        assert_eq!(first.kind, NotificationKind::Info);
+        assert!(first.account_id.is_none() && !first.read);
+        assert!(first.body.contains("System Settings"), "{}", first.body);
+        // Still in the list, read or not: Relay does not say it again at every start.
+        assert!(blocked_note(&[AppNotification { read: true, ..first }], now).is_none());
     }
 
     fn run(
