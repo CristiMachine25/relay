@@ -82,9 +82,13 @@ export function Terminals() {
       <div className="flex min-w-0 flex-1 flex-col">
         <header data-tauri-drag-region="deep" className="flex h-14 shrink-0 items-center gap-3 border-b border-rivet px-4 min-[1100px]:gap-4 min-[1100px]:px-5">
           <h1 className="font-sans text-lg font-semibold">Terminals</h1>
-          <p className="hidden text-xs text-muted min-[1100px]:block">
-            Each pane runs on its own account. {mod}+Shift+arrows move between panes, {mod}+Shift+Enter maximizes.
-          </p>
+          {/* One row high and clipped: the hint shows whole on one line, or wraps below the row and out of sight. */}
+          <div className="flex h-4 min-w-0 flex-1 flex-wrap overflow-hidden">
+            <span aria-hidden className="h-4" />
+            <p className="shrink-0 whitespace-nowrap text-xs leading-4 text-muted">
+              Each pane runs on its own account. {mod}+Shift+arrows move between panes, {mod}+Shift+Enter maximizes.
+            </p>
+          </div>
           <LimitSwitch />
           <div className="inline-flex shrink-0 rounded border border-rivet bg-deck p-0.5" role="radiogroup" aria-label="Layout" onKeyDown={onRadioArrows}>
             {LAYOUT_IDS.map((id) => (
